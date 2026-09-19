@@ -1,0 +1,19 @@
+# Visual Studio temporary files
+.vs/
+*.user
+*.suo
+
+# .NET build output
+bin/
+obj/
+Debug/
+Release/
+
+# User-specific settings
+*.userosscache
+*.sln.docstates
+
+# Environment variables and secrets
+.env
+.env.*
+!.env.example

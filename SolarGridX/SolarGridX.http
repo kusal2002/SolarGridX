@@ -1,0 +1,6 @@
+@SolarGridX_HostAddress = http://localhost:5084
+
+GET {{SolarGridX_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
