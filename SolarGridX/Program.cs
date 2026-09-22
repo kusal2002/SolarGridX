@@ -1,7 +1,7 @@
 using MongoDB.Driver;
 using Microsoft.Extensions.Options;
 using SolarGridX.Settings;
-
+using SolarGridX.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -10,6 +10,8 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.Configure<MongoDbSettings>(
     builder.Configuration.GetSection("MongoDbSettings")
 );
+
+builder.Services.AddScoped<EnergyTransferService>();
 
 
 builder.Services.AddSingleton<IMongoClient>(sp =>
