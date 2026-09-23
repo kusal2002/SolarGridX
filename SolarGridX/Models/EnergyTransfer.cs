@@ -8,7 +8,7 @@ namespace SolarGridX.Models
     {
         [BsonId]
         [BsonRepresentation(BsonType.ObjectId)]
-        public string?id { get; set; }
+        public string? id { get; set; }
 
         [BsonElement("reservationId")]
         public string ReservationId { get; set; } = string.Empty;

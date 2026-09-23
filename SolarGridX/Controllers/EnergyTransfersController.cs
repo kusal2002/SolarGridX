@@ -20,7 +20,8 @@ namespace SolarGridX.Controllers
 
         //GET: api/energy-transfers
         [HttpGet]
-        public async Task<IActionResult> GetAll() { 
+        public async Task<IActionResult> GetAll()
+        {
             var transfers = await _transferservice.GetAllAsync();
             return Ok(transfers);
         }
