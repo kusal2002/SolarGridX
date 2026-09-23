@@ -53,6 +53,23 @@ public class SlotService
     public async Task<EnergyBookingSlot?> CreateAsync(
         CreateSlotRequest request)
     {
+        // Validate time range
+        if (request.StartTime >= request.EndTime)
+        {
+            throw new ArgumentException(
+                "Start time must be before end time."
+            );
+        }
+
+        // Validate energy capacity
+        if (request.EnergyCapacityKwh <= 0)
+        {
+            throw new ArgumentException(
+                "Energy capacity must be greater than zero."
+            );
+        }
+
+        // Check station exists & active
         var station = await _stations
             .Find(item =>
                 item.Id == request.StationId &&
@@ -64,10 +81,36 @@ public class SlotService
             return null;
         }
 
+        var requestedDate = request.SlotDate.Date;
+        var nextDate = requestedDate.AddDays(1);
+
+        // Get active slots same station , date
+        var existingSlots = await _slots
+            .Find(slot =>
+                slot.StationId == request.StationId &&
+                slot.IsActive == true &&
+                slot.SlotDate >= requestedDate &&
+                slot.SlotDate < nextDate)
+            .ToListAsync();
+
+        // Check overlapping time slots
+        var hasOverlap = existingSlots.Any(slot =>
+            request.StartTime < slot.EndTime &&
+            request.EndTime > slot.StartTime
+        );
+
+        if (hasOverlap)
+        {
+            throw new InvalidOperationException(
+                "This station already has an overlapping time slot."
+            );
+        }
+
+        // Create new slot
         var slot = new EnergyBookingSlot()
         {
             StationId = request.StationId,
-            SlotDate = request.SlotDate,
+            SlotDate = requestedDate,
             StartTime = request.StartTime,
             EndTime = request.EndTime,
             EnergyCapacityKwh = request.EnergyCapacityKwh,

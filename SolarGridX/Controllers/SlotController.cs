@@ -34,7 +34,7 @@ public class SlotController : ControllerBase
         {
             return NotFound((new
             {
-                MessageProcessingHandler = "Slot Not found"
+                messsage = "Slot Not found"
             }));
         }
         return Ok(slot);
@@ -49,24 +49,41 @@ public class SlotController : ControllerBase
         return Ok(slots);
     }
 
+    //Create a station slot
     [HttpPost]
-    public async Task<IActionResult> Create(
-        CreateSlotRequest request)
+    public async Task<IActionResult> Create(CreateSlotRequest request)
     {
-        var slot = await _slotService.CreateAsync(request);
-
-        if (slot is null)
+        try
         {
-            return NotFound(new
+            var slot = await _slotService.CreateAsync(request);
+
+            if (slot is null)
             {
-                message = "Active station not found"
+                return NotFound(new
+                {
+                    message = "Active station not found."
+                });
+            }
+
+            return CreatedAtAction(
+                nameof(GetById),
+                new { id = slot.Id },
+                slot
+            );
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new
+            {
+                message = ex.Message
             });
         }
-
-        return CreatedAtAction(
-            nameof(GetById),
-            new { id = slot.Id },
-            slot
-        );
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new
+            {
+                message = ex.Message
+            });
+        }
     }
 }
