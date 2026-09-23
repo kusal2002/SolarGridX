@@ -1,7 +1,7 @@
-using MongoDB.Driver;
 using Microsoft.Extensions.Options;
-using SolarGridX.Settings;
+using MongoDB.Driver;
 using SolarGridX.Services;
+using SolarGridX.Settings;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -12,6 +12,7 @@ builder.Services.Configure<MongoDbSettings>(
 );
 
 builder.Services.AddScoped<EnergyTransferService>();
+builder.Services.AddScoped<AuthService>();
 
 //Stations
 builder.Services.AddScoped<StationService>();
@@ -35,6 +36,16 @@ builder.Services.AddControllers();
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
 
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("ClientPolicy", policy =>
+    {
+        policy.WithOrigins("http://localhost:5173")
+              .AllowAnyHeader()
+              .AllowAnyMethod();
+    });
+});
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
@@ -44,6 +55,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+app.UseCors("ClientPolicy");
 
 app.UseAuthorization();
 
