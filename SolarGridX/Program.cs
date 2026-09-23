@@ -15,6 +15,8 @@ builder.Services.AddScoped<EnergyTransferService>();
 
 //Stations
 builder.Services.AddScoped<StationService>();
+//Slot
+builder.Services.AddScoped<SlotService>();
 
 
 builder.Services.AddSingleton<IMongoClient>(sp =>
