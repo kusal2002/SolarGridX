@@ -11,7 +11,7 @@ namespace SolarGridX.Services
         {
             _transfers = database.GetCollection<EnergyTransfer>(
                 "EnergyTransfers"
-            ); 
+            );
         }
 
         //Get All Energy Transfers

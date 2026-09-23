@@ -13,6 +13,9 @@ builder.Services.Configure<MongoDbSettings>(
 
 builder.Services.AddScoped<EnergyTransferService>();
 
+//Stations
+builder.Services.AddScoped<StationService>();
+
 
 builder.Services.AddSingleton<IMongoClient>(sp =>
 {
