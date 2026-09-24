@@ -2,6 +2,7 @@
 .vs/
 *.user
 *.suo
+.vscode
 
 # .NET build output
 bin/
@@ -17,3 +18,5 @@ Release/
 .env
 .env.*
 !.env.example
+# VS Code C# Dev Tools - Auto-generated runners
+.vscodecsdt/Runners/
