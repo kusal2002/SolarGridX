@@ -39,5 +39,27 @@ namespace SolarGridX.Controllers
                 result
             );
         }
+
+        [HttpPost("login")]
+        public async Task<IActionResult> Login(
+    [FromBody] LoginUserDto dto)
+        {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+
+            var result = await _authService.LoginUserAsync(dto);
+
+            if (result == null)
+            {
+                return Unauthorized(new
+                {
+                    message = "Invalid email or password."
+                });
+            }
+
+            return Ok(result);
+        }
     }
 }

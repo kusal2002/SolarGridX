@@ -7,6 +7,44 @@ namespace SolarGridX.Services
 {
     public class AuthService
     {
+        public async Task<LoginResponseDto?> LoginUserAsync(
+    LoginUserDto dto)
+        {
+            var email = dto.Email.Trim().ToLowerInvariant();
+
+            var user = await _users
+                .Find(x => x.Email == email)
+                .FirstOrDefaultAsync();
+
+            if (user == null)
+            {
+                return null;
+            }
+
+            var passwordValid = BCrypt.Net.BCrypt.Verify(
+                dto.Password,
+                user.PasswordHash
+            );
+
+            if (!passwordValid)
+            {
+                return null;
+            }
+
+            if (user.AccountStatus != "Active")
+            {
+                return null;
+            }
+
+            return new LoginResponseDto
+            {
+                NIC = user.NIC,
+                Name = user.Name,
+                Email = user.Email,
+                Role = user.Role,
+                AccountStatus = user.AccountStatus
+            };
+        }
         private readonly IMongoCollection<User> _users;
 
         public AuthService(IMongoDatabase database)
