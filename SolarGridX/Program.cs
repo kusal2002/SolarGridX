@@ -16,6 +16,8 @@ builder.Services.AddScoped<AuthService>();
 
 //Stations
 builder.Services.AddScoped<StationService>();
+//Slot
+builder.Services.AddScoped<SlotService>();
 
 
 builder.Services.AddSingleton<IMongoClient>(sp =>
