@@ -18,6 +18,8 @@ builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<StationService>();
 //Slot
 builder.Services.AddScoped<SlotService>();
+//Reservation (Member 3)
+builder.Services.AddScoped<ReservationService>();
 
 
 builder.Services.AddSingleton<IMongoClient>(sp =>
