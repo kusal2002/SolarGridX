@@ -26,7 +26,7 @@ public class SlotController : ControllerBase
 
     //Get slot by id
     [HttpGet("{id}")]
-    public async Task<IActionResult> GetById(String id)
+    public async Task<IActionResult> GetById(string id)
     {
         var slot = await _slotService.GetByIdAsync(id);
 
@@ -34,7 +34,7 @@ public class SlotController : ControllerBase
         {
             return NotFound((new
             {
-                messsage = "Slot Not found"
+                message = "Slot Not found"
             }));
         }
         return Ok(slot);
@@ -86,4 +86,116 @@ public class SlotController : ControllerBase
             });
         }
     }
+
+    //Update slots
+
+    [HttpPut("{id}")]
+    public async Task<IActionResult> Update(
+    string id,
+    UpdateSlotRequest request)
+    {
+        try
+        {
+            var slot = await _slotService.UpdateAsync(id, request);
+
+            if (slot is null)
+            {
+                return NotFound(new
+                {
+                    message = "Active slot not found."
+                });
+            }
+
+            return Ok(slot);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new
+            {
+                message = ex.Message
+            });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new
+            {
+                message = ex.Message
+            });
+        }
+    }
+
+    // Deactivate Slot
+    [HttpPatch("{id}/deactivate")]
+    public async Task<IActionResult> Deactivate(string id)
+    {
+        var slot = await _slotService.DeactivateAsync(id);
+
+        if (slot is null)
+        {
+            return NotFound(new
+            {
+                message = "Active slot not found."
+            });
+        }
+
+        return Ok(new
+        {
+            message = "Slot deactivated successfully.",
+            slot
+        });
+    }
+
+    // Reactivate Slot
+    [HttpPatch("{id}/reactivate")]
+    public async Task<IActionResult> Reactivate(string id)
+    {
+        try
+        {
+            var slot = await _slotService.ReactivateAsync(id);
+
+            if (slot is null)
+            {
+                return NotFound(new
+                {
+                    message = "Inactive slot not found."
+                });
+            }
+
+            return Ok(new
+            {
+                message = "Slot reactivated successfully.",
+                slot
+            });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new
+            {
+                message = ex.Message
+            });
+        }
+    }
+
+    //Delete slots
+    [HttpDelete("{id}")]
+    public async Task<IActionResult> Delete(string id)
+    {
+        var deleted = await _slotService.DeleteAsync(id);
+
+        if (!deleted)
+        {
+            return NotFound(new
+            {
+                message = "Slot not found."
+            });
+        }
+
+        return Ok(new
+        {
+            message = "Slot deleted successfully."
+        });
+    }
+
+
+
 }
