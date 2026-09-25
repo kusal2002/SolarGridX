@@ -1,0 +1,24 @@
+info:
+  name: Test Profile Ownership
+  type: http
+  seq: 14
+
+http:
+  method: PUT
+  url: http://localhost:5084/api/auth/users/{{otherUserNic}}/profile
+  body:
+    type: json
+    data: |-
+      {
+        "name": "Unauthorized Change",
+        "email": "unauthorized@example.com"
+      }
+  auth:
+    type: bearer
+    token: "{{prosumerToken}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

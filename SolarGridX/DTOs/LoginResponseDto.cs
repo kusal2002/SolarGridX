@@ -11,5 +11,7 @@ namespace SolarGridX.DTOs
         public string Role { get; set; } = string.Empty;
 
         public string AccountStatus { get; set; } = string.Empty;
+
+        public string Token { get; set; } = string.Empty;
     }
 }

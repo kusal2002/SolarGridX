@@ -1,0 +1,25 @@
+info:
+  name: login copy copy
+  type: http
+  seq: 5
+
+http:
+  method: POST
+  url: https://localhost:7172/api/auth/register
+  body:
+    type: json
+    data: |-
+      {
+        "nic": "200012345679",
+        "name": "Bruno Test Prosumer",
+        "email": "bruno.test@example.com",
+        "password": "TestPassword123"
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

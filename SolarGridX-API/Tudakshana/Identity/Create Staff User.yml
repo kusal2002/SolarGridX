@@ -1,0 +1,27 @@
+info:
+  name: Create Staff User
+  type: http
+  seq: 8
+
+http:
+  method: POST
+  url: http://localhost:5084/api/auth/staff
+  body:
+    type: json
+    data: |-
+      {
+        "nic": "STAFF-001",
+        "name": "Grid Operator",
+        "email": "operator@example.com",
+        "password": "TestPassword123",
+        "role": "Grid Operator"
+      }
+  auth:
+    type: bearer
+    token: "{{backofficeToken}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
