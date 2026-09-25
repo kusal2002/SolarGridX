@@ -95,6 +95,7 @@ export function EditStationDialog({
   // sync form fields whenever a different station is passed in
   useEffect(() => {
     if (station) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setFormData({
         stationName: station.stationName,
         location: station.location,

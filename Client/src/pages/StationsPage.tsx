@@ -93,8 +93,12 @@ export function StationsPage() {
           s.id === station.id ? { ...s, isActive: !s.isActive } : s
         )
       )
-    } catch (err: any) {
-      alert(err.message || "Failed to change station status.")
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        alert(err.message || "Failed to change station status.")
+      } else {
+        alert("Failed to change station status.")
+      }
     }
   }
 
