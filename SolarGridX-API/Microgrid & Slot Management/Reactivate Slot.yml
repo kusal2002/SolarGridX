@@ -1,0 +1,16 @@
+info:
+  name: Reactivate Slot
+  type: http
+  seq: 5
+
+http:
+  method: PATCH
+  url: http://localhost:5084/api/slots/6ab3b98b6419b28e4d48603b/reactivate
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false
