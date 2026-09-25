@@ -3,6 +3,7 @@ import { getStations } from "@/lib/station-api"
 import type { Station } from "@/types/station"
 import { Button } from "@/components/ui/button"
 import { Plus, Search, Eye, Pencil, Power } from "lucide-react"
+import { AddStationDialog } from "@/components/add-station-dialog"
 
 export function StationsPage() {
   const [stations, setStations] = useState<Station[]>([])
@@ -65,10 +66,11 @@ export function StationsPage() {
           </p>
         </div>
 
-        <Button>
-          <Plus className="mr-2 size-4" />
-          Add Station
-        </Button>
+        <AddStationDialog
+          onStationAdded={(newStation) =>
+            setStations([...stations, newStation])
+          }
+        />
       </div>
 
       {/* Summary Cards */}
