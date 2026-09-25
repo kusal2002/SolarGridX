@@ -11,4 +11,6 @@ public class UpdateStationRequest
     public double Longitude { get; set; }
 
     public double TotalCapacityKwh { get; set; }
+
+    public bool IsActive { get; set; }
 }

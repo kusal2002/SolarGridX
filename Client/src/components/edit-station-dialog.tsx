@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react"
-import { Plus, Search } from "lucide-react"
+import { Search } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -8,11 +8,10 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { createStation } from "@/lib/station-api"
+import { updateStation } from "@/lib/station-api"
 import type { Station } from "@/types/station"
 import {
   MapContainer,
@@ -24,7 +23,7 @@ import {
 import "leaflet/dist/leaflet.css"
 import L from "leaflet"
 
-// Fix for default marker icon in leaflet + vite
+// leaflet's default marker icons break in Vite due to asset bundling; this sets them manually
 const defaultIcon = L.icon({
   iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
   iconRetinaUrl:
@@ -38,8 +37,11 @@ const defaultIcon = L.icon({
 })
 L.Marker.prototype.options.icon = defaultIcon
 
-interface AddStationDialogProps {
-  onStationAdded: (station: Station) => void
+interface EditStationDialogProps {
+  station: Station | null
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  onStationUpdated: (updated: Station) => void
 }
 
 function MapEvents({
@@ -55,6 +57,7 @@ function MapEvents({
   return null
 }
 
+// imperatively pans the map whenever the selected position changes
 function MapCenter({
   position,
   zoom,
@@ -69,10 +72,16 @@ function MapCenter({
   return null
 }
 
-export function AddStationDialog({ onStationAdded }: AddStationDialogProps) {
-  const [open, setOpen] = useState(false)
+export function EditStationDialog({
+  station,
+  open,
+  onOpenChange,
+  onStationUpdated,
+}: EditStationDialogProps) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
+  const [searchQuery, setSearchQuery] = useState("")
+  const [isSearching, setIsSearching] = useState(false)
 
   const [formData, setFormData] = useState({
     stationName: "",
@@ -80,14 +89,31 @@ export function AddStationDialog({ onStationAdded }: AddStationDialogProps) {
     latitude: "",
     longitude: "",
     totalCapacityKwh: "",
+    isActive: true,
   })
 
-  const [searchQuery, setSearchQuery] = useState("")
-  const [isSearching, setIsSearching] = useState(false)
+  // sync form fields whenever a different station is passed in
+  useEffect(() => {
+    if (station) {
+      setFormData({
+        stationName: station.stationName,
+        location: station.location,
+        latitude: station.latitude.toString(),
+        longitude: station.longitude.toString(),
+        totalCapacityKwh: station.totalCapacityKwh.toString(),
+        isActive: station.isActive,
+      })
+      setError("")
+      setSearchQuery("")
+    }
+  }, [station])
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target
-    setFormData((prev) => ({ ...prev, [name]: value }))
+    const { name, value, type, checked } = e.target
+    setFormData((prev) => ({
+      ...prev,
+      [name]: type === "checkbox" ? checked : value,
+    }))
   }
 
   const handleLocationSelect = async (lat: number, lng: number) => {
@@ -101,8 +127,8 @@ export function AddStationDialog({ onStationAdded }: AddStationDialogProps) {
         `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`
       )
       const data = await res.json()
-      if (data && data.display_name) {
-        // Use a more specific part of the address if possible, else the first part
+      if (data?.display_name) {
+        // prefer a specific place name over the full formatted address
         const locationName =
           data.address?.city ||
           data.address?.town ||
@@ -111,7 +137,7 @@ export function AddStationDialog({ onStationAdded }: AddStationDialogProps) {
         setFormData((prev) => ({ ...prev, location: locationName }))
       }
     } catch (err) {
-      console.error("Reverse geocoding failed", err)
+      console.error(err)
     }
   }
 
@@ -123,7 +149,7 @@ export function AddStationDialog({ onStationAdded }: AddStationDialogProps) {
         `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchQuery)}&countrycodes=LK`
       )
       const data = await res.json()
-      if (data && data.length > 0) {
+      if (data?.length > 0) {
         const { lat, lon, display_name } = data[0]
         setFormData((prev) => ({
           ...prev,
@@ -144,37 +170,29 @@ export function AddStationDialog({ onStationAdded }: AddStationDialogProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!station) return
     setLoading(true)
     setError("")
 
     try {
-      const newStation = await createStation({
+      const updated = await updateStation(station.id, {
         stationName: formData.stationName,
         location: formData.location,
         latitude: parseFloat(formData.latitude),
         longitude: parseFloat(formData.longitude),
         totalCapacityKwh: parseFloat(formData.totalCapacityKwh),
+        isActive: formData.isActive,
       })
-
-      onStationAdded(newStation)
-      setOpen(false)
-      setFormData({
-        stationName: "",
-        location: "",
-        latitude: "",
-        longitude: "",
-        totalCapacityKwh: "",
-      })
-      setSearchQuery("")
+      onStationUpdated(updated)
+      onOpenChange(false)
     } catch (err) {
       console.error(err)
-      setError("Failed to create station. Please try again.")
+      setError("Failed to update station. Please try again.")
     } finally {
       setLoading(false)
     }
   }
 
-  // Sri Lanka Center
   const defaultCenter: [number, number] = [7.8731, 80.7718]
   const mapCenter: [number, number] =
     formData.latitude && formData.longitude
@@ -182,24 +200,20 @@ export function AddStationDialog({ onStationAdded }: AddStationDialogProps) {
       : defaultCenter
   const mapZoom = formData.latitude && formData.longitude ? 13 : 7
 
-  // Sri Lanka Map Bounds
   const sriLankaBounds: L.LatLngBoundsExpression = [
-    [5.8, 79.5], // Southwest
-    [9.9, 82.0], // Northeast
+    [5.8, 79.5],
+    [9.9, 82.0],
   ]
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger render={<Button />}>
-        <Plus className="mr-2 size-4" />
-        Add Station
-      </DialogTrigger>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[800px]">
         <form onSubmit={handleSubmit}>
           <DialogHeader>
-            <DialogTitle>Add New Station</DialogTitle>
+            <DialogTitle>Edit Station</DialogTitle>
             <DialogDescription>
-              Enter the details of the new solar station to add to the grid.
+              Update the details of{" "}
+              <span className="font-medium">{station?.stationName}</span>.
             </DialogDescription>
           </DialogHeader>
 
@@ -212,9 +226,9 @@ export function AddStationDialog({ onStationAdded }: AddStationDialogProps) {
           <div className="grid grid-cols-1 gap-6 py-4 md:grid-cols-2">
             <div className="flex flex-col gap-4">
               <div className="grid gap-2">
-                <Label htmlFor="stationName">Station Name</Label>
+                <Label htmlFor="edit-stationName">Station Name</Label>
                 <Input
-                  id="stationName"
+                  id="edit-stationName"
                   name="stationName"
                   placeholder="e.g. North Ridge Alpha"
                   value={formData.stationName}
@@ -222,10 +236,11 @@ export function AddStationDialog({ onStationAdded }: AddStationDialogProps) {
                   required
                 />
               </div>
+
               <div className="grid gap-2">
-                <Label htmlFor="location">Location</Label>
+                <Label htmlFor="edit-location">Location</Label>
                 <Input
-                  id="location"
+                  id="edit-location"
                   name="location"
                   placeholder="e.g. North District"
                   value={formData.location}
@@ -233,11 +248,12 @@ export function AddStationDialog({ onStationAdded }: AddStationDialogProps) {
                   required
                 />
               </div>
+
               <div className="grid grid-cols-2 gap-4">
                 <div className="grid gap-2">
-                  <Label htmlFor="latitude">Latitude</Label>
+                  <Label htmlFor="edit-latitude">Latitude</Label>
                   <Input
-                    id="latitude"
+                    id="edit-latitude"
                     name="latitude"
                     type="number"
                     step="any"
@@ -248,9 +264,9 @@ export function AddStationDialog({ onStationAdded }: AddStationDialogProps) {
                   />
                 </div>
                 <div className="grid gap-2">
-                  <Label htmlFor="longitude">Longitude</Label>
+                  <Label htmlFor="edit-longitude">Longitude</Label>
                   <Input
-                    id="longitude"
+                    id="edit-longitude"
                     name="longitude"
                     type="number"
                     step="any"
@@ -261,10 +277,13 @@ export function AddStationDialog({ onStationAdded }: AddStationDialogProps) {
                   />
                 </div>
               </div>
+
               <div className="grid gap-2">
-                <Label htmlFor="totalCapacityKwh">Total Capacity (kWh)</Label>
+                <Label htmlFor="edit-totalCapacityKwh">
+                  Total Capacity (kWh)
+                </Label>
                 <Input
-                  id="totalCapacityKwh"
+                  id="edit-totalCapacityKwh"
                   name="totalCapacityKwh"
                   type="number"
                   step="any"
@@ -274,6 +293,38 @@ export function AddStationDialog({ onStationAdded }: AddStationDialogProps) {
                   onChange={handleChange}
                   required
                 />
+              </div>
+
+              <div className="grid gap-2">
+                <Label>Station Status</Label>
+                <div className="flex overflow-hidden rounded-lg border">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setFormData((prev) => ({ ...prev, isActive: true }))
+                    }
+                    className={`flex-1 px-4 py-2 text-sm font-medium transition-colors ${
+                      formData.isActive
+                        ? "bg-green-600 text-white"
+                        : "bg-background text-muted-foreground hover:bg-muted"
+                    }`}
+                  >
+                    Active
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setFormData((prev) => ({ ...prev, isActive: false }))
+                    }
+                    className={`flex-1 border-l px-4 py-2 text-sm font-medium transition-colors ${
+                      !formData.isActive
+                        ? "bg-red-600 text-white"
+                        : "bg-background text-muted-foreground hover:bg-muted"
+                    }`}
+                  >
+                    Inactive
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -333,12 +384,12 @@ export function AddStationDialog({ onStationAdded }: AddStationDialogProps) {
             <Button
               type="button"
               variant="outline"
-              onClick={() => setOpen(false)}
+              onClick={() => onOpenChange(false)}
             >
               Cancel
             </Button>
             <Button type="submit" disabled={loading}>
-              {loading ? "Adding..." : "Add Station"}
+              {loading ? "Saving..." : "Save Changes"}
             </Button>
           </DialogFooter>
         </form>

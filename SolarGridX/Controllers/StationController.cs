@@ -92,20 +92,30 @@ public class StationController : ControllerBase
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(string id)
     {
-        var deactivated = await _stationService.DeactivateAsync(id);
-
-        if (!deactivated)
+        try
         {
-            return NotFound(new
+            var deactivated = await _stationService.DeactivateAsync(id);
+
+            if (!deactivated)
             {
-                message = "Station not found."
+                return NotFound(new
+                {
+                    message = "Station not found."
+                });
+            }
+
+            return Ok(new
+            {
+                message = "Station deactivated successfully."
             });
         }
-
-        return Ok(new
+        catch (InvalidOperationException ex)
         {
-            message = "Station deactivated successfully."
-        });
+            return BadRequest(new
+            {
+                message = ex.Message
+            });
+        }
     }
 
     //Reactive Stations

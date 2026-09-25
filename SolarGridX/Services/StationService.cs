@@ -59,12 +59,13 @@ public class StationService
         return station;
     }
 
-    //Update Stations
     public async Task<SolarStation?> UpdateAsync(
     string id,
     UpdateStationRequest request)
     {
-        var station = await GetByIdAsync(id);
+        var station = await _stations
+            .Find(s => s.Id == id)
+            .FirstOrDefaultAsync();
 
         if (station is null)
         {
@@ -76,6 +77,7 @@ public class StationService
         station.Latitude = request.Latitude;
         station.Longitude = request.Longitude;
         station.TotalCapacityKwh = request.TotalCapacityKwh;
+        station.IsActive = request.IsActive;
         station.UpdatedAt = DateTime.UtcNow;
 
         await _stations.ReplaceOneAsync(
@@ -89,6 +91,16 @@ public class StationService
     //Delete or Deactive Stations
     public async Task<bool> DeactivateAsync(string id)
     {
+        var _reservations = _stations.Database.GetCollection<EnergyReservation>("EnergyReservations");
+        var activeReservationsCount = await _reservations.CountDocumentsAsync(
+            r => r.StationId == id && (r.Status == "Pending" || r.Status == "Approved")
+        );
+
+        if (activeReservationsCount > 0)
+        {
+            throw new InvalidOperationException("Cannot deactivate a station with active energy reservations.");
+        }
+
         var update = Builders<SolarStation>.Update
             .Set(station => station.IsActive, false)
             .Set(station => station.UpdatedAt, DateTime.UtcNow);
