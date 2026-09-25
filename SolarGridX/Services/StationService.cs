@@ -21,6 +21,14 @@ public class StationService
             .ToListAsync();
     }
 
+    // Get all stations including inactive stations
+    public async Task<List<SolarStation>> GetAllIncludingInactiveAsync()
+    {
+        return await _stations
+            .Find(_ => true)
+            .ToListAsync();
+    }
+
     //Get stations by Id
     public async Task<SolarStation?> GetByIdAsync(string id)
     {

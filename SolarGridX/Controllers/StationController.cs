@@ -25,6 +25,16 @@ public class StationController : ControllerBase
         return Ok(stations);
     }
 
+    // Get all stations including inactive stations
+    [HttpGet("all")]
+    public async Task<IActionResult> GetAllIncludingInactive()
+    {
+        var stations = await _stationService
+            .GetAllIncludingInactiveAsync();
+
+        return Ok(stations);
+    }
+
     //Get station by id
     [HttpGet("{id}")]
     public async Task<IActionResult> GetById(string id)
