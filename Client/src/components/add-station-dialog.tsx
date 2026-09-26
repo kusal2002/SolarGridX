@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react"
-import { Plus, Search } from "lucide-react"
+import { Plus, Search, MapPin } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { createStation } from "@/lib/station-api"
 import type { Station } from "@/types/station"
+import { useGeolocation } from "@/hooks/use-geolocation"
 import {
   MapContainer,
   TileLayer,
@@ -84,6 +85,23 @@ export function AddStationDialog({ onStationAdded }: AddStationDialogProps) {
 
   const [searchQuery, setSearchQuery] = useState("")
   const [isSearching, setIsSearching] = useState(false)
+
+  const {
+    location: gpsLocation,
+    loading: gpsLoading,
+    getLocation,
+  } = useGeolocation()
+
+  useEffect(() => {
+    if (gpsLocation) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setFormData((prev) => ({
+        ...prev,
+        latitude: gpsLocation.latitude.toString(),
+        longitude: gpsLocation.longitude.toString(),
+      }))
+    }
+  }, [gpsLocation])
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target
@@ -232,6 +250,19 @@ export function AddStationDialog({ onStationAdded }: AddStationDialogProps) {
                   onChange={handleChange}
                   required
                 />
+              </div>
+              <div className="flex items-center justify-between">
+                <Label>Coordinates</Label>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={getLocation}
+                  disabled={gpsLoading}
+                >
+                  <MapPin className="mr-2 size-3" />
+                  {gpsLoading ? "Getting Location..." : "Get My Location"}
+                </Button>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="grid gap-2">

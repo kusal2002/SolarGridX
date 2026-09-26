@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react"
-import { Search } from "lucide-react"
+import { Search, MapPin } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { updateStation } from "@/lib/station-api"
 import type { Station } from "@/types/station"
+import { useGeolocation } from "@/hooks/use-geolocation"
 import {
   MapContainer,
   TileLayer,
@@ -91,6 +92,23 @@ export function EditStationDialog({
     totalCapacityKwh: "",
     isActive: true,
   })
+
+  const {
+    location: gpsLocation,
+    loading: gpsLoading,
+    getLocation,
+  } = useGeolocation()
+
+  useEffect(() => {
+    if (gpsLocation) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setFormData((prev) => ({
+        ...prev,
+        latitude: gpsLocation.latitude.toString(),
+        longitude: gpsLocation.longitude.toString(),
+      }))
+    }
+  }, [gpsLocation])
 
   // sync form fields whenever a different station is passed in
   useEffect(() => {
@@ -248,6 +266,20 @@ export function EditStationDialog({
                   onChange={handleChange}
                   required
                 />
+              </div>
+
+              <div className="flex items-center justify-between">
+                <Label>Coordinates</Label>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={getLocation}
+                  disabled={gpsLoading}
+                >
+                  <MapPin className="mr-2 size-3" />
+                  {gpsLoading ? "Getting Location..." : "Get My Location"}
+                </Button>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
