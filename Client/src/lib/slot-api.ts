@@ -67,3 +67,29 @@ export async function updateSlot(
 
   return response.json()
 }
+
+export async function deactivateSlot(id: string) {
+  const response = await fetch(`${API_URL}/slots/${id}/deactivate`, {
+    method: "PATCH",
+  })
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}))
+    throw new Error(errorData.message || "Failed to deactivate slot")
+  }
+
+  return response.json()
+}
+
+export async function reactivateSlot(id: string) {
+  const response = await fetch(`${API_URL}/slots/${id}/reactivate`, {
+    method: "PATCH",
+  })
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}))
+    throw new Error(errorData.message || "Failed to reactivate slot")
+  }
+
+  return response.json()
+}

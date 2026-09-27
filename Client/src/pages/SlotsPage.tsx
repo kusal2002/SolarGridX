@@ -1,11 +1,11 @@
 import { useEffect, useState, useMemo } from "react"
-import { getSlots, getSlotsByStationId } from "@/lib/slot-api"
+import { getSlots, getSlotsByStationId, deactivateSlot, reactivateSlot } from "@/lib/slot-api"
 import { getStations } from "@/lib/station-api"
 import type { Slot } from "@/types/slot"
 import type { Station } from "@/types/station"
 import { AddSlotDialog } from "@/components/add-slot-dialog"
 import { EditSlotDialog } from "@/components/edit-slot-dialog"
-import { Pencil } from "lucide-react"
+import { Pencil, Power } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
 export function SlotsPage() {
@@ -68,6 +68,29 @@ export function SlotsPage() {
 
   const handleSlotUpdated = (updatedSlot: Slot) => {
     setSlots(slots.map(slot => slot.id === updatedSlot.id ? updatedSlot : slot))
+  }
+
+  const handleToggleStatus = async (e: React.MouseEvent, slot: Slot) => {
+    e.stopPropagation()
+    try {
+      if (slot.isActive) {
+        await deactivateSlot(slot.id)
+      } else {
+        await reactivateSlot(slot.id)
+      }
+
+      setSlots((prev) =>
+        prev.map((s) =>
+          s.id === slot.id ? { ...s, isActive: !s.isActive } : s
+        )
+      )
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        alert(err.message || "Failed to change slot status.")
+      } else {
+        alert("Failed to change slot status.")
+      }
+    }
   }
 
   // Map station ID to station Name for easy display
@@ -239,17 +262,39 @@ export function SlotsPage() {
                         </span>
                       </td>
                       <td className="px-4 py-3 text-right">
-                        {slot.isActive && (
+                        <div className="flex justify-end gap-1">
+                          {slot.isActive && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                setEditingSlot(slot)
+                              }}
+                              title="Edit Slot"
+                            >
+                              <Pencil className="size-4" />
+                              <span className="sr-only">Edit</span>
+                            </Button>
+                          )}
                           <Button
                             variant="ghost"
                             size="icon"
-                            onClick={() => setEditingSlot(slot)}
-                            title="Edit Slot"
+                            onClick={(e) => handleToggleStatus(e, slot)}
+                            title={
+                              slot.isActive
+                                ? "Deactivate Slot"
+                                : "Reactivate Slot"
+                            }
                           >
-                            <Pencil className="size-4" />
-                            <span className="sr-only">Edit</span>
+                            <Power
+                              className={`size-4 ${slot.isActive ? "text-red-500" : "text-green-500"}`}
+                            />
+                            <span className="sr-only">
+                              {slot.isActive ? "Deactivate" : "Reactivate"}
+                            </span>
                           </Button>
-                        )}
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -310,17 +355,39 @@ export function SlotsPage() {
                         </span>
                       </td>
                       <td className="px-4 py-3 text-right">
-                        {slot.isActive && (
+                        <div className="flex justify-end gap-1">
+                          {slot.isActive && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                setEditingSlot(slot)
+                              }}
+                              title="Edit Slot"
+                            >
+                              <Pencil className="size-4" />
+                              <span className="sr-only">Edit</span>
+                            </Button>
+                          )}
                           <Button
                             variant="ghost"
                             size="icon"
-                            onClick={() => setEditingSlot(slot)}
-                            title="Edit Slot"
+                            onClick={(e) => handleToggleStatus(e, slot)}
+                            title={
+                              slot.isActive
+                                ? "Deactivate Slot"
+                                : "Reactivate Slot"
+                            }
                           >
-                            <Pencil className="size-4" />
-                            <span className="sr-only">Edit</span>
+                            <Power
+                              className={`size-4 ${slot.isActive ? "text-red-500" : "text-green-500"}`}
+                            />
+                            <span className="sr-only">
+                              {slot.isActive ? "Deactivate" : "Reactivate"}
+                            </span>
                           </Button>
-                        )}
+                        </div>
                       </td>
                     </tr>
                   ))}
