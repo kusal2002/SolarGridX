@@ -1,0 +1,16 @@
+info:
+  name: Deactivate Slot
+  type: http
+  seq: 1
+
+http:
+  method: PATCH
+  url: http://localhost:5084/api/slots/6ab3aaf98f1a97aee7545ce5/deactivate
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

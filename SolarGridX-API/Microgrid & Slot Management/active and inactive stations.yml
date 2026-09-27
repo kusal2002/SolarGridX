@@ -1,0 +1,16 @@
+info:
+  name: active and inactive stations
+  type: http
+  seq: 6
+
+http:
+  method: GET
+  url: http://localhost:5084/api/stations/all
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false
