@@ -1,0 +1,20 @@
+info:
+  name: Backoffice Update User Status
+  type: http
+  seq: 7
+
+http:
+  method: PATCH
+  url: http://localhost:5084/api/auth/users/{{prosumerNic}}/status
+  body:
+    type: json
+    data: "Active"
+  auth:
+    type: bearer
+    token: "{{backofficeToken}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

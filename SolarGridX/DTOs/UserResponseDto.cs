@@ -13,5 +13,7 @@ namespace SolarGridX.DTOs
         public string AccountStatus { get; set; } = string.Empty;
 
         public DateTime CreatedAt { get; set; }
+
+        public DateTime? DeactivationRequestedAt { get; set; }
     }
 }

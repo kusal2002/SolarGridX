@@ -25,5 +25,11 @@ namespace SolarGridX.Models
 
         [BsonElement("createdAt")]
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+        [BsonElement("deactivationRequestedAt")]
+        public DateTime? DeactivationRequestedAt { get; set; }
+
+        [BsonElement("securityStamp")]
+        public string SecurityStamp { get; set; } = string.Empty;
     }
 }
