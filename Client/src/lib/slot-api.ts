@@ -42,3 +42,28 @@ export async function createSlot(data: {
 
   return response.json()
 }
+
+export async function updateSlot(
+  id: string,
+  data: {
+    slotDate: string
+    startTime: string
+    endTime: string
+    energyCapacityKwh: number
+  }
+) {
+  const response = await fetch(`${API_URL}/slots/${id}`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(data),
+  })
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}))
+    throw new Error(errorData.message || "Failed to update slot")
+  }
+
+  return response.json()
+}

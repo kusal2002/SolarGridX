@@ -4,12 +4,17 @@ import { getStations } from "@/lib/station-api"
 import type { Slot } from "@/types/slot"
 import type { Station } from "@/types/station"
 import { AddSlotDialog } from "@/components/add-slot-dialog"
+import { EditSlotDialog } from "@/components/edit-slot-dialog"
+import { Pencil } from "lucide-react"
+import { Button } from "@/components/ui/button"
 
 export function SlotsPage() {
   const [slots, setSlots] = useState<Slot[]>([])
   const [stations, setStations] = useState<Station[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
+  
+  const [editingSlot, setEditingSlot] = useState<Slot | null>(null)
   
   const [stationFilter, setStationFilter] = useState<string>("All")
   const [statusFilter, setStatusFilter] = useState<"All" | "Active" | "Inactive">("All")
@@ -59,6 +64,10 @@ export function SlotsPage() {
     } finally {
       setLoading(false)
     }
+  }
+
+  const handleSlotUpdated = (updatedSlot: Slot) => {
+    setSlots(slots.map(slot => slot.id === updatedSlot.id ? updatedSlot : slot))
   }
 
   // Map station ID to station Name for easy display
@@ -202,6 +211,7 @@ export function SlotsPage() {
                     <th className="px-4 py-3 font-medium">Capacity (kWh)</th>
                     <th className="px-4 py-3 font-medium">Available (kWh)</th>
                     <th className="px-4 py-3 font-medium">Status</th>
+                    <th className="px-4 py-3 font-medium text-right">Actions</th>
                   </tr>
                 </thead>
 
@@ -227,6 +237,19 @@ export function SlotsPage() {
                         >
                           {slot.isActive ? "Active" : "Inactive"}
                         </span>
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        {slot.isActive && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => setEditingSlot(slot)}
+                            title="Edit Slot"
+                          >
+                            <Pencil className="size-4" />
+                            <span className="sr-only">Edit</span>
+                          </Button>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -259,6 +282,7 @@ export function SlotsPage() {
                     <th className="px-4 py-3 font-medium">Capacity (kWh)</th>
                     <th className="px-4 py-3 font-medium">Available (kWh)</th>
                     <th className="px-4 py-3 font-medium">Status</th>
+                    <th className="px-4 py-3 font-medium text-right">Actions</th>
                   </tr>
                 </thead>
 
@@ -285,6 +309,19 @@ export function SlotsPage() {
                           {slot.isActive ? "Active (Completed)" : "Inactive"}
                         </span>
                       </td>
+                      <td className="px-4 py-3 text-right">
+                        {slot.isActive && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => setEditingSlot(slot)}
+                            title="Edit Slot"
+                          >
+                            <Pencil className="size-4" />
+                            <span className="sr-only">Edit</span>
+                          </Button>
+                        )}
+                      </td>
                     </tr>
                   ))}
 
@@ -304,6 +341,14 @@ export function SlotsPage() {
           </div>
         </div>
       )}
+
+      <EditSlotDialog
+        slot={editingSlot}
+        stationName={editingSlot ? stationMap.get(editingSlot.stationId) : ""}
+        open={editingSlot !== null}
+        onOpenChange={(open) => !open && setEditingSlot(null)}
+        onSlotUpdated={handleSlotUpdated}
+      />
     </div>
   )
 }
