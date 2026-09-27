@@ -98,6 +98,28 @@ public class SlotService
             return null;
         }
 
+        if (!string.IsNullOrEmpty(station.OperatingStartTime) || !string.IsNullOrEmpty(station.OperatingEndTime))
+        {
+            if (string.IsNullOrEmpty(station.OperatingStartTime) || string.IsNullOrEmpty(station.OperatingEndTime) ||
+                string.Compare(station.OperatingStartTime, station.OperatingEndTime) >= 0)
+            {
+                throw new ArgumentException("Station operating schedule is invalid.");
+            }
+
+            if (TimeSpan.TryParse(station.OperatingStartTime, out var opStart) &&
+                TimeSpan.TryParse(station.OperatingEndTime, out var opEnd))
+            {
+                if (request.StartTime < opStart || request.EndTime > opEnd)
+                {
+                    throw new ArgumentException("Slot times must fall within the station's operating hours.");
+                }
+            }
+            else
+            {
+                throw new ArgumentException("Station operating schedule format is invalid.");
+            }
+        }
+
         var nextDate = requestedDate.AddDays(1);
 
         // Get active slots same station , date
@@ -169,6 +191,33 @@ public class SlotService
         if (slot is null)
         {
             return null;
+        }
+
+        var station = await _stations
+            .Find(item =>
+                item.Id == slot.StationId)
+            .FirstOrDefaultAsync();
+
+        if (station != null && (!string.IsNullOrEmpty(station.OperatingStartTime) || !string.IsNullOrEmpty(station.OperatingEndTime)))
+        {
+            if (string.IsNullOrEmpty(station.OperatingStartTime) || string.IsNullOrEmpty(station.OperatingEndTime) ||
+                string.Compare(station.OperatingStartTime, station.OperatingEndTime) >= 0)
+            {
+                throw new ArgumentException("Station operating schedule is invalid.");
+            }
+
+            if (TimeSpan.TryParse(station.OperatingStartTime, out var opStart) &&
+                TimeSpan.TryParse(station.OperatingEndTime, out var opEnd))
+            {
+                if (request.StartTime < opStart || request.EndTime > opEnd)
+                {
+                    throw new ArgumentException("Slot times must fall within the station's operating hours.");
+                }
+            }
+            else
+            {
+                throw new ArgumentException("Station operating schedule format is invalid.");
+            }
         }
 
         var requestedDate = request.SlotDate.Date;

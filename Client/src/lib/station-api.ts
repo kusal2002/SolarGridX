@@ -42,6 +42,8 @@ export async function updateStation(
     latitude: number
     longitude: number
     totalCapacityKwh: number
+    operatingStartTime: string
+    operatingEndTime: string
     isActive: boolean
   }
 ) {

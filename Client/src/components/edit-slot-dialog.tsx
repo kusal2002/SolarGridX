@@ -12,10 +12,11 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { updateSlot } from "@/lib/slot-api"
 import type { Slot } from "@/types/slot"
+import type { Station } from "@/types/station"
 
 interface EditSlotDialogProps {
   slot: Slot | null
-  stationName?: string
+  station?: Station | null
   open: boolean
   onOpenChange: (open: boolean) => void
   onSlotUpdated: (slot: Slot) => void
@@ -23,7 +24,7 @@ interface EditSlotDialogProps {
 
 export function EditSlotDialog({
   slot,
-  stationName,
+  station,
   open,
   onOpenChange,
   onSlotUpdated,
@@ -125,6 +126,25 @@ export function EditSlotDialog({
         }
       }
 
+      if (station && (station.operatingStartTime || station.operatingEndTime)) {
+        if (!station.operatingStartTime || !station.operatingEndTime || station.operatingStartTime >= station.operatingEndTime) {
+          setError("Station operating schedule is invalid. Cannot update slot.")
+          setLoading(false)
+          return
+        }
+
+        const start = formData.startTime.length > 5 ? formData.startTime.slice(0, 5) : formData.startTime
+        const end = formData.endTime.length > 5 ? formData.endTime.slice(0, 5) : formData.endTime
+        const opStart = station.operatingStartTime.length > 5 ? station.operatingStartTime.slice(0, 5) : station.operatingStartTime
+        const opEnd = station.operatingEndTime.length > 5 ? station.operatingEndTime.slice(0, 5) : station.operatingEndTime
+
+        if (start < opStart || end > opEnd) {
+          setError(`Slot times must fall within the station's operating hours (${opStart} - ${opEnd}).`)
+          setLoading(false)
+          return
+        }
+      }
+
       const formatTime = (time: string) => {
         if (time.length === 5) return `${time}:00`
         return time
@@ -173,7 +193,7 @@ export function EditSlotDialog({
             <div className="grid gap-2">
               <Label>Station</Label>
               <Input
-                value={stationName || slot?.stationId || ""}
+                value={station?.stationName || slot?.stationId || ""}
                 disabled
                 className="bg-muted text-muted-foreground"
               />

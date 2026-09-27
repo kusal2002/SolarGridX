@@ -122,6 +122,26 @@ export function AddSlotDialog({ onSlotAdded }: AddSlotDialogProps) {
         }
       }
 
+      const selectedStation = stations.find((s) => s.id === formData.stationId)
+      if (selectedStation && (selectedStation.operatingStartTime || selectedStation.operatingEndTime)) {
+        if (!selectedStation.operatingStartTime || !selectedStation.operatingEndTime || selectedStation.operatingStartTime >= selectedStation.operatingEndTime) {
+          setError("Station operating schedule is invalid. Cannot create slot.")
+          setLoading(false)
+          return
+        }
+
+        const start = formData.startTime.length > 5 ? formData.startTime.slice(0, 5) : formData.startTime
+        const end = formData.endTime.length > 5 ? formData.endTime.slice(0, 5) : formData.endTime
+        const opStart = selectedStation.operatingStartTime.length > 5 ? selectedStation.operatingStartTime.slice(0, 5) : selectedStation.operatingStartTime
+        const opEnd = selectedStation.operatingEndTime.length > 5 ? selectedStation.operatingEndTime.slice(0, 5) : selectedStation.operatingEndTime
+
+        if (start < opStart || end > opEnd) {
+          setError(`Slot times must fall within the station's operating hours (${opStart} - ${opEnd}).`)
+          setLoading(false)
+          return
+        }
+      }
+
       // Backend expects TimeSpan format like "HH:mm:ss"
       const formatTime = (time: string) => {
         if (time.length === 5) return `${time}:00`

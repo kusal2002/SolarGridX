@@ -411,7 +411,7 @@ export function SlotsPage() {
 
       <EditSlotDialog
         slot={editingSlot}
-        stationName={editingSlot ? stationMap.get(editingSlot.stationId) : ""}
+        station={editingSlot ? stations.find(s => s.id === editingSlot.stationId) : null}
         open={editingSlot !== null}
         onOpenChange={(open) => !open && setEditingSlot(null)}
         onSlotUpdated={handleSlotUpdated}
