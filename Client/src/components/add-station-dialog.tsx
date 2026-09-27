@@ -103,6 +103,23 @@ export function AddStationDialog({ onStationAdded }: AddStationDialogProps) {
     }
   }, [gpsLocation])
 
+  const resetForm = () => {
+    setFormData({
+      stationName: "",
+      location: "",
+      latitude: "",
+      longitude: "",
+      totalCapacityKwh: "",
+    })
+    setSearchQuery("")
+    setError("")
+  }
+
+  const handleCancel = () => {
+    resetForm()
+    setOpen(false)
+  }
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target
     setFormData((prev) => ({ ...prev, [name]: value }))
@@ -175,15 +192,8 @@ export function AddStationDialog({ onStationAdded }: AddStationDialogProps) {
       })
 
       onStationAdded(newStation)
+      resetForm()
       setOpen(false)
-      setFormData({
-        stationName: "",
-        location: "",
-        latitude: "",
-        longitude: "",
-        totalCapacityKwh: "",
-      })
-      setSearchQuery("")
     } catch (err) {
       console.error(err)
       setError("Failed to create station. Please try again.")
@@ -364,7 +374,7 @@ export function AddStationDialog({ onStationAdded }: AddStationDialogProps) {
             <Button
               type="button"
               variant="outline"
-              onClick={() => setOpen(false)}
+              onClick={handleCancel}
             >
               Cancel
             </Button>

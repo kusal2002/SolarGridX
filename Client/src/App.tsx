@@ -11,9 +11,22 @@ import {
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb"
 
+import { useState, useEffect } from "react"
 import { StationsPage } from "./pages/StationsPage"
+import { SlotsPage } from "./pages/SlotsPage"
 
 export function App() {
+  const [currentHash, setCurrentHash] = useState(window.location.hash || "#stations")
+
+  useEffect(() => {
+    const handleHashChange = () => {
+      setCurrentHash(window.location.hash || "#stations")
+    }
+
+    window.addEventListener("hashchange", handleHashChange)
+    return () => window.removeEventListener("hashchange", handleHashChange)
+  }, [])
+
   return (
     <SidebarProvider>
       <AppSidebar />
@@ -34,13 +47,13 @@ export function App() {
                 </BreadcrumbItem>
                 <BreadcrumbSeparator className="hidden md:block" />
                 <BreadcrumbItem>
-                  <BreadcrumbPage>Data Fetching</BreadcrumbPage>
+                  <BreadcrumbPage>{currentHash === "#slots" ? "Slot Management" : "Station Management"}</BreadcrumbPage>
                 </BreadcrumbItem>
               </BreadcrumbList>
             </Breadcrumb>
           </div>
         </header>
-        <StationsPage />
+        {currentHash === "#slots" ? <SlotsPage /> : <StationsPage />}
       </SidebarInset>
     </SidebarProvider>
   )

@@ -53,12 +53,29 @@ public class SlotService
     public async Task<EnergyBookingSlot?> CreateAsync(
         CreateSlotRequest request)
     {
+        var requestedDate = request.SlotDate.Date;
+        var currentDate = DateTime.Now.Date;
+
+        if (requestedDate < currentDate)
+        {
+            throw new ArgumentException("Slot date cannot be in the past.");
+        }
+
         // Validate time range
         if (request.StartTime >= request.EndTime)
         {
             throw new ArgumentException(
                 "Start time must be before end time."
             );
+        }
+
+        if (requestedDate == currentDate)
+        {
+            var currentTime = DateTime.Now.TimeOfDay;
+            if (request.StartTime <= currentTime)
+            {
+                throw new ArgumentException("For today's date, the start time must be later than the current time.");
+            }
         }
 
         // Validate energy capacity
@@ -81,7 +98,6 @@ public class SlotService
             return null;
         }
 
-        var requestedDate = request.SlotDate.Date;
         var nextDate = requestedDate.AddDays(1);
 
         // Get active slots same station , date
