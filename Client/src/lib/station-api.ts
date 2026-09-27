@@ -16,6 +16,8 @@ export async function createStation(data: {
   latitude: number
   longitude: number
   totalCapacityKwh: number
+  operatingStartTime: string
+  operatingEndTime: string
 }) {
   const response = await fetch(`${API_URL}/stations`, {
     method: "POST",

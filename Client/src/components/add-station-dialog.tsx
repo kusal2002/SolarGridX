@@ -81,6 +81,8 @@ export function AddStationDialog({ onStationAdded }: AddStationDialogProps) {
     latitude: "",
     longitude: "",
     totalCapacityKwh: "",
+    operatingStartTime: "",
+    operatingEndTime: "",
   })
 
   const [searchQuery, setSearchQuery] = useState("")
@@ -110,6 +112,8 @@ export function AddStationDialog({ onStationAdded }: AddStationDialogProps) {
       latitude: "",
       longitude: "",
       totalCapacityKwh: "",
+      operatingStartTime: "",
+      operatingEndTime: "",
     })
     setSearchQuery("")
     setError("")
@@ -182,6 +186,18 @@ export function AddStationDialog({ onStationAdded }: AddStationDialogProps) {
     setLoading(true)
     setError("")
 
+    if (!formData.operatingStartTime || !formData.operatingEndTime) {
+      setError("Both operating start and end times are required.")
+      setLoading(false)
+      return
+    }
+
+    if (formData.operatingStartTime >= formData.operatingEndTime) {
+      setError("Operating start time must be strictly before operating end time.")
+      setLoading(false)
+      return
+    }
+
     try {
       const newStation = await createStation({
         stationName: formData.stationName,
@@ -189,6 +205,8 @@ export function AddStationDialog({ onStationAdded }: AddStationDialogProps) {
         latitude: parseFloat(formData.latitude),
         longitude: parseFloat(formData.longitude),
         totalCapacityKwh: parseFloat(formData.totalCapacityKwh),
+        operatingStartTime: formData.operatingStartTime,
+        operatingEndTime: formData.operatingEndTime,
       })
 
       onStationAdded(newStation)
@@ -315,6 +333,30 @@ export function AddStationDialog({ onStationAdded }: AddStationDialogProps) {
                   onChange={handleChange}
                   required
                 />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="operatingStartTime">Operating Start Time</Label>
+                  <Input
+                    id="operatingStartTime"
+                    name="operatingStartTime"
+                    type="time"
+                    value={formData.operatingStartTime}
+                    onChange={handleChange}
+                    required
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="operatingEndTime">Operating End Time</Label>
+                  <Input
+                    id="operatingEndTime"
+                    name="operatingEndTime"
+                    type="time"
+                    value={formData.operatingEndTime}
+                    onChange={handleChange}
+                    required
+                  />
+                </div>
               </div>
             </div>
 
