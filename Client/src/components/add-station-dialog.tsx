@@ -91,6 +91,8 @@ export function AddStationDialog({ onStationAdded }: AddStationDialogProps) {
   const {
     location: gpsLocation,
     loading: gpsLoading,
+    error: gpsError,
+    approximate: gpsApproximate,
     getLocation,
   } = useGeolocation()
 
@@ -292,6 +294,18 @@ export function AddStationDialog({ onStationAdded }: AddStationDialogProps) {
                   {gpsLoading ? "Getting Location..." : "Get My Location"}
                 </Button>
               </div>
+              {gpsError && (
+                <div className={`rounded-md border p-3 text-xs ${
+                  gpsApproximate
+                    ? "border-yellow-300 bg-yellow-50 text-yellow-800 dark:border-yellow-700 dark:bg-yellow-950 dark:text-yellow-300"
+                    : "border-red-200 bg-red-50 text-red-800 dark:border-red-800 dark:bg-red-950 dark:text-red-300"
+                }`}>
+                  <p className="font-semibold">
+                    {gpsApproximate ? "📍 Approximate location (IP-based)" : "⚠ Could not get location"}
+                  </p>
+                  <p className="mt-1">{gpsError}</p>
+                </div>
+              )}
               <div className="grid grid-cols-2 gap-4">
                 <div className="grid gap-2">
                   <Label htmlFor="latitude">Latitude</Label>
