@@ -55,15 +55,15 @@ namespace SolarGridX.Controllers
 
             var result = await _authService.LoginUserAsync(dto);
 
-            if (result == null)
+            if (!result.Success)
             {
                 return Unauthorized(new
                 {
-                    message = "Invalid email or password."
+                    message = result.ErrorMessage
                 });
             }
 
-            return Ok(result);
+            return Ok(result.Data);
         }
 
         [HttpGet("users")]

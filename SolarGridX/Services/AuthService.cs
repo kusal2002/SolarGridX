@@ -10,8 +10,7 @@ namespace SolarGridX.Services
 {
     public class AuthService
     {
-        public async Task<LoginResponseDto?> LoginUserAsync(
-    LoginUserDto dto)
+        public async Task<LoginResultDto> LoginUserAsync(LoginUserDto dto)
         {
             var email = dto.Email.Trim().ToLowerInvariant();
 
@@ -21,7 +20,7 @@ namespace SolarGridX.Services
 
             if (user == null)
             {
-                return null;
+                return LoginResultDto.Failed("Invalid email or password.");
             }
 
             var passwordValid = BCrypt.Net.BCrypt.Verify(
@@ -31,12 +30,27 @@ namespace SolarGridX.Services
 
             if (!passwordValid)
             {
-                return null;
+                return LoginResultDto.Failed("Invalid email or password.");
+            }
+
+            if (user.AccountStatus == "Pending")
+            {
+                return LoginResultDto.Failed("Your account is pending Backoffice approval. Please wait for an administrator to activate your account.");
+            }
+
+            if (user.AccountStatus == "Inactive")
+            {
+                return LoginResultDto.Failed("Your account has been deactivated. Please contact support.");
+            }
+
+            if (user.AccountStatus == "DeactivationRequested")
+            {
+                return LoginResultDto.Failed("Account deactivation has been requested for this account.");
             }
 
             if (user.AccountStatus != "Active")
             {
-                return null;
+                return LoginResultDto.Failed($"Account is {user.AccountStatus}. Login not permitted.");
             }
 
             if (string.IsNullOrWhiteSpace(user.SecurityStamp))
@@ -47,10 +61,10 @@ namespace SolarGridX.Services
                     x => x.NIC == user.NIC && x.AccountStatus == "Active" && x.SecurityStamp == originalStamp,
                     Builders<User>.Update.Set(x => x.SecurityStamp, Guid.NewGuid().ToString("N")),
                     new FindOneAndUpdateOptions<User> { ReturnDocument = ReturnDocument.After });
-                if (user == null) return null;
+                if (user == null) return LoginResultDto.Failed("Unable to authenticate account.");
             }
 
-            return new LoginResponseDto
+            return LoginResultDto.Succeeded(new LoginResponseDto
             {
                 NIC = user.NIC,
                 Name = user.Name,
@@ -58,7 +72,7 @@ namespace SolarGridX.Services
                 Role = user.Role,
                 AccountStatus = user.AccountStatus,
                 Token = CreateToken(user)
-            };
+            });
         }
         private readonly IMongoCollection<User> _users;
         private readonly IConfiguration _configuration;
