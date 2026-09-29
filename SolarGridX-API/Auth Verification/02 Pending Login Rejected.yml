@@ -1,22 +1,23 @@
 info:
-  name: Login
+  name: "02 Pending Login Rejected - expect 401"
   type: http
   seq: 2
 
 http:
   method: POST
-  url: https://localhost:7172/api/auth/login
+  url: "{{baseUrl}}/api/auth/login"
   body:
     type: json
     data: |-
       {
-        "email": "kusalsalpura@gmail.com",
-        "password": "Kusal@123"
+        "email": "{{prosumerEmail}}",
+        "password": "{{prosumerPassword}}"
       }
+  auth: none
 
 settings:
   encodeUrl: true
   timeout: 0
   followRedirects: true
   maxRedirects: 5
-  forwardAuthorizationHeader: true
+

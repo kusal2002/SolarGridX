@@ -55,6 +55,8 @@ public class ReservationService
         var user = await _users.Find(session, u => u.NIC == request.ProsumerNIC).FirstOrDefaultAsync();
         if (user == null)
             throw new KeyNotFoundException($"Prosumer with NIC '{request.ProsumerNIC}' not found.");
+        if (user.Role != "Prosumer" || user.AccountStatus != "Active")
+            throw new InvalidOperationException("Reservations require an active Prosumer account.");
 
         // B. Validate slot exists and is active
         var slot = await _slots.Find(session, s => s.Id == request.SlotId && s.IsActive).FirstOrDefaultAsync();

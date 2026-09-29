@@ -1,0 +1,23 @@
+info:
+  name: "13 Login Grid Operator - expect 200"
+  type: http
+  seq: 13
+
+http:
+  method: POST
+  url: "{{baseUrl}}/api/auth/login"
+  body:
+    type: json
+    data: |-
+      {
+        "email": "{{operatorEmail}}",
+        "password": "{{operatorPassword}}"
+      }
+  auth: none
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+

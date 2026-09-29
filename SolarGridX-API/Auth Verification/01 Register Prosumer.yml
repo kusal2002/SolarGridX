@@ -1,0 +1,25 @@
+info:
+  name: "01 Register Prosumer - expect 201"
+  type: http
+  seq: 1
+
+http:
+  method: POST
+  url: "{{baseUrl}}/api/auth/register"
+  body:
+    type: json
+    data: |-
+      {
+        "nic": "{{prosumerNic}}",
+        "name": "Bruno Test Prosumer",
+        "email": "{{prosumerEmail}}",
+        "password": "{{prosumerPassword}}"
+      }
+  auth: none
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+

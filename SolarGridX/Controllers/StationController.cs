@@ -1,9 +1,11 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SolarGridX.DTOs.Stations;
 using SolarGridX.Services;
 
 namespace SolarGridX.Controllers;
 
+[Authorize(Roles = "Backoffice,Grid Operator,Prosumer")]
 [ApiController]
 [Route("api/stations")]
 
@@ -27,6 +29,7 @@ public class StationController : ControllerBase
 
     // Get all stations including inactive stations
     [HttpGet("all")]
+    [Authorize(Roles = "Backoffice")]
     public async Task<IActionResult> GetAllIncludingInactive()
     {
         var stations = await _stationService
@@ -54,6 +57,7 @@ public class StationController : ControllerBase
 
     //Create station
     [HttpPost]
+    [Authorize(Roles = "Backoffice")]
     public async Task<IActionResult> Create(
         CreateStationRequest request)
     {
@@ -68,6 +72,7 @@ public class StationController : ControllerBase
 
     //Update station
     [HttpPut("{id}")]
+    [Authorize(Roles = "Backoffice")]
     public async Task<IActionResult> Update(
     string id,
     UpdateStationRequest request)
@@ -90,6 +95,7 @@ public class StationController : ControllerBase
 
     //Delete or Deactive station
     [HttpDelete("{id}")]
+    [Authorize(Roles = "Backoffice")]
     public async Task<IActionResult> Delete(string id)
     {
         try
@@ -120,6 +126,7 @@ public class StationController : ControllerBase
 
     //Reactive Stations
     [HttpPatch("{id}/reactivate")]
+    [Authorize(Roles = "Backoffice")]
     public async Task<IActionResult> Reactivate(string id)
     {
         var reactivated = await _stationService.ReactivateAsync(id);
