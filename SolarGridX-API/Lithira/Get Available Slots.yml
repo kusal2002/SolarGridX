@@ -1,0 +1,25 @@
+info:
+  name: Get Available Slots
+  type: http
+  seq: 3
+
+http:
+  method: GET
+  url: "{{baseUrl}}/api/slots"
+  auth:
+    type: bearer
+    token: "{{prosumerToken}}"
+
+script:
+  post-response: |-
+    if (res.status === 200 && Array.isArray(res.body) && res.body.length > 0) {
+      bru.setEnvVar("slotId", res.body[0].id);
+      console.log("Auto-selected slotId:", res.body[0].id);
+    }
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

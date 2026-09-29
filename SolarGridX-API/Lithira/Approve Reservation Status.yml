@@ -1,18 +1,20 @@
 info:
-  name: Approve Reservation Status
+  name: Approve Reservation Status (Staff)
   type: http
-  seq: 7
+  seq: 10
 
 http:
   method: PATCH
-  url: https://localhost:7172/api/reservation/65f1a2b3c4d5e6f7a8b9c0d1/status
+  url: "{{baseUrl}}/api/reservation/{{reservationId}}/status"
   body:
     type: json
     data: |-
       {
         "status": "Approved"
       }
-  auth: inherit
+  auth:
+    type: bearer
+    token: "{{backofficeToken}}"
 
 settings:
   encodeUrl: true

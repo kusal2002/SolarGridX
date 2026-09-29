@@ -1,12 +1,29 @@
 info:
-  name: pros login
+  name: Prosumer Login
   type: http
-  seq: 8
+  seq: 1
 
 http:
-  method: GET
-  url: ""
-  auth: inherit
+  method: POST
+  url: http://192.168.0.122:5000/api/auth/login
+  body:
+    type: json
+    data: |-
+      {
+        "email": "adlransika@gmail.com",
+        "password": "Lithira123"
+      }
+  auth: none
+
+script:
+  post-response: |-
+    if (res.status === 200 && res.body && res.body.token) {
+      bru.setEnvVar("prosumerToken", res.body.token);
+      bru.setEnvVar("prosumerNic", res.body.nic);
+      bru.setVar("prosumerToken", res.body.token);
+      bru.setVar("prosumerNic", res.body.nic);
+      console.log("Prosumer token saved for NIC:", res.body.nic);
+    }
 
 settings:
   encodeUrl: true
