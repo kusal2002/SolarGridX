@@ -15,7 +15,6 @@ import {
   Hourglass,
   Pencil,
   Ban,
-  Building2,
   RefreshCw,
 } from "lucide-react"
 import { CreateReservationDialog } from "@/components/create-reservation-dialog"

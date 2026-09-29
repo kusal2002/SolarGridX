@@ -123,6 +123,8 @@ using (var scope = app.Services.CreateScope())
 {
     var configuration = scope.ServiceProvider.GetRequiredService<IConfiguration>();
     var authService = scope.ServiceProvider.GetRequiredService<AuthService>();
+    await authService.EnsureIndexesAsync();
+    await scope.ServiceProvider.GetRequiredService<EnergyTransferService>().EnsureIndexesAsync();
     await authService.EnsureBootstrapBackofficeAsync(
         configuration["BootstrapAdmin:NIC"],
         configuration["BootstrapAdmin:Name"],

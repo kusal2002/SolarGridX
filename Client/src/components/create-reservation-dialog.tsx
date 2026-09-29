@@ -58,7 +58,7 @@ export function CreateReservationDialog({
       const sevenDaysLater = new Date(nowMidnight)
       sevenDaysLater.setDate(sevenDaysLater.getDate() + 7)
 
-      const stationWithSlots = stationList.find((st) =>
+      const stationWithSlots = stationList.find((st: Station) =>
         slotList.some((sl) => {
           if (!sl.isActive || sl.stationId !== st.id) return false
           const d = new Date(sl.slotDate)

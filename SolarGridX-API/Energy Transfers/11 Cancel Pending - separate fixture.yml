@@ -1,0 +1,23 @@
+info:
+  name: "11 Cancel Pending - separate fixture - expect 200"
+  type: http
+  seq: 11
+
+http:
+  method: PATCH
+  url: "{{baseUrl}}/api/energy-transfers/{{cancelTransferId}}/cancel"
+  body:
+    type: json
+    data: |-
+      {
+        "reason": "Cancelled before delivery"
+      }
+  auth:
+    type: bearer
+    token: "{{backofficeToken}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

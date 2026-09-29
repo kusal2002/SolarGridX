@@ -1,6 +1,8 @@
+import type { Station } from "@/types/station"
+
 const API_URL = import.meta.env.VITE_API_URL || "https://localhost:7172/api"
 
-export async function getStations() {
+export async function getStations(): Promise<Station[]> {
   const response = await fetch(`${API_URL}/stations/all`)
 
   if (!response.ok) {

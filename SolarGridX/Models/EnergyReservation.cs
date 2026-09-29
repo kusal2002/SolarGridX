@@ -35,9 +35,12 @@ public class EnergyReservation
     [BsonElement("requestedEnergyKwh")]
     public double RequestedEnergyKwh { get; set; }
 
-    // Possible values: "Pending", "Approved", "Cancelled", "Completed"
+    // Possible values: "Pending", "Approved", "InProgress", "Cancelled", "Completed"
     [BsonElement("status")]
     public string Status { get; set; } = "Pending";
+
+    [BsonElement("transferId")]
+    public string? TransferId { get; set; }
 
     [BsonElement("cancellationReason")]
     public string? CancellationReason { get; set; }

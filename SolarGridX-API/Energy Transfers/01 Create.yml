@@ -1,7 +1,7 @@
 info:
-  name: "Create Energy Transfer - expect 201"
+  name: "01 Create - expect 201"
   type: http
-  seq: 2
+  seq: 1
 
 http:
   method: POST
