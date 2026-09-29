@@ -1,12 +1,14 @@
 info:
   name: Cancel Reservation
   type: http
-  seq: 6
+  seq: 8
 
 http:
   method: PATCH
-  url: https://localhost:7172/api/reservation/65f1a2b3c4d5e6f7a8b9c0d1/cancel?reason=Change%20of%20plans
-  auth: inherit
+  url: "{{baseUrl}}/api/reservation/{{reservationId}}/cancel?reason=Change%20of%20plans"
+  auth:
+    type: bearer
+    token: "{{prosumerToken}}"
 
 settings:
   encodeUrl: true

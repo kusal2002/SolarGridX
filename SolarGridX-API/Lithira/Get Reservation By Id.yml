@@ -1,12 +1,14 @@
 info:
   name: Get Reservation By Id
   type: http
-  seq: 3
+  seq: 6
 
 http:
   method: GET
-  url: https://localhost:7172/api/reservation/65f1a2b3c4d5e6f7a8b9c0d1
-  auth: inherit
+  url: "{{baseUrl}}/api/reservation/{{reservationId}}"
+  auth:
+    type: bearer
+    token: "{{prosumerToken}}"
 
 settings:
   encodeUrl: true
