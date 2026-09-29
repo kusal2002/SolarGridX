@@ -142,6 +142,13 @@ export function AddSlotDialog({ onSlotAdded }: AddSlotDialogProps) {
         }
       }
 
+      // Validate slot capacity does not exceed station total capacity
+      if (selectedStation && parseFloat(formData.energyCapacityKwh) > selectedStation.totalCapacityKwh) {
+        setError(`Energy capacity (${formData.energyCapacityKwh} kWh) cannot exceed the station's total capacity (${selectedStation.totalCapacityKwh} kWh).`)
+        setLoading(false)
+        return
+      }
+
       // Backend expects TimeSpan format like "HH:mm:ss"
       const formatTime = (time: string) => {
         if (time.length === 5) return `${time}:00`

@@ -145,6 +145,13 @@ export function EditSlotDialog({
         }
       }
 
+      // Validate slot capacity does not exceed station total capacity
+      if (station && parseFloat(formData.energyCapacityKwh) > station.totalCapacityKwh) {
+        setError(`Energy capacity (${formData.energyCapacityKwh} kWh) cannot exceed the station's total capacity (${station.totalCapacityKwh} kWh).`)
+        setLoading(false)
+        return
+      }
+
       const formatTime = (time: string) => {
         if (time.length === 5) return `${time}:00`
         return time

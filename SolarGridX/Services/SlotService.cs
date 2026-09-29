@@ -98,6 +98,14 @@ public class SlotService
             return null;
         }
 
+        // Validate slot capacity does not exceed station total capacity
+        if (request.EnergyCapacityKwh > station.TotalCapacityKwh)
+        {
+            throw new ArgumentException(
+                $"Energy capacity ({request.EnergyCapacityKwh} kWh) cannot exceed the station's total capacity ({station.TotalCapacityKwh} kWh)."
+            );
+        }
+
         if (!string.IsNullOrEmpty(station.OperatingStartTime) || !string.IsNullOrEmpty(station.OperatingEndTime))
         {
             if (string.IsNullOrEmpty(station.OperatingStartTime) || string.IsNullOrEmpty(station.OperatingEndTime) ||
@@ -197,6 +205,17 @@ public class SlotService
             .Find(item =>
                 item.Id == slot.StationId)
             .FirstOrDefaultAsync();
+
+        if (station != null)
+        {
+            // Validate slot capacity does not exceed station total capacity
+            if (request.EnergyCapacityKwh > station.TotalCapacityKwh)
+            {
+                throw new ArgumentException(
+                    $"Energy capacity ({request.EnergyCapacityKwh} kWh) cannot exceed the station's total capacity ({station.TotalCapacityKwh} kWh)."
+                );
+            }
+        }
 
         if (station != null && (!string.IsNullOrEmpty(station.OperatingStartTime) || !string.IsNullOrEmpty(station.OperatingEndTime)))
         {
