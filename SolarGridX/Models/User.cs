@@ -1,3 +1,4 @@
+using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
 
 namespace SolarGridX.Models
@@ -21,7 +22,8 @@ namespace SolarGridX.Models
         public string Role { get; set; } = "Prosumer";
 
         [BsonElement("accountStatus")]
-        public string AccountStatus { get; set; } = "Active";
+        [BsonRepresentation(BsonType.String)]
+        public AccountStatus AccountStatus { get; set; } = AccountStatus.Active;
 
         [BsonElement("createdAt")]
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

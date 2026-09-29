@@ -2,6 +2,18 @@
 
 This is a template for a new Vite project with React, TypeScript, and shadcn/ui.
 
+## Local configuration
+
+Copy `.env.example` to `.env.local` and set the API URL:
+
+```bash
+cp .env.example .env.local
+```
+
+The default local value is `http://127.0.0.1:5084/api`. Set `VITE_API_URL` to the deployed API URL for other environments.
+
+The dashboard routes are `/users` and `/stations`. The available route depends on the authenticated user's role.
+
 ## Adding components
 
 To add components to your app, run the following command:

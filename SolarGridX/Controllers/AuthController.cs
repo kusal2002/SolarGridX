@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using System.Security.Claims;
 using SolarGridX.DTOs;
+using SolarGridX.Models;
 using SolarGridX.Services;
 
 namespace SolarGridX.Controllers
@@ -66,23 +67,50 @@ namespace SolarGridX.Controllers
 
         [HttpGet("users")]
         [Authorize(Roles = "Backoffice")]
-        public async Task<IActionResult> GetUsers([FromQuery] string? status, [FromQuery] string? role)
+        public async Task<IActionResult> GetUsers(
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 10,
+            [FromQuery] string? search = null,
+            [FromQuery] string? status = null,
+            [FromQuery] string? role = null,
+            [FromQuery] string sortBy = "createdAt",
+            [FromQuery] string sortDirection = "desc")
         {
-            return Ok(await _authService.GetUsersAsync(status, role));
+            if (page < 1 || pageSize is < 1 or > 100)
+            {
+                return BadRequest(new { message = "Page must be positive and pageSize must be between 1 and 100." });
+            }
+
+            if (!string.IsNullOrWhiteSpace(status)
+                && (!Enum.TryParse<AccountStatus>(status, true, out var parsedStatus)
+                    || !Enum.IsDefined(parsedStatus)))
+            {
+                return BadRequest(new { message = "Unsupported account status filter." });
+            }
+
+            return Ok(await _authService.GetUsersAsync(page, pageSize, search, status, role, sortBy, sortDirection));
         }
 
         [HttpPatch("users/{nic}/status")]
         [Authorize(Roles = "Backoffice")]
         public async Task<IActionResult> UpdateStatus(string nic, [FromBody] string status)
         {
-            var allowedStatuses = new[] { "Active", "Inactive", "DeactivationRequested" };
-            if (!allowedStatuses.Contains(status))
+            if (!Enum.TryParse<AccountStatus>(status, true, out var requestedStatus)
+                || !Enum.IsDefined(requestedStatus))
             {
                 return BadRequest(new { message = "Unsupported account status." });
             }
 
-            var result = await _authService.UpdateAccountStatusAsync(nic, status);
-            return result == null ? NotFound() : Ok(result);
+            var authenticatedNic = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            var result = await _authService.UpdateAccountStatusAsync(nic, requestedStatus, authenticatedNic);
+            if (result.User == null)
+            {
+                return result.Error == "User was not found."
+                    ? NotFound(new { message = result.Error })
+                    : Conflict(new { message = result.Error });
+            }
+
+            return Ok(result.User);
         }
 
         [HttpPost("staff")]
@@ -130,8 +158,15 @@ namespace SolarGridX.Controllers
                 return Forbid();
             }
 
-            var result = await _authService.UpdateAccountStatusAsync(nic, "DeactivationRequested");
-            return result == null ? NotFound() : Ok(result);
+            var result = await _authService.UpdateAccountStatusAsync(nic, AccountStatus.DeactivationRequested, nic);
+            if (result.User == null)
+            {
+                return result.Error == "User was not found."
+                    ? NotFound(new { message = result.Error })
+                    : Conflict(new { message = result.Error });
+            }
+
+            return Ok(result.User);
         }
 
         [HttpGet("me")]
