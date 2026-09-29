@@ -81,7 +81,8 @@ class ReservationRepository(
                 dbHelper.saveReservations(listOf(res))
                 Result.success(res)
             } else {
-                val errorMsg = response.errorBody()?.string() ?: "Failed to create reservation"
+                val raw = response.errorBody()?.string()
+                val errorMsg = parseErrorMessage(raw, "Failed to create reservation")
                 Result.failure(Exception(errorMsg))
             }
         } catch (e: Exception) {
@@ -97,7 +98,8 @@ class ReservationRepository(
                 dbHelper.updateReservationStatus(id, "Cancelled", reason)
                 Result.success(res)
             } else {
-                val errorMsg = response.errorBody()?.string() ?: "Failed to cancel reservation"
+                val raw = response.errorBody()?.string()
+                val errorMsg = parseErrorMessage(raw, "Failed to cancel reservation")
                 Result.failure(Exception(errorMsg))
             }
         } catch (e: Exception) {
@@ -120,11 +122,26 @@ class ReservationRepository(
                 dbHelper.saveReservations(listOf(res))
                 Result.success(res)
             } else {
-                val errorMsg = response.errorBody()?.string() ?: "Failed to modify reservation"
+                val raw = response.errorBody()?.string()
+                val errorMsg = parseErrorMessage(raw, "Failed to modify reservation")
                 Result.failure(Exception(errorMsg))
             }
         } catch (e: Exception) {
             Result.failure(e)
+        }
+    }
+
+    private fun parseErrorMessage(errorBody: String?, fallback: String): String {
+        if (errorBody.isNullOrBlank()) return fallback
+        return try {
+            val json = org.json.JSONObject(errorBody)
+            when {
+                json.has("message") -> json.getString("message")
+                json.has("title") -> json.getString("title")
+                else -> errorBody
+            }
+        } catch (_: Exception) {
+            errorBody
         }
     }
 }

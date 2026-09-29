@@ -22,7 +22,22 @@ data class ReservationUiState(
     val myReservations: List<EnergyReservation> = emptyList(),
     val errorMessage: String? = null,
     val successMessage: String? = null
-)
+) {
+    val totalCount: Int get() = myReservations.size
+    val pendingCount: Int get() = myReservations.count { it.status.equals("Pending", ignoreCase = true) }
+    val approvedCount: Int get() = myReservations.count { it.status.equals("Approved", ignoreCase = true) }
+    val completedCount: Int get() = myReservations.count { it.status.equals("Completed", ignoreCase = true) }
+    val cancelledCount: Int get() = myReservations.count { it.status.equals("Cancelled", ignoreCase = true) }
+    val totalKwh: Double get() = myReservations.filter { it.status != "Cancelled" }.sumOf { it.requestedEnergyKwh }
+
+    val nextUpcomingReservation: EnergyReservation?
+        get() {
+            val active = myReservations.filter {
+                it.status.equals("Pending", ignoreCase = true) || it.status.equals("Approved", ignoreCase = true)
+            }
+            return active.minByOrNull { it.reservationDate + " " + it.startTime }
+        }
+}
 
 class ReservationViewModel(
     private val repository: ReservationRepository,
@@ -119,13 +134,17 @@ class ReservationViewModel(
         }
     }
 
-    // Helper: checks 12-hour rule
+    // Helper: checks 12-hour rule (Lithira - Member 3 requirement)
     fun isEligibleFor12HourRule(reservation: EnergyReservation): Pair<Boolean, Double> {
         return try {
             val dateStr = reservation.reservationDate.split("T")[0]
-            val timeStr = reservation.startTime
+            val timeParts = reservation.startTime.split(":")
+            val hour = timeParts.getOrNull(0)?.padStart(2, '0') ?: "00"
+            val minute = timeParts.getOrNull(1)?.padStart(2, '0') ?: "00"
+            val timeStr = "$hour:$minute"
+
             val format = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.US).apply {
-                timeZone = TimeZone.getTimeZone("UTC")
+                timeZone = TimeZone.getDefault()
             }
             val startDateTime = format.parse("$dateStr $timeStr")
             val diffMs = (startDateTime?.time ?: 0) - System.currentTimeMillis()
