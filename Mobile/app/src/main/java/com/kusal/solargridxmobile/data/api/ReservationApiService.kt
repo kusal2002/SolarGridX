@@ -15,7 +15,7 @@ import retrofit2.http.Path
 import retrofit2.http.Query
 
 interface ReservationApiService {
-    @GET("stations/all")
+    @GET("stations")
     suspend fun getStations(): Response<List<SolarStation>>
 
     @GET("slots")

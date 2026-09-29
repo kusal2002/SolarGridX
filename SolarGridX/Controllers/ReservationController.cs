@@ -19,7 +19,7 @@ public class ReservationController : ControllerBase
     }
 
     [HttpGet]
-    [Authorize(Roles = "Backoffice,Grid Operator")]
+    [Authorize(Roles = "Backoffice,Grid Operator,Prosumer")]
     public async Task<IActionResult> GetAll()
     {
         var list = await _reservationService.GetAllAsync();
@@ -121,5 +121,5 @@ public class ReservationController : ControllerBase
     // Staff may assist any prosumer; prosumers may only access their own bookings.
     private bool CanAccess(string nic) =>
         User.IsInRole("Backoffice") || User.IsInRole("Grid Operator") ||
-        (User.IsInRole("Prosumer") && User.FindFirstValue(ClaimTypes.NameIdentifier) == nic);
+        (User.IsInRole("Prosumer") && string.Equals(User.FindFirstValue(ClaimTypes.NameIdentifier)?.Trim(), nic?.Trim(), StringComparison.OrdinalIgnoreCase));
 }
