@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 ﻿using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using SolarGridX.Services;
@@ -7,6 +8,7 @@ using SolarGridX.Models;
 namespace SolarGridX.Controllers
 {
     [Route("api/energy-transfers")]
+    [Authorize(Roles = "Backoffice,Grid Operator")]
     [ApiController]
     public class EnergyTransfersController : ControllerBase
     {

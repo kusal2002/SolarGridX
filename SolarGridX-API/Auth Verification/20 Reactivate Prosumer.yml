@@ -1,11 +1,11 @@
 info:
-  name: Backoffice Update User Status
+  name: "20 Reactivate Prosumer - expect 200"
   type: http
-  seq: 7
+  seq: 20
 
 http:
   method: PATCH
-  url: http://localhost:5084/api/auth/users/{{prosumerNic}}/status
+  url: "{{baseUrl}}/api/auth/users/{{prosumerNic}}/status"
   body:
     type: json
     data: |-
@@ -19,3 +19,4 @@ settings:
   timeout: 0
   followRedirects: true
   maxRedirects: 5
+

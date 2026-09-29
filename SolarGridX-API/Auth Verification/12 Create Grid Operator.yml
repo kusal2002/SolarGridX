@@ -1,0 +1,28 @@
+info:
+  name: "12 Create Grid Operator - expect 201"
+  type: http
+  seq: 12
+
+http:
+  method: POST
+  url: "{{baseUrl}}/api/auth/staff"
+  body:
+    type: json
+    data: |-
+      {
+        "nic": "{{operatorNic}}",
+        "name": "Bruno Grid Operator",
+        "email": "{{operatorEmail}}",
+        "password": "{{operatorPassword}}",
+        "role": "Grid Operator"
+      }
+  auth:
+    type: bearer
+    token: "{{backofficeToken}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+

@@ -1,0 +1,26 @@
+info:
+  name: 05 Activate Prosumer - expect 200
+  type: http
+  seq: 5
+
+http:
+  method: PATCH
+  url: "{{baseUrl}}/api/auth/users/{{prosumerNic}}/status"
+  body:
+    type: json
+    data: '"Active"'
+  auth:
+    type: bearer
+    token: "{{backofficeToken}}"
+
+runtime:
+  variables:
+    - name: prosumerNic
+      value: "200211003433"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: true
