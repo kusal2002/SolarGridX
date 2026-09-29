@@ -22,6 +22,7 @@ import com.kusal.solargridxmobile.data.local.ReservationDbHelper
 import com.kusal.solargridxmobile.data.local.SessionManager
 import com.kusal.solargridxmobile.data.repository.AuthRepository
 import com.kusal.solargridxmobile.data.repository.ReservationRepository
+import com.kusal.solargridxmobile.ui.auth.AccountInactiveScreen
 import com.kusal.solargridxmobile.ui.auth.LoginScreen
 import com.kusal.solargridxmobile.ui.auth.PendingApprovalScreen
 import com.kusal.solargridxmobile.ui.auth.RegisterScreen
@@ -60,6 +61,7 @@ fun MainAppEntry() {
     var pendingEmail by remember { mutableStateOf("") }
     var pendingPassword by remember { mutableStateOf("") }
     var pendingNic by remember { mutableStateOf("") }
+    var inactiveReason by remember { mutableStateOf("") }
 
     if (!isLoggedIn) {
         when (currentAuthScreen) {
@@ -72,6 +74,11 @@ fun MainAppEntry() {
                         pendingEmail = email
                         pendingPassword = password
                         currentAuthScreen = "pending_approval"
+                    },
+                    onAccountInactive = { email, reason ->
+                        pendingEmail = email
+                        inactiveReason = reason
+                        currentAuthScreen = "inactive"
                     }
                 )
             }
@@ -94,6 +101,13 @@ fun MainAppEntry() {
                     nic = pendingNic,
                     authRepository = authRepository,
                     onLoginSuccess = { isLoggedIn = true },
+                    onNavigateToLogin = { currentAuthScreen = "login" }
+                )
+            }
+            "inactive" -> {
+                AccountInactiveScreen(
+                    email = pendingEmail,
+                    statusMessage = inactiveReason,
                     onNavigateToLogin = { currentAuthScreen = "login" }
                 )
             }

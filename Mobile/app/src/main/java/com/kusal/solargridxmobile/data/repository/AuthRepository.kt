@@ -7,6 +7,7 @@ import com.kusal.solargridxmobile.data.model.LoginResponse
 import com.kusal.solargridxmobile.data.model.RegisterRequest
 
 class AccountPendingApprovalException(message: String) : Exception(message)
+class AccountInactiveException(message: String) : Exception(message)
 
 class AuthRepository(private val sessionManager: SessionManager) {
     private val authApi = ApiClient.authService
@@ -21,10 +22,18 @@ class AuthRepository(private val sessionManager: SessionManager) {
             } else {
                 val raw = response.errorBody()?.string()
                 val errorMsg = parseErrorMessage(raw, "Invalid email or password.")
-                if (errorMsg.contains("pending", ignoreCase = true)) {
-                    Result.failure(AccountPendingApprovalException(errorMsg))
-                } else {
-                    Result.failure(Exception(errorMsg))
+                when {
+                    errorMsg.contains("pending", ignoreCase = true) -> {
+                        Result.failure(AccountPendingApprovalException(errorMsg))
+                    }
+                    errorMsg.contains("inactive", ignoreCase = true) ||
+                    errorMsg.contains("deactivated", ignoreCase = true) ||
+                    errorMsg.contains("deactivation", ignoreCase = true) -> {
+                        Result.failure(AccountInactiveException(errorMsg))
+                    }
+                    else -> {
+                        Result.failure(Exception(errorMsg))
+                    }
                 }
             }
         } catch (e: Exception) {

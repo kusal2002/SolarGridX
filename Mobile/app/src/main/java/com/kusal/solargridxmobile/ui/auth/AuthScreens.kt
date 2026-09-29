@@ -26,6 +26,7 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
+import com.kusal.solargridxmobile.data.repository.AccountInactiveException
 import com.kusal.solargridxmobile.data.repository.AccountPendingApprovalException
 import com.kusal.solargridxmobile.data.repository.AuthRepository
 
@@ -40,7 +41,8 @@ fun LoginScreen(
     authRepository: AuthRepository,
     onLoginSuccess: () -> Unit,
     onNavigateToRegister: () -> Unit,
-    onAccountPending: (email: String, password: String) -> Unit = { _, _ -> }
+    onAccountPending: (email: String, password: String) -> Unit = { _, _ -> },
+    onAccountInactive: (email: String, reason: String) -> Unit = { _, _ -> }
 ) {
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
@@ -159,10 +161,17 @@ fun LoginScreen(
                     result.onSuccess {
                         onLoginSuccess()
                     }.onFailure { error ->
-                        if (error is AccountPendingApprovalException || error.message?.contains("pending", ignoreCase = true) == true) {
-                            onAccountPending(email, password)
-                        } else {
-                            errorMessage = error.message ?: "Login failed."
+                        when {
+                            error is AccountPendingApprovalException ||
+                            error is AccountInactiveException ||
+                            error.message?.contains("pending", ignoreCase = true) == true ||
+                            error.message?.contains("inactive", ignoreCase = true) == true ||
+                            error.message?.contains("deactivat", ignoreCase = true) == true -> {
+                                onAccountPending(email, password)
+                            }
+                            else -> {
+                                errorMessage = error.message ?: "Login failed."
+                            }
                         }
                     }
                 }
@@ -482,7 +491,7 @@ fun PendingApprovalScreen(
         Spacer(modifier = Modifier.height(16.dp))
 
         Text(
-            text = "Approval Pending",
+            text = "Awaiting Activation",
             fontSize = 24.sp,
             fontWeight = FontWeight.Bold,
             color = AuthTextPrimary
@@ -491,7 +500,7 @@ fun PendingApprovalScreen(
         Spacer(modifier = Modifier.height(6.dp))
 
         Text(
-            text = "Your Prosumer account is under review",
+            text = "Your Prosumer account is pending or inactive",
             fontSize = 14.sp,
             color = AuthTextSecondary
         )
@@ -515,7 +524,7 @@ fun PendingApprovalScreen(
                         shape = androidx.compose.foundation.shape.RoundedCornerShape(6.dp)
                     ) {
                         Text(
-                            text = "PENDING REVIEW",
+                            text = "AWAITING ACTIVATION",
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
                             color = Color(0xFFB45309),
@@ -614,9 +623,13 @@ fun PendingApprovalScreen(
                     result.onSuccess {
                         onLoginSuccess()
                     }.onFailure { error ->
-                        if (error is AccountPendingApprovalException || error.message?.contains("pending", ignoreCase = true) == true) {
+                        if (error is AccountPendingApprovalException ||
+                            error is AccountInactiveException ||
+                            error.message?.contains("pending", ignoreCase = true) == true ||
+                            error.message?.contains("inactive", ignoreCase = true) == true ||
+                            error.message?.contains("deactivat", ignoreCase = true) == true) {
                             isError = false
-                            statusMessage = "Account is still pending administrator approval. Please check again later."
+                            statusMessage = "Account is not active yet (Status: Pending or Inactive). Once activated in database, click again to enter."
                         } else {
                             isError = true
                             statusMessage = error.message ?: "Authentication failed."
@@ -664,6 +677,142 @@ fun PendingApprovalScreen(
 
         TextButton(onClick = onNavigateToLogin) {
             Text("Back to Log In", color = SolarGreen, fontWeight = FontWeight.SemiBold)
+        }
+    }
+}
+
+@Composable
+fun AccountInactiveScreen(
+    email: String,
+    statusMessage: String = "",
+    onNavigateToLogin: () -> Unit
+) {
+    val scrollState = rememberScrollState()
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFFF8FAFC))
+            .padding(24.dp)
+            .verticalScroll(scrollState),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Box(
+            modifier = Modifier
+                .size(80.dp)
+                .background(Color(0xFFFEE2E2), shape = androidx.compose.foundation.shape.CircleShape),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = Icons.Default.Lock,
+                contentDescription = "Account Inactive",
+                tint = Color(0xFFDC2626),
+                modifier = Modifier.size(44.dp)
+            )
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Text(
+            text = "Account Inactive",
+            fontSize = 24.sp,
+            fontWeight = FontWeight.Bold,
+            color = AuthTextPrimary
+        )
+
+        Spacer(modifier = Modifier.height(6.dp))
+
+        Text(
+            text = "Access to the grid platform has been suspended",
+            fontSize = 14.sp,
+            color = AuthTextSecondary
+        )
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        Card(
+            colors = CardDefaults.cardColors(containerColor = Color.White),
+            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE2E8F0)),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Account Status", fontSize = 12.sp, color = AuthTextSecondary)
+                    Surface(
+                        color = Color(0xFFFEE2E2),
+                        shape = androidx.compose.foundation.shape.RoundedCornerShape(6.dp)
+                    ) {
+                        Text(
+                            text = "DEACTIVATED",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFFDC2626),
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                        )
+                    }
+                }
+
+                if (email.isNotBlank()) {
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 10.dp), color = Color(0xFFF1F5F9))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text("Email", fontSize = 12.sp, color = AuthTextSecondary)
+                        Text(email, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = AuthTextPrimary)
+                    }
+                }
+
+                HorizontalDivider(modifier = Modifier.padding(vertical = 10.dp), color = Color(0xFFF1F5F9))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text("Role", fontSize = 12.sp, color = AuthTextSecondary)
+                    Text("Prosumer", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = AuthTextPrimary)
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Card(
+            colors = CardDefaults.cardColors(containerColor = Color(0xFFFEF2F2)),
+            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFECACA)),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(modifier = Modifier.padding(14.dp)) {
+                Text(
+                    text = "Why is my account inactive?",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFFDC2626)
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = if (statusMessage.isNotBlank()) statusMessage else "Your account has been deactivated by a Backoffice administrator or upon request. Login and energy booking privileges are currently disabled for this account.",
+                    fontSize = 12.sp,
+                    color = AuthTextSecondary,
+                    lineHeight = 18.sp
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        Button(
+            onClick = onNavigateToLogin,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(50.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = SolarGreen)
+        ) {
+            Text("Back to Log In", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Color.White)
         }
     }
 }
