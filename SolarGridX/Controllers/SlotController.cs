@@ -1,9 +1,11 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SolarGridX.DTOs.Slots;
 using SolarGridX.Services;
 
 namespace SolarGridX.Controllers;
 
+[Authorize(Roles = "Backoffice,Grid Operator,Prosumer")]
 [ApiController]
 [Route("api/slots")]
 public class SlotController : ControllerBase
@@ -51,6 +53,7 @@ public class SlotController : ControllerBase
 
     //Create a station slot
     [HttpPost]
+    [Authorize(Roles = "Backoffice,Grid Operator")]
     public async Task<IActionResult> Create(CreateSlotRequest request)
     {
         try
@@ -90,6 +93,7 @@ public class SlotController : ControllerBase
     //Update slots
 
     [HttpPut("{id}")]
+    [Authorize(Roles = "Backoffice,Grid Operator")]
     public async Task<IActionResult> Update(
     string id,
     UpdateSlotRequest request)
@@ -126,6 +130,7 @@ public class SlotController : ControllerBase
 
     // Deactivate Slot
     [HttpPatch("{id}/deactivate")]
+    [Authorize(Roles = "Backoffice,Grid Operator")]
     public async Task<IActionResult> Deactivate(string id)
     {
         var slot = await _slotService.DeactivateAsync(id);
@@ -147,6 +152,7 @@ public class SlotController : ControllerBase
 
     // Reactivate Slot
     [HttpPatch("{id}/reactivate")]
+    [Authorize(Roles = "Backoffice,Grid Operator")]
     public async Task<IActionResult> Reactivate(string id)
     {
         try
@@ -178,6 +184,7 @@ public class SlotController : ControllerBase
 
     //Delete slots
     [HttpDelete("{id}")]
+    [Authorize(Roles = "Backoffice")]
     public async Task<IActionResult> Delete(string id)
     {
         var deleted = await _slotService.DeleteAsync(id);

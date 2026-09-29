@@ -1,0 +1,24 @@
+name: SolarGridX
+variables:
+  - name: baseUrl
+    value: https://localhost:7172
+  - name: operatorEmail
+    value: operator@solargridx.com
+  - name: operatorPassword
+    value: operator@123
+  - name: prosumerNic
+    value: "200211003433"
+  - secret: true
+    name: backofficePassword
+  - secret: true
+    name: backofficeToken
+  - name: backofficeEmail
+    value: admin@solargridx.com
+  - name: prosumerEmail
+    value: kusalsalpura@gmail.com
+  - secret: true
+    name: prosumerPassword
+  - secret: true
+    name: prosumerToken
+  - secret: true
+    name: operatorToken

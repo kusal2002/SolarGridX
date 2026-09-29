@@ -1,0 +1,30 @@
+info:
+  name: 08 Update My Profile - expect 200
+  type: http
+  seq: 8
+
+http:
+  method: PUT
+  url: "{{baseUrl}}/api/auth/users/{{prosumerNic}}/profile"
+  body:
+    type: json
+    data: |-
+      {
+        "name": "Updated Bruno Prosumer",
+        "email": "{{prosumerEmail}}"
+      }
+  auth:
+    type: bearer
+    token: "{{prosumerToken}}"
+
+runtime:
+  variables:
+    - name: prosumerEmail
+      value: kusalsal
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: true

@@ -1,9 +1,11 @@
+using Microsoft.AspNetCore.Authorization;
 ﻿using Microsoft.AspNetCore.Mvc;
 using MongoDB.Bson;
 using MongoDB.Driver;
 
 namespace SolarGridX.Controllers
 {
+    [Authorize(Roles = "Backoffice")]
     [ApiController]
     [Route("/api/database-test")]
 
