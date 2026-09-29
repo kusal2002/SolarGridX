@@ -2,9 +2,11 @@ using BCrypt.Net;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using Microsoft.IdentityModel.Tokens;
+using MongoDB.Bson;
 using MongoDB.Driver;
 using SolarGridX.DTOs;
 using SolarGridX.Models;
+using System.Text.RegularExpressions;
 
 namespace SolarGridX.Services
 {
@@ -34,7 +36,7 @@ namespace SolarGridX.Services
                 return null;
             }
 
-            if (user.AccountStatus != "Active")
+            if (user.AccountStatus != AccountStatus.Active)
             {
                 return null;
             }
@@ -56,7 +58,7 @@ namespace SolarGridX.Services
                 Name = user.Name,
                 Email = user.Email,
                 Role = user.Role,
-                AccountStatus = user.AccountStatus,
+                AccountStatus = user.AccountStatus.ToString(),
                 Token = CreateToken(user)
             };
         }
@@ -129,7 +131,7 @@ namespace SolarGridX.Services
                 Email = email,
                 PasswordHash = passwordHash,
                 Role = "Prosumer",
-                AccountStatus = "Pending",
+                AccountStatus = AccountStatus.Pending,
                 SecurityStamp = Guid.NewGuid().ToString("N"),
                 CreatedAt = DateTime.UtcNow
             };
@@ -142,7 +144,7 @@ namespace SolarGridX.Services
                 Name = user.Name,
                 Email = user.Email,
                 Role = user.Role,
-                AccountStatus = user.AccountStatus,
+                AccountStatus = user.AccountStatus.ToString(),
                 CreatedAt = user.CreatedAt,
                 DeactivationRequestedAt = user.DeactivationRequestedAt
             };
@@ -197,7 +199,7 @@ namespace SolarGridX.Services
                 Email = email,
                 PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.Password),
                 Role = dto.Role,
-                AccountStatus = "Active",
+                AccountStatus = AccountStatus.Active,
                 SecurityStamp = Guid.NewGuid().ToString("N"),
                 CreatedAt = DateTime.UtcNow
             };
@@ -210,8 +212,7 @@ namespace SolarGridX.Services
         {
             var user = await _users.Find(x => x.NIC == nic).FirstOrDefaultAsync();
             return user != null
-                && user.AccountStatus == "Active"
-                && user.Role == role
+                && user.AccountStatus == AccountStatus.Active
                 && user.SecurityStamp == securityStamp;
         }
 
@@ -240,13 +241,23 @@ namespace SolarGridX.Services
             });
         }
 
-        public async Task<List<UserResponseDto>> GetUsersAsync(string? status, string? role)
+        public async Task<PagedUserResponseDto> GetUsersAsync(
+            int page,
+            int pageSize,
+            string? search,
+            string? status,
+            string? role,
+            string sortBy,
+            string sortDirection)
         {
             var filter = Builders<User>.Filter.Empty;
 
             if (!string.IsNullOrWhiteSpace(status))
             {
-                filter &= Builders<User>.Filter.Eq(x => x.AccountStatus, status.Trim());
+                if (Enum.TryParse<AccountStatus>(status.Trim(), true, out var parsedStatus))
+                {
+                    filter &= Builders<User>.Filter.Eq(x => x.AccountStatus, parsedStatus);
+                }
             }
 
             if (!string.IsNullOrWhiteSpace(role))
@@ -254,15 +265,79 @@ namespace SolarGridX.Services
                 filter &= Builders<User>.Filter.Eq(x => x.Role, role.Trim());
             }
 
-            var users = await _users.Find(filter).SortByDescending(x => x.CreatedAt).ToListAsync();
-            return users.Select(MapUser).ToList();
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                var searchRegex = new BsonRegularExpression(Regex.Escape(search.Trim()), "i");
+                filter &= Builders<User>.Filter.Or(
+                    Builders<User>.Filter.Regex(x => x.NIC, searchRegex),
+                    Builders<User>.Filter.Regex(x => x.Name, searchRegex),
+                    Builders<User>.Filter.Regex(x => x.Email, searchRegex));
+            }
+
+            var sort = sortBy.Trim().ToLowerInvariant() switch
+            {
+                "nic" => sortDirection.Equals("asc", StringComparison.OrdinalIgnoreCase)
+                    ? Builders<User>.Sort.Ascending(x => x.NIC)
+                    : Builders<User>.Sort.Descending(x => x.NIC),
+                "name" => sortDirection.Equals("asc", StringComparison.OrdinalIgnoreCase)
+                    ? Builders<User>.Sort.Ascending(x => x.Name)
+                    : Builders<User>.Sort.Descending(x => x.Name),
+                "email" => sortDirection.Equals("asc", StringComparison.OrdinalIgnoreCase)
+                    ? Builders<User>.Sort.Ascending(x => x.Email)
+                    : Builders<User>.Sort.Descending(x => x.Email),
+                "role" => sortDirection.Equals("asc", StringComparison.OrdinalIgnoreCase)
+                    ? Builders<User>.Sort.Ascending(x => x.Role)
+                    : Builders<User>.Sort.Descending(x => x.Role),
+                "status" => sortDirection.Equals("asc", StringComparison.OrdinalIgnoreCase)
+                    ? Builders<User>.Sort.Ascending(x => x.AccountStatus)
+                    : Builders<User>.Sort.Descending(x => x.AccountStatus),
+                _ => sortDirection.Equals("asc", StringComparison.OrdinalIgnoreCase)
+                    ? Builders<User>.Sort.Ascending(x => x.CreatedAt)
+                    : Builders<User>.Sort.Descending(x => x.CreatedAt)
+            };
+
+            var totalCount = await _users.CountDocumentsAsync(filter);
+            var users = await _users.Find(filter)
+                .Sort(sort)
+                .Skip((page - 1) * pageSize)
+                .Limit(pageSize)
+                .ToListAsync();
+
+            return new PagedUserResponseDto
+            {
+                Items = users.Select(MapUser).ToList(),
+                Page = page,
+                PageSize = pageSize,
+                TotalCount = totalCount,
+                TotalPages = (int)Math.Ceiling(totalCount / (double)pageSize)
+            };
         }
 
-        public async Task<UserResponseDto?> UpdateAccountStatusAsync(string nic, string status)
+        public async Task<(UserResponseDto? User, string? Error)> UpdateAccountStatusAsync(
+            string nic,
+            AccountStatus nextStatus,
+            string? actorNic = null)
         {
+            var currentUser = await _users.Find(x => x.NIC == nic).FirstOrDefaultAsync();
+            if (currentUser == null)
+            {
+                return (null, "User was not found.");
+            }
+
+            if (string.Equals(currentUser.NIC, actorNic, StringComparison.OrdinalIgnoreCase)
+                && currentUser.Role == "Backoffice")
+            {
+                return (null, "A Backoffice user cannot deactivate their own account.");
+            }
+
+            if (!CanTransition(currentUser.AccountStatus, nextStatus))
+            {
+                return (null, $"Cannot change account status from {currentUser.AccountStatus} to {nextStatus}.");
+            }
+
             var update = Builders<User>.Update
-                .Set(x => x.AccountStatus, status)
-                .Set(x => x.DeactivationRequestedAt, status == "DeactivationRequested" ? DateTime.UtcNow : null)
+                .Set(x => x.AccountStatus, nextStatus)
+                .Set(x => x.DeactivationRequestedAt, nextStatus == AccountStatus.DeactivationRequested ? DateTime.UtcNow : null)
                 .Set(x => x.SecurityStamp, Guid.NewGuid().ToString("N"));
 
             var user = await _users.FindOneAndUpdateAsync(
@@ -270,7 +345,24 @@ namespace SolarGridX.Services
                 update,
                 new FindOneAndUpdateOptions<User> { ReturnDocument = ReturnDocument.After });
 
-            return user == null ? null : MapUser(user);
+            return user == null ? (null, "User was not found.") : (MapUser(user), null);
+        }
+
+        private static bool CanTransition(AccountStatus currentStatus, AccountStatus nextStatus)
+        {
+            if (currentStatus == nextStatus)
+            {
+                return true;
+            }
+
+            return currentStatus switch
+            {
+                AccountStatus.Pending => nextStatus == AccountStatus.Active,
+                AccountStatus.Active => nextStatus == AccountStatus.Inactive,
+                AccountStatus.Inactive => nextStatus == AccountStatus.Active,
+                AccountStatus.DeactivationRequested => nextStatus is AccountStatus.Active or AccountStatus.Inactive,
+                _ => false
+            };
         }
 
         public async Task<UserResponseDto?> UpdateProfileAsync(string nic, string name, string email)
@@ -309,7 +401,7 @@ namespace SolarGridX.Services
                 Name = user.Name,
                 Email = user.Email,
                 Role = user.Role,
-                AccountStatus = user.AccountStatus,
+                AccountStatus = user.AccountStatus.ToString(),
                 CreatedAt = user.CreatedAt,
                 DeactivationRequestedAt = user.DeactivationRequestedAt
             };

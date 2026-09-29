@@ -3,8 +3,6 @@
 import * as React from "react"
 
 import { NavMain } from "@/components/nav-main"
-import { NavProjects } from "@/components/nav-projects"
-import { NavSecondary } from "@/components/nav-secondary"
 import { NavUser } from "@/components/nav-user"
 import {
   Sidebar,
@@ -16,159 +14,28 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
 import {
-  TerminalSquareIcon,
-  BotIcon,
-  BookOpenIcon,
-  Settings2Icon,
-  LifeBuoyIcon,
-  SendIcon,
-  FrameIcon,
-  PieChartIcon,
-  MapIcon,
-  TerminalIcon,
   Building2Icon,
+  UserRoundCogIcon,
+  TerminalIcon,
 } from "lucide-react"
+import type { User } from "@/types/user"
 
-const data = {
-  user: {
-    name: "shadcn",
-    email: "m@example.com",
-    avatar: "/avatars/shadcn.jpg",
-  },
-  navMain: [
+export function AppSidebar({ currentUser, activeView, onNavigate, onLogout, ...props }: React.ComponentProps<typeof Sidebar> & { currentUser: User; activeView: "users" | "stations"; onNavigate: (view: "users" | "stations") => void; onLogout: () => void }) {
+  const navMain = [
     {
+      title: currentUser.role === "Backoffice" ? "User Management" : "My Account",
+      url: "users",
+      icon: <UserRoundCogIcon />,
+      isActive: activeView === "users",
+    },
+    ...(currentUser.role === "Backoffice" || currentUser.role === "Grid Operator" ? [{
       title: "Station Management",
-      url: "#",
+      url: "stations",
       icon: <Building2Icon />,
-      isActive: true,
-      items: [
-        {
-          title: "All Stations",
-          url: "#",
-        },
-        {
-          title: "Add Station",
-          url: "#",
-        },
-      ],
-    },
-    {
-      title: "Playground",
-      url: "#",
-      icon: <TerminalSquareIcon />,
-      isActive: true,
-      items: [
-        {
-          title: "History",
-          url: "#",
-        },
-        {
-          title: "Starred",
-          url: "#",
-        },
-        {
-          title: "Settings",
-          url: "#",
-        },
-      ],
-    },
-    {
-      title: "Models",
-      url: "#",
-      icon: <BotIcon />,
-      items: [
-        {
-          title: "Genesis",
-          url: "#",
-        },
-        {
-          title: "Explorer",
-          url: "#",
-        },
-        {
-          title: "Quantum",
-          url: "#",
-        },
-      ],
-    },
-    {
-      title: "Documentation",
-      url: "#",
-      icon: <BookOpenIcon />,
-      items: [
-        {
-          title: "Introduction",
-          url: "#",
-        },
-        {
-          title: "Get Started",
-          url: "#",
-        },
-        {
-          title: "Tutorials",
-          url: "#",
-        },
-        {
-          title: "Changelog",
-          url: "#",
-        },
-      ],
-    },
-    {
-      title: "Settings",
-      url: "#",
-      icon: <Settings2Icon />,
-      items: [
-        {
-          title: "General",
-          url: "#",
-        },
-        {
-          title: "Team",
-          url: "#",
-        },
-        {
-          title: "Billing",
-          url: "#",
-        },
-        {
-          title: "Limits",
-          url: "#",
-        },
-      ],
-    },
-  ],
-  navSecondary: [
-    {
-      title: "Support",
-      url: "#",
-      icon: <LifeBuoyIcon />,
-    },
-    {
-      title: "Feedback",
-      url: "#",
-      icon: <SendIcon />,
-    },
-  ],
-  projects: [
-    {
-      name: "Design Engineering",
-      url: "#",
-      icon: <FrameIcon />,
-    },
-    {
-      name: "Sales & Marketing",
-      url: "#",
-      icon: <PieChartIcon />,
-    },
-    {
-      name: "Travel",
-      url: "#",
-      icon: <MapIcon />,
-    },
-  ],
-}
-export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+      isActive: activeView === "stations",
+    }] : []),
+  ]
+
   return (
     <Sidebar variant="inset" {...props}>
       <SidebarHeader>
@@ -187,12 +54,10 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         </SidebarMenu>
       </SidebarHeader>
       <SidebarContent>
-        <NavMain items={data.navMain} />
-        <NavProjects projects={data.projects} />
-        <NavSecondary items={data.navSecondary} className="mt-auto" />
+        <NavMain items={navMain} onNavigate={(view) => onNavigate(view as "users" | "stations")} />
       </SidebarContent>
       <SidebarFooter>
-        <NavUser user={data.user} />
+        <NavUser user={{ name: currentUser.name, email: currentUser.email, avatar: "" }} onLogout={onLogout} />
       </SidebarFooter>
     </Sidebar>
   )

@@ -115,12 +115,11 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 }
 
-app.UseCors("ClientPolicy");
-
 if (!app.Environment.IsDevelopment())
 {
     app.UseHttpsRedirection();
 }
+app.UseCors("ClientPolicy");
 
 app.UseAuthentication();
 app.UseAuthorization();
