@@ -1,0 +1,23 @@
+info:
+  name: Modify Reservation
+  type: http
+  seq: 5
+
+http:
+  method: PUT
+  url: https://localhost:7172/api/reservation/65f1a2b3c4d5e6f7a8b9c0d1
+  body:
+    type: json
+    data: |-
+      {
+        "newSlotId": "65f1a2b3c4d5e6f7a8b9c0d2",
+        "requestedEnergyKwh": 20.0
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false
