@@ -3,6 +3,7 @@ using MongoDB.Bson.Serialization.Attributes;
 
 namespace SolarGridX.Models;
 
+[BsonIgnoreExtraElements]
 public class EnergyBookingSlot
 {
     [BsonId]
