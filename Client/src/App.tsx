@@ -11,6 +11,8 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb"
+import { Building2, CalendarCheck2 } from "lucide-react"
+import { Button } from "@/components/ui/button"
 
 import { AuthPage } from "./pages/AuthPage"
 import { UserManagementPage } from "./pages/UserManagementPage"
@@ -106,8 +108,8 @@ export function App() {
     <SidebarProvider>
       <AppSidebar currentUser={user} activeView={activeView} onNavigate={navigateTo} onLogout={handleLogout} />
       <SidebarInset>
-        <header className="flex h-16 shrink-0 items-center gap-2">
-          <div className="flex items-center gap-2 px-4">
+        <header className="flex h-16 shrink-0 items-center justify-between gap-2 border-b px-4">
+          <div className="flex items-center gap-2">
             <SidebarTrigger className="-ml-1" />
             <Separator
               orientation="vertical"
@@ -126,6 +128,28 @@ export function App() {
                 </BreadcrumbItem>
               </BreadcrumbList>
             </Breadcrumb>
+          </div>
+
+          {/* Quick Module Switcher */}
+          <div className="flex items-center gap-1.5 rounded-lg border bg-muted/40 p-1">
+            <Button
+              variant={activeTab === "reservations" ? "default" : "ghost"}
+              size="sm"
+              className="h-8 gap-1.5 text-xs"
+              onClick={() => setActiveTab("reservations")}
+            >
+              <CalendarCheck2 className="h-3.5 w-3.5" />
+              Reservations (Member 3)
+            </Button>
+            <Button
+              variant={activeTab === "stations" ? "default" : "ghost"}
+              size="sm"
+              className="h-8 gap-1.5 text-xs"
+              onClick={() => setActiveTab("stations")}
+            >
+              <Building2 className="h-3.5 w-3.5" />
+              Stations (Member 2)
+            </Button>
           </div>
         </header>
         {activeView === "stations" ? <StationsPage /> : <UserManagementPage currentUser={user} onUserUpdated={(updatedUser) => {

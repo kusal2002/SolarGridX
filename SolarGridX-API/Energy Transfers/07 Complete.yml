@@ -1,0 +1,23 @@
+info:
+  name: "07 Complete - expect 200"
+  type: http
+  seq: 7
+
+http:
+  method: PATCH
+  url: "{{baseUrl}}/api/energy-transfers/{{transferId}}/complete"
+  body:
+    type: json
+    data: |-
+      {
+        "transferredEnergyKWh": {{expectedEnergyKWh}}
+      }
+  auth:
+    type: bearer
+    token: "{{backofficeToken}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

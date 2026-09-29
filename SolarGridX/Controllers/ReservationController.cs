@@ -1,9 +1,12 @@
+using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SolarGridX.DTOs.Reservations;
 using SolarGridX.Services;
 
 namespace SolarGridX.Controllers;
 
+[Authorize(Roles = "Backoffice,Grid Operator,Prosumer")]
 [ApiController]
 [Route("api/[controller]")]
 public class ReservationController : ControllerBase
@@ -16,6 +19,7 @@ public class ReservationController : ControllerBase
     }
 
     [HttpGet]
+    [Authorize(Roles = "Backoffice,Grid Operator")]
     public async Task<IActionResult> GetAll()
     {
         var list = await _reservationService.GetAllAsync();
@@ -27,12 +31,14 @@ public class ReservationController : ControllerBase
     {
         var res = await _reservationService.GetByIdAsync(id);
         if (res == null) return NotFound(new { message = "Reservation not found." });
+        if (!CanAccess(res.ProsumerNIC)) return Forbid();
         return Ok(res);
     }
 
     [HttpGet("prosumer/{nic}")]
     public async Task<IActionResult> GetByProsumer(string nic)
     {
+        if (!CanAccess(nic)) return Forbid();
         var list = await _reservationService.GetByProsumerAsync(nic);
         return Ok(list);
     }
@@ -42,6 +48,7 @@ public class ReservationController : ControllerBase
     {
         try
         {
+            if (!CanAccess(request.ProsumerNIC)) return Forbid();
             var created = await _reservationService.CreateAsync(request);
             return CreatedAtAction(nameof(GetById), new { id = created.Id }, created);
         }
@@ -60,6 +67,9 @@ public class ReservationController : ControllerBase
     {
         try
         {
+            var existing = await _reservationService.GetByIdAsync(id);
+            if (existing == null) return NotFound();
+            if (!CanAccess(existing.ProsumerNIC)) return Forbid();
             var updated = await _reservationService.UpdateAsync(id, request);
             return Ok(updated);
         }
@@ -78,6 +88,9 @@ public class ReservationController : ControllerBase
     {
         try
         {
+            var existing = await _reservationService.GetByIdAsync(id);
+            if (existing == null) return NotFound();
+            if (!CanAccess(existing.ProsumerNIC)) return Forbid();
             var cancelled = await _reservationService.CancelAsync(id, reason);
             return Ok(cancelled);
         }
@@ -92,6 +105,7 @@ public class ReservationController : ControllerBase
     }
 
     [HttpPatch("{id}/status")]
+    [Authorize(Roles = "Backoffice,Grid Operator")]
     public async Task<IActionResult> UpdateStatus(string id, [FromBody] UpdateReservationStatusRequest request)
     {
         try
@@ -103,5 +117,13 @@ public class ReservationController : ControllerBase
         {
             return NotFound(new { message = ex.Message });
         }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new { message = ex.Message });
+        }
     }
+    // Staff may assist any prosumer; prosumers may only access their own bookings.
+    private bool CanAccess(string nic) =>
+        User.IsInRole("Backoffice") || User.IsInRole("Grid Operator") ||
+        (User.IsInRole("Prosumer") && User.FindFirstValue(ClaimTypes.NameIdentifier) == nic);
 }

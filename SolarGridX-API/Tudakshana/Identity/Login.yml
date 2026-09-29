@@ -5,18 +5,18 @@ info:
 
 http:
   method: POST
-  url: http://localhost:5084/api/auth/login
+  url: https://localhost:7172/api/auth/login
   body:
     type: json
     data: |-
       {
-        "email": "{{activeEmail}}",
-        "password": "{{activePassword}}"
+        "email": "kusalsalpura@gmail.com",
+        "password": "Kusal@123"
       }
-  auth: none
 
 settings:
   encodeUrl: true
   timeout: 0
   followRedirects: true
   maxRedirects: 5
+  forwardAuthorizationHeader: true

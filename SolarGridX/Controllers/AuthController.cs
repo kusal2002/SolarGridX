@@ -19,6 +19,7 @@ namespace SolarGridX.Controllers
         }
 
         [HttpPost("register")]
+        [AllowAnonymous]
         public async Task<IActionResult> Register(
             [FromBody] RegisterUserDto dto)
         {
@@ -44,6 +45,7 @@ namespace SolarGridX.Controllers
         }
 
         [HttpPost("login")]
+        [AllowAnonymous]
         public async Task<IActionResult> Login(
     [FromBody] LoginUserDto dto)
         {
@@ -89,6 +91,17 @@ namespace SolarGridX.Controllers
             }
 
             return Ok(await _authService.GetUsersAsync(page, pageSize, search, status, role, sortBy, sortDirection));
+        }
+
+        // Resolve the resource URL returned when an account is created.
+        [HttpGet("users/{nic}")]
+        [Authorize]
+        public async Task<IActionResult> GetUser(string nic)
+        {
+            if (User.FindFirstValue(ClaimTypes.NameIdentifier) != nic && !User.IsInRole("Backoffice"))
+                return Forbid();
+            var result = await _authService.GetUserByNicAsync(nic);
+            return result == null ? NotFound() : Ok(result);
         }
 
         [HttpPatch("users/{nic}/status")]

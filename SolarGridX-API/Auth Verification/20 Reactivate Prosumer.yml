@@ -1,0 +1,22 @@
+info:
+  name: "20 Reactivate Prosumer - expect 200"
+  type: http
+  seq: 20
+
+http:
+  method: PATCH
+  url: "{{baseUrl}}/api/auth/users/{{prosumerNic}}/status"
+  body:
+    type: json
+    data: |-
+      "Active"
+  auth:
+    type: bearer
+    token: "{{backofficeToken}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+

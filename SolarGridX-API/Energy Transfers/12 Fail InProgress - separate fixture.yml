@@ -1,0 +1,23 @@
+info:
+  name: "12 Fail InProgress - separate fixture - expect 200"
+  type: http
+  seq: 12
+
+http:
+  method: PATCH
+  url: "{{baseUrl}}/api/energy-transfers/{{failTransferId}}/fail"
+  body:
+    type: json
+    data: |-
+      {
+        "reason": "Meter reported delivery interruption"
+      }
+  auth:
+    type: bearer
+    token: "{{backofficeToken}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

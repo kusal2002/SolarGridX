@@ -1,46 +1,26 @@
 info:
-  name: Create Energy Transfer
+  name: "Create Energy Transfer - expect 201"
   type: http
   seq: 2
 
 http:
   method: POST
-  url: https://localhost:7172/api/energy-transfers
+  url: "{{baseUrl}}/api/energy-transfers"
   body:
     type: json
     data: |-
       {
-        "reservationId": "RES002",
-        "sellerId": "USER003",
-        "buyerId": "USER002",
-        "expectedEnergyKWh": 6.0
+        "reservationId": "{{reservationId}}",
+        "sellerId": "{{sellerNIC}}",
+        "buyerId": "{{buyerNIC}}",
+        "expectedEnergyKWh": {{expectedEnergyKWh}}
       }
-  auth: inherit
+  auth:
+    type: bearer
+    token: "{{backofficeToken}}"
 
 settings:
   encodeUrl: true
   timeout: 0
   followRedirects: true
   maxRedirects: 5
-  forwardAuthorizationHeader: false
-
-examples:
-  - name: example of Create Energy Transfer
-    request:
-      url: https://localhost:7172/api/energy-transfers
-      method: POST
-      body:
-        type: json
-        data: |-
-          {
-            "reservationId": "RES002",
-            "sellerId": "USER003",
-            "buyerId": "USER002",
-            "expectedEnergyKWh": 6.0
-          }
-    response:
-      status: 200
-      statusText: OK
-      body:
-        type: text
-        data: ""

@@ -1,6 +1,8 @@
-const API_URL = "http://127.0.0.1:5084/api"
+import type { Station } from "@/types/station"
 
-export async function getStations() {
+const API_URL = import.meta.env.VITE_API_URL || "https://localhost:7172/api"
+
+export async function getStations(): Promise<Station[]> {
   const response = await fetch(`${API_URL}/stations/all`)
 
   if (!response.ok) {

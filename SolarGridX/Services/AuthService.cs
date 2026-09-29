@@ -43,8 +43,13 @@ namespace SolarGridX.Services
 
             if (string.IsNullOrWhiteSpace(user.SecurityStamp))
             {
-                user.SecurityStamp = Guid.NewGuid().ToString("N");
-                await _users.ReplaceOneAsync(x => x.NIC == user.NIC, user);
+                // Only initialize the stamp if the account is still active and unchanged.
+                var originalStamp = user.SecurityStamp;
+                user = await _users.FindOneAndUpdateAsync(
+                    x => x.NIC == user.NIC && x.AccountStatus == "Active" && x.SecurityStamp == originalStamp,
+                    Builders<User>.Update.Set(x => x.SecurityStamp, Guid.NewGuid().ToString("N")),
+                    new FindOneAndUpdateOptions<User> { ReturnDocument = ReturnDocument.After });
+                if (user == null) return null;
             }
 
             return new LoginResponseDto
@@ -64,6 +69,28 @@ namespace SolarGridX.Services
         {
             _users = database.GetCollection<User>("Users");
             _configuration = configuration;
+        }
+
+        // Enforce uniqueness at the database boundary, including concurrent requests.
+        public async Task EnsureIndexesAsync()
+        {
+            await _users.Indexes.CreateOneAsync(new CreateIndexModel<User>(
+                Builders<User>.IndexKeys.Ascending(x => x.Email),
+                new CreateIndexOptions { Unique = true, Name = "unique_user_email" }));
+        }
+
+        // Map racing NIC/email inserts to the controller's conflict response.
+        private async Task<bool> TryInsertAsync(User user)
+        {
+            try
+            {
+                await _users.InsertOneAsync(user);
+                return true;
+            }
+            catch (MongoWriteException ex) when (ex.WriteError.Category == ServerErrorCategory.DuplicateKey)
+            {
+                return false;
+            }
         }
 
         public async Task<UserResponseDto?> RegisterUserAsync(
@@ -109,7 +136,7 @@ namespace SolarGridX.Services
                 CreatedAt = DateTime.UtcNow
             };
 
-            await _users.InsertOneAsync(user);
+            if (!await TryInsertAsync(user)) return null;
 
             return new UserResponseDto
             {
@@ -177,11 +204,11 @@ namespace SolarGridX.Services
                 CreatedAt = DateTime.UtcNow
             };
 
-            await _users.InsertOneAsync(user);
+            if (!await TryInsertAsync(user)) return null;
             return MapUser(user);
         }
 
-        public async Task<bool> IsTokenActiveAsync(string nic, string securityStamp)
+        public async Task<bool> IsTokenActiveAsync(string nic, string securityStamp, string? role)
         {
             var user = await _users.Find(x => x.NIC == nic).FirstOrDefaultAsync();
             return user != null
@@ -352,12 +379,18 @@ namespace SolarGridX.Services
                 .Set(x => x.Name, name.Trim())
                 .Set(x => x.Email, normalizedEmail);
 
-            var user = await _users.FindOneAndUpdateAsync(
-                x => x.NIC == nic,
-                update,
-                new FindOneAndUpdateOptions<User> { ReturnDocument = ReturnDocument.After });
-
-            return user == null ? null : MapUser(user);
+            try
+            {
+                var user = await _users.FindOneAndUpdateAsync(
+                    x => x.NIC == nic,
+                    update,
+                    new FindOneAndUpdateOptions<User> { ReturnDocument = ReturnDocument.After });
+                return user == null ? null : MapUser(user);
+            }
+            catch (MongoCommandException ex) when (ex.Code == 11000)
+            {
+                return null;
+            }
         }
 
         private static UserResponseDto MapUser(User user)

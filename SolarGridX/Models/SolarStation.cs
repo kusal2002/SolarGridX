@@ -4,6 +4,7 @@ using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace SolarGridX.Models;
 
+[BsonIgnoreExtraElements]
 public class SolarStation
 {
     [BsonId]

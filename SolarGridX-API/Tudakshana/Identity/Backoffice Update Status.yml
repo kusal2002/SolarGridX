@@ -8,7 +8,8 @@ http:
   url: http://localhost:5084/api/auth/users/{{prosumerNic}}/status
   body:
     type: json
-    data: "Active"
+    data: |-
+      "Active"
   auth:
     type: bearer
     token: "{{backofficeToken}}"

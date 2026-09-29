@@ -1,0 +1,23 @@
+info:
+  name: "22 Login After Reactivation - expect 200"
+  type: http
+  seq: 22
+
+http:
+  method: POST
+  url: "{{baseUrl}}/api/auth/login"
+  body:
+    type: json
+    data: |-
+      {
+        "email": "{{prosumerEmail}}",
+        "password": "{{prosumerPassword}}"
+      }
+  auth: none
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+

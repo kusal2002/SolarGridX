@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.Options;
 using MongoDB.Driver;
 using Microsoft.IdentityModel.Tokens;
@@ -62,7 +63,8 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
                 }
 
                 var authService = context.HttpContext.RequestServices.GetRequiredService<AuthService>();
-                if (!await authService.IsTokenActiveAsync(nic, securityStamp))
+                if (!await authService.IsTokenActiveAsync(nic, securityStamp,
+                    context.Principal?.FindFirstValue(ClaimTypes.Role)))
                 {
                     context.Fail("The account is inactive or the token has been revoked.");
                 }
@@ -86,6 +88,12 @@ builder.Services.AddSingleton<IMongoDatabase>(sp =>
 });
 
 builder.Services.AddControllers();
+// Require authentication by default; only registration and login opt out.
+builder.Services.AddAuthorization(options =>
+{
+    options.FallbackPolicy = new AuthorizationPolicyBuilder()
+        .RequireAuthenticatedUser().Build();
+});
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
 
@@ -93,7 +101,7 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("ClientPolicy", policy =>
     {
-        policy.WithOrigins("http://localhost:5173")
+        policy.WithOrigins("http://localhost:5173", "http://127.0.0.1:5173")
               .AllowAnyHeader()
               .AllowAnyMethod();
     });
@@ -122,6 +130,8 @@ using (var scope = app.Services.CreateScope())
 {
     var configuration = scope.ServiceProvider.GetRequiredService<IConfiguration>();
     var authService = scope.ServiceProvider.GetRequiredService<AuthService>();
+    await authService.EnsureIndexesAsync();
+    await scope.ServiceProvider.GetRequiredService<EnergyTransferService>().EnsureIndexesAsync();
     await authService.EnsureBootstrapBackofficeAsync(
         configuration["BootstrapAdmin:NIC"],
         configuration["BootstrapAdmin:Name"],

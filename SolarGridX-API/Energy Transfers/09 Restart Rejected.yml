@@ -1,0 +1,17 @@
+info:
+  name: "09 Restart Rejected - expect 409"
+  type: http
+  seq: 9
+
+http:
+  method: PATCH
+  url: "{{baseUrl}}/api/energy-transfers/{{transferId}}/start"
+  auth:
+    type: bearer
+    token: "{{backofficeToken}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
