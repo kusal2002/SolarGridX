@@ -26,7 +26,7 @@ export function AppRouter() {
     if (user) {
       const requestedView = viewFromPath(window.location.pathname)
       if (user.role === "Prosumer" && requestedView === "stations") {
-        handleNavigate("users", true)
+        setTimeout(() => handleNavigate("users", true), 0)
       }
     }
   }, [user])

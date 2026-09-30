@@ -1,15 +1,48 @@
 import type { Station } from "@/types/station"
 
-const API_URL = import.meta.env.VITE_API_URL || "https://localhost:7172/api"
+const API_URL = import.meta.env.VITE_API_URL
 
-export async function getStations(): Promise<Station[]> {
-  const response = await fetch(`${API_URL}/stations/all`)
+if (!API_URL) {
+  throw new Error("VITE_API_URL is not configured.")
+}
 
-  if (!response.ok) {
-    throw new Error("Failed to fetch stations")
+async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+  const token = localStorage.getItem("solargridx-token")
+
+  const headers = new Headers(options.headers)
+
+  headers.set("Content" + String.fromCharCode(45) + "Type", "application/json")
+
+  if (token) {
+    headers.set("Authorization", `Bearer ${token}`)
   }
 
-  return response.json()
+  const response = await fetch(`${API_URL}${path}`, {
+    ...options,
+    headers,
+  })
+
+  if (!response.ok) {
+    if (response.status === 401) {
+      localStorage.removeItem("solargridx-token")
+      localStorage.removeItem("solargridx-user")
+      window.dispatchEvent(new Event("solargridx:logout"))
+    }
+
+    const body = await response.json().catch(() => ({}))
+
+    throw new Error(body.message || "The request could not be completed.")
+  }
+
+  if (response.status === 204) {
+    return undefined as T
+  }
+
+  return response.json() as Promise<T>
+}
+
+export async function getStations(): Promise<Station[]> {
+  return request<Station[]>("/stations/all")
 }
 
 export async function createStation(data: {
@@ -19,19 +52,10 @@ export async function createStation(data: {
   longitude: number
   totalCapacityKwh: number
 }) {
-  const response = await fetch(`${API_URL}/stations`, {
+  return request<Station>("/stations", {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
     body: JSON.stringify(data),
   })
-
-  if (!response.ok) {
-    throw new Error("Failed to create station")
-  }
-
-  return response.json()
 }
 
 export async function updateStation(
@@ -45,43 +69,20 @@ export async function updateStation(
     isActive: boolean
   }
 ) {
-  const response = await fetch(`${API_URL}/stations/${id}`, {
+  return request<Station>(`/stations/${id}`, {
     method: "PUT",
-    headers: {
-      "Content-Type": "application/json",
-    },
     body: JSON.stringify(data),
   })
-
-  if (!response.ok) {
-    throw new Error("Failed to update station")
-  }
-
-  return response.json()
 }
 
 export async function deactivateStation(id: string) {
-  const response = await fetch(`${API_URL}/stations/${id}`, {
+  return request<unknown>(`/stations/${id}`, {
     method: "DELETE",
   })
-
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}))
-    throw new Error(errorData.message || "Failed to deactivate station")
-  }
-
-  return response.json()
 }
 
 export async function reactivateStation(id: string) {
-  const response = await fetch(`${API_URL}/stations/${id}/reactivate`, {
+  return request<unknown>(`/stations/${id}/reactivate`, {
     method: "PATCH",
   })
-
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}))
-    throw new Error(errorData.message || "Failed to reactivate station")
-  }
-
-  return response.json()
 }

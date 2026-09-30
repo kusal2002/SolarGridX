@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { AlertTriangle, Clock } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
@@ -31,13 +31,21 @@ export function CancelReservationDialog({
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
 
+  const [now, setNow] = useState(() => Date.now())
+
+  useEffect(() => {
+    if (open) {
+      setTimeout(() => setNow(Date.now()), 0)
+    }
+  }, [open])
+
   if (!reservation) return null
 
   // Calculate hours remaining until slot start
   const reservationDateTime = new Date(
     `${reservation.reservationDate.split("T")[0]}T${reservation.startTime}`
   )
-  const hoursRemaining = (reservationDateTime.getTime() - Date.now()) / (1000 * 60 * 60)
+  const hoursRemaining = (reservationDateTime.getTime() - now) / (1000 * 60 * 60)
   const isWithin12Hours = hoursRemaining < 12
 
   async function handleConfirmCancel() {

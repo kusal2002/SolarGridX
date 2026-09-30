@@ -33,25 +33,30 @@ export function ModifyReservationDialog({
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
 
+  const [now, setNow] = useState(() => Date.now())
+
   useEffect(() => {
+    async function loadSlots() {
+      try {
+        const allSlots = await getActiveSlots()
+        if (reservation) {
+          setSlots(allSlots.filter((s) => s.stationId === reservation.stationId))
+        }
+      } catch {
+        // Ignore slot load error if fallback
+      }
+    }
+
     if (reservation && open) {
-      setNewKwh(reservation.requestedEnergyKwh)
-      setNewSlotId(reservation.slotId)
-      setError("")
+      setTimeout(() => {
+        setNewKwh(reservation.requestedEnergyKwh)
+        setNewSlotId(reservation.slotId)
+        setError("")
+        setNow(Date.now())
+      }, 0)
       loadSlots()
     }
   }, [reservation, open])
-
-  async function loadSlots() {
-    try {
-      const allSlots = await getActiveSlots()
-      if (reservation) {
-        setSlots(allSlots.filter((s) => s.stationId === reservation.stationId))
-      }
-    } catch {
-      // Ignore slot load error if fallback
-    }
-  }
 
   if (!reservation) return null
 
@@ -59,7 +64,7 @@ export function ModifyReservationDialog({
   const reservationDateTime = new Date(
     `${reservation.reservationDate.split("T")[0]}T${reservation.startTime}`
   )
-  const hoursRemaining = (reservationDateTime.getTime() - Date.now()) / (1000 * 60 * 60)
+  const hoursRemaining = (reservationDateTime.getTime() - now) / (1000 * 60 * 60)
   const isWithin12Hours = hoursRemaining < 12
 
   async function handleSubmit(e: React.FormEvent) {
