@@ -43,6 +43,8 @@ public class StationService
     public async Task<SolarStation> CreateAsync(
         CreateStationRequest request)
     {
+        ValidateSchedule(request.OperatingStartTime, request.OperatingEndTime);
+
         var station = new SolarStation()
         {
             StationName = request.StationName,
@@ -50,6 +52,8 @@ public class StationService
             Latitude = request.Latitude,
             Longitude = request.Longitude,
             TotalCapacityKwh = request.TotalCapacityKwh,
+            OperatingStartTime = request.OperatingStartTime,
+            OperatingEndTime = request.OperatingEndTime,
             IsActive = true,
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow
@@ -63,6 +67,8 @@ public class StationService
     string id,
     UpdateStationRequest request)
     {
+        ValidateSchedule(request.OperatingStartTime, request.OperatingEndTime);
+
         var station = await _stations
             .Find(s => s.Id == id)
             .FirstOrDefaultAsync();
@@ -77,6 +83,8 @@ public class StationService
         station.Latitude = request.Latitude;
         station.Longitude = request.Longitude;
         station.TotalCapacityKwh = request.TotalCapacityKwh;
+        station.OperatingStartTime = request.OperatingStartTime;
+        station.OperatingEndTime = request.OperatingEndTime;
         station.IsActive = request.IsActive;
         station.UpdatedAt = DateTime.UtcNow;
 
@@ -128,5 +136,26 @@ public class StationService
         return result.MatchedCount > 0;
     }
 
-
+    private void ValidateSchedule(string startTimeStr, string endTimeStr)
+    {
+        if (!string.IsNullOrEmpty(startTimeStr) && !string.IsNullOrEmpty(endTimeStr))
+        {
+            if (TimeSpan.TryParse(startTimeStr, out var startTime) && 
+                TimeSpan.TryParse(endTimeStr, out var endTime))
+            {
+                if (startTime >= endTime)
+                {
+                    throw new ArgumentException("Operating start time must be before operating end time.");
+                }
+            }
+            else 
+            {
+                throw new ArgumentException("Invalid operating time format.");
+            }
+        }
+        else if (!string.IsNullOrEmpty(startTimeStr) || !string.IsNullOrEmpty(endTimeStr))
+        {
+            throw new ArgumentException("Both operating start time and end time must be provided if schedule is set.");
+        }
+    }
 }

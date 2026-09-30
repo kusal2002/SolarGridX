@@ -21,6 +21,21 @@ public class ReservationService
         _users = database.GetCollection<User>("Users");
     }
 
+    private DateTime GetSriLankaTime()
+    {
+        try
+        {
+            var tz = TimeZoneInfo.FindSystemTimeZoneById("Asia/Colombo");
+            return TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, tz);
+        }
+        catch (TimeZoneNotFoundException)
+        {
+            // Fallback for Windows environments
+            var tz = TimeZoneInfo.FindSystemTimeZoneById("Sri Lanka Standard Time");
+            return TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, tz);
+        }
+    }
+
     // 1. Get All Reservations (Admin / Operator)
     public async Task<List<EnergyReservation>> GetAllAsync()
     {
@@ -64,7 +79,7 @@ public class ReservationService
             throw new KeyNotFoundException("The requested energy slot was not found or is inactive.");
 
         // C. Enforce 7-Day booking window rule
-        var today = DateTime.UtcNow.Date;
+        var today = GetSriLankaTime().Date;
         var slotDate = slot.SlotDate.Date;
         var dayDifference = (slotDate - today).TotalDays;
 
@@ -134,7 +149,7 @@ public class ReservationService
 
         // 12-Hour Restriction Check
         var slotStart = reservation.ReservationDate.Date.Add(reservation.StartTime);
-        if ((slotStart - DateTime.UtcNow).TotalHours < 12)
+        if ((slotStart - GetSriLankaTime()).TotalHours < 12)
         {
             throw new InvalidOperationException("Cancellations must be made at least 12 hours before the scheduled slot time.");
         }
@@ -173,7 +188,7 @@ public class ReservationService
 
         // 12-Hour Restriction Check on current slot
         var currentSlotStart = reservation.ReservationDate.Date.Add(reservation.StartTime);
-        if ((currentSlotStart - DateTime.UtcNow).TotalHours < 12)
+        if ((currentSlotStart - GetSriLankaTime()).TotalHours < 12)
         {
             throw new InvalidOperationException("Modifications must be made at least 12 hours before the scheduled slot time.");
         }
@@ -188,7 +203,7 @@ public class ReservationService
                 throw new KeyNotFoundException("The new energy slot was not found or is inactive.");
 
             // 7-day window rule for new slot
-            var dayDifference = (newSlot.SlotDate.Date - DateTime.UtcNow.Date).TotalDays;
+            var dayDifference = (newSlot.SlotDate.Date - GetSriLankaTime().Date).TotalDays;
             if (dayDifference < 0 || dayDifference > 7)
                 throw new InvalidOperationException("New slot must be within the 7-day booking window.");
 
