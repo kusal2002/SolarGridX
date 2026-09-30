@@ -20,3 +20,5 @@ Release/
 !.env.example
 # VS Code C# Dev Tools - Auto-generated runners
 .vscodecsdt/Runners/
+
+/scratch
