@@ -26,7 +26,11 @@ builder.Services.AddScoped<SlotService>();
 builder.Services.AddScoped<ReservationService>();
 
 var jwtSettings = builder.Configuration.GetSection("Jwt");
-var jwtKey = jwtSettings["Key"] ?? throw new InvalidOperationException("JWT key is not configured.");
+var jwtKey = jwtSettings["Key"]
+    ?? Environment.GetEnvironmentVariable("Jwt__Key")
+    ?? Environment.GetEnvironmentVariable("Jwt__Key", EnvironmentVariableTarget.Machine)
+    ?? Environment.GetEnvironmentVariable("Jwt__Key", EnvironmentVariableTarget.User)
+    ?? throw new InvalidOperationException("JWT key is not configured.");
 var jwtKeyBytes = System.Text.Encoding.UTF8.GetBytes(jwtKey);
 
 if (jwtKeyBytes.Length < 32)
@@ -76,8 +80,15 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 builder.Services.AddSingleton<IMongoClient>(sp =>
 {
     var settings = sp.GetRequiredService<IOptions<MongoDbSettings>>().Value;
-
-    return new MongoClient(settings.ConnectionString);
+    var conn = settings.ConnectionString;
+    if (string.IsNullOrWhiteSpace(conn))
+    {
+        conn = Environment.GetEnvironmentVariable("MongoDbSettings__ConnectionString")
+            ?? Environment.GetEnvironmentVariable("MongoDbSettings__ConnectionString", EnvironmentVariableTarget.Machine)
+            ?? Environment.GetEnvironmentVariable("MongoDbSettings__ConnectionString", EnvironmentVariableTarget.User)
+            ?? "";
+    }
+    return new MongoClient(conn);
 });
 
 builder.Services.AddSingleton<IMongoDatabase>(sp =>
@@ -115,10 +126,10 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 }
 
-if (!app.Environment.IsDevelopment())
-{
-    app.UseHttpsRedirection();
-}
+// if (!app.Environment.IsDevelopment())
+// {
+//     app.UseHttpsRedirection();
+// }
 app.UseCors("ClientPolicy");
 
 app.UseAuthentication();
@@ -126,8 +137,9 @@ app.UseAuthorization();
 
 app.MapControllers();
 
-using (var scope = app.Services.CreateScope())
+try
 {
+    using var scope = app.Services.CreateScope();
     var configuration = scope.ServiceProvider.GetRequiredService<IConfiguration>();
     var authService = scope.ServiceProvider.GetRequiredService<AuthService>();
     await authService.EnsureIndexesAsync();
@@ -137,6 +149,10 @@ using (var scope = app.Services.CreateScope())
         configuration["BootstrapAdmin:Name"],
         configuration["BootstrapAdmin:Email"],
         configuration["BootstrapAdmin:Password"]);
+}
+catch (Exception ex)
+{
+    Console.WriteLine($"[Startup Warning] Background initialization failed: {ex.Message}");
 }
 
 app.Run();
