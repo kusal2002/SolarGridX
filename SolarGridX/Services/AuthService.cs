@@ -35,17 +35,17 @@ namespace SolarGridX.Services
                 return LoginResultDto.Failed("Invalid email or password.");
             }
 
-            if (user.AccountStatus == "Pending")
+            if (user.AccountStatus == AccountStatus.Pending)
             {
                 return LoginResultDto.Failed("Your account is pending Backoffice approval. Please wait for an administrator to activate your account.");
             }
 
-            if (user.AccountStatus == "Inactive")
+            if (user.AccountStatus == AccountStatus.Inactive)
             {
                 return LoginResultDto.Failed("Your account has been deactivated. Please contact support.");
             }
 
-            if (user.AccountStatus == "DeactivationRequested")
+            if (user.AccountStatus == AccountStatus.DeactivationRequested)
             {
                 return LoginResultDto.Failed("Account deactivation has been requested for this account.");
             }
@@ -60,7 +60,7 @@ namespace SolarGridX.Services
                 // Only initialize the stamp if the account is still active and unchanged.
                 var originalStamp = user.SecurityStamp;
                 user = await _users.FindOneAndUpdateAsync(
-                    x => x.NIC == user.NIC && x.AccountStatus == "Active" && x.SecurityStamp == originalStamp,
+                    x => x.NIC == user.NIC && x.AccountStatus == AccountStatus.Active && x.SecurityStamp == originalStamp,
                     Builders<User>.Update.Set(x => x.SecurityStamp, Guid.NewGuid().ToString("N")),
                     new FindOneAndUpdateOptions<User> { ReturnDocument = ReturnDocument.After });
                 if (user == null) return LoginResultDto.Failed("Unable to authenticate account.");

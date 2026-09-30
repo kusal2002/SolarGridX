@@ -87,7 +87,7 @@ public class EnergyTransferService
                 {
                     var user = await _users.Find(s, u => u.NIC == nic).FirstOrDefaultAsync(token)
                         ?? throw new TransferException(404, "Seller or buyer account not found.");
-                    if (user.Role != "Prosumer" || user.AccountStatus != "Active")
+                    if (user.Role != "Prosumer" || user.AccountStatus != AccountStatus.Active)
                         throw new TransferException(409, "Seller and buyer must be active Prosumers.");
                 }
                 await RequireActiveSlotAsync(s, reservation, token);
