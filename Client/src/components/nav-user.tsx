@@ -18,15 +18,13 @@ import {
 } from "@/components/ui/sidebar"
 import {
   ChevronsUpDownIcon,
-  SparklesIcon,
   BadgeCheckIcon,
-  CreditCardIcon,
-  BellIcon,
   LogOutIcon,
 } from "lucide-react"
 
 export function NavUser({
   user,
+  onAccount,
   onLogout,
 }: {
   user: {
@@ -34,6 +32,7 @@ export function NavUser({
     email: string
     avatar: string
   }
+  onAccount?: () => void
   onLogout?: () => void
 }) {
   const { isMobile } = useSidebar()
@@ -78,24 +77,9 @@ export function NavUser({
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
-              <DropdownMenuItem>
-                <SparklesIcon />
-                Upgrade to Pro
-              </DropdownMenuItem>
-            </DropdownMenuGroup>
-            <DropdownMenuSeparator />
-            <DropdownMenuGroup>
-              <DropdownMenuItem>
+              <DropdownMenuItem onClick={onAccount}>
                 <BadgeCheckIcon />
                 Account
-              </DropdownMenuItem>
-              <DropdownMenuItem>
-                <CreditCardIcon />
-                Billing
-              </DropdownMenuItem>
-              <DropdownMenuItem>
-                <BellIcon />
-                Notifications
               </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />

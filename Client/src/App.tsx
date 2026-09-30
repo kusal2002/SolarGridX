@@ -11,10 +11,12 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb"
-import { Building2, CalendarCheck2 } from "lucide-react"
+import { Building2, CalendarCheck2, Moon, Sun } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { useTheme } from "@/components/theme-provider"
 
 import { AuthPage } from "./pages/AuthPage"
+import { AccessDeniedPage } from "./pages/AccessDeniedPage"
 import { UserManagementPage } from "./pages/UserManagementPage"
 import { StationsPage } from "./pages/StationsPage"
 import { getMyProfile } from "@/lib/auth-api"
@@ -31,9 +33,11 @@ function pathForView(view: View) {
 }
 
 export function App() {
+  const { theme, setTheme } = useTheme()
   const [user, setUser] = useState<User | null>(null)
   const [checkingSession, setCheckingSession] = useState(() => Boolean(localStorage.getItem("solargridx-token")))
   const [activeView, setActiveView] = useState<View>(() => viewFromPath(window.location.pathname))
+  const activeTab = activeView === "stations" ? "stations" : "reservations"
 
   const navigateTo = (view: View, replace = false) => {
     const nextPath = pathForView(view)
@@ -41,6 +45,10 @@ export function App() {
       window.history[replace ? "replaceState" : "pushState"]({}, "", nextPath)
     }
     setActiveView(view)
+  }
+
+  const setActiveTab = (tab: "reservations" | "stations") => {
+    navigateTo(tab === "stations" ? "stations" : "users")
   }
 
   useEffect(() => {
@@ -104,6 +112,10 @@ export function App() {
     return <AuthPage onAuthenticated={handleAuthenticated} />
   }
 
+  if (activeView === "stations" && user.role === "Prosumer") {
+    return <AccessDeniedPage onBack={() => navigateTo("users", true)} />
+  }
+
   return (
     <SidebarProvider>
       <AppSidebar currentUser={user} activeView={activeView} onNavigate={navigateTo} onLogout={handleLogout} />
@@ -131,7 +143,17 @@ export function App() {
           </div>
 
           {/* Quick Module Switcher */}
-          <div className="flex items-center gap-1.5 rounded-lg border bg-muted/40 p-1">
+          <div className="flex items-center gap-1.5">
+            <Button
+              variant="outline"
+              size="icon"
+              aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+              title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+              onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+            >
+              {theme === "dark" ? <Sun /> : <Moon />}
+            </Button>
+            <div className="flex items-center gap-1.5 rounded-lg border bg-muted/40 p-1">
             <Button
               variant={activeTab === "reservations" ? "default" : "ghost"}
               size="sm"
@@ -150,6 +172,7 @@ export function App() {
               <Building2 className="h-3.5 w-3.5" />
               Stations (Member 2)
             </Button>
+            </div>
           </div>
         </header>
         {activeView === "stations" ? <StationsPage /> : <UserManagementPage currentUser={user} onUserUpdated={(updatedUser) => {
