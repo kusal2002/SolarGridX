@@ -1,23 +1,52 @@
-const API_URL = "http://127.0.0.1:5084/api"
+const API_URL =
+  import.meta.env.VITE_API_URL || "http://127.0.0.1:5084/api"
 
-export async function getSlots() {
-  const response = await fetch(`${API_URL}/slots`)
+const TOKEN_KEY = ["solargridx", "token"].join(String.fromCharCode(45))
+const USER_KEY = ["solargridx", "user"].join(String.fromCharCode(45))
 
-  if (!response.ok) {
-    throw new Error("Failed to fetch slots")
+async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+  const token = localStorage.getItem(TOKEN_KEY)
+
+  const headers = new Headers(options.headers)
+
+  headers.set("Content-Type", "application/json")
+
+  if (token) {
+    headers.set("Authorization", `Bearer ${token}`)
   }
 
-  return response.json()
+  const response = await fetch(`${API_URL}${path}`, {
+    ...options,
+    headers,
+  })
+
+  if (!response.ok) {
+    if (response.status === 401) {
+      localStorage.removeItem(TOKEN_KEY)
+      localStorage.removeItem(USER_KEY)
+      window.dispatchEvent(new Event("solargridx:logout"))
+    }
+
+    const errorData = await response.json().catch(() => ({}))
+
+    throw new Error(
+      errorData.message || "The request could not be completed."
+    )
+  }
+
+  if (response.status === 204) {
+    return undefined as T
+  }
+
+  return response.json() as Promise<T>
+}
+
+export async function getSlots() {
+  return request("/slots")
 }
 
 export async function getSlotsByStationId(stationId: string) {
-  const response = await fetch(`${API_URL}/slots/station/${stationId}`)
-
-  if (!response.ok) {
-    throw new Error("Failed to fetch slots for station")
-  }
-
-  return response.json()
+  return request(`/slots/station/${encodeURIComponent(stationId)}`)
 }
 
 export async function createSlot(data: {
@@ -27,20 +56,10 @@ export async function createSlot(data: {
   endTime: string
   energyCapacityKwh: number
 }) {
-  const response = await fetch(`${API_URL}/slots`, {
+  return request("/slots", {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
     body: JSON.stringify(data),
   })
-
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}))
-    throw new Error(errorData.message || "Failed to create slot")
-  }
-
-  return response.json()
 }
 
 export async function updateSlot(
@@ -52,44 +71,20 @@ export async function updateSlot(
     energyCapacityKwh: number
   }
 ) {
-  const response = await fetch(`${API_URL}/slots/${id}`, {
+  return request(`/slots/${encodeURIComponent(id)}`, {
     method: "PUT",
-    headers: {
-      "Content-Type": "application/json",
-    },
     body: JSON.stringify(data),
   })
-
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}))
-    throw new Error(errorData.message || "Failed to update slot")
-  }
-
-  return response.json()
 }
 
 export async function deactivateSlot(id: string) {
-  const response = await fetch(`${API_URL}/slots/${id}/deactivate`, {
+  return request(`/slots/${encodeURIComponent(id)}/deactivate`, {
     method: "PATCH",
   })
-
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}))
-    throw new Error(errorData.message || "Failed to deactivate slot")
-  }
-
-  return response.json()
 }
 
 export async function reactivateSlot(id: string) {
-  const response = await fetch(`${API_URL}/slots/${id}/reactivate`, {
+  return request(`/slots/${encodeURIComponent(id)}/reactivate`, {
     method: "PATCH",
   })
-
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}))
-    throw new Error(errorData.message || "Failed to reactivate slot")
-  }
-
-  return response.json()
 }

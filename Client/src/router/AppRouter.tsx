@@ -3,6 +3,7 @@ import { useAuth } from "@/context/AuthContext"
 import { AuthPage } from "@/pages/AuthPage"
 import { UserManagementPage } from "@/pages/UserManagementPage"
 import { StationsPage } from "@/pages/StationsPage"
+import { SlotsPage } from "@/pages/SlotsPage"
 import { ReservationsPage } from "@/pages/ReservationsPage"
 import { MainLayout } from "@/components/layout/main-layout"
 import { navigateToView, viewFromPath, type View } from "./routes"
@@ -47,6 +48,8 @@ export function AppRouter() {
     <MainLayout user={user} activeView={activeView} onNavigate={handleNavigate} onLogout={logout}>
       {activeView === "stations" ? (
         <StationsPage />
+      ) : activeView === "slots" ? (
+        <SlotsPage />
       ) : activeView === "reservations" ? (
         <ReservationsPage />
       ) : (
