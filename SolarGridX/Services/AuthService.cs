@@ -90,7 +90,12 @@ namespace SolarGridX.Services
         {
             await _users.Indexes.CreateOneAsync(new CreateIndexModel<User>(
                 Builders<User>.IndexKeys.Ascending(x => x.Email),
-                new CreateIndexOptions { Unique = true, Name = "unique_user_email" }));
+                new CreateIndexOptions
+                {
+                    Unique = true,
+                    Name = "unique_user_email_ci",
+                    Collation = new Collation("en", strength: CollationStrength.Secondary)
+                }));
         }
 
         // Map racing NIC/email inserts to the controller's conflict response.

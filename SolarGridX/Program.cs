@@ -137,9 +137,8 @@ app.UseAuthorization();
 
 app.MapControllers();
 
-try
+using (var scope = app.Services.CreateScope())
 {
-    using var scope = app.Services.CreateScope();
     var configuration = scope.ServiceProvider.GetRequiredService<IConfiguration>();
     var authService = scope.ServiceProvider.GetRequiredService<AuthService>();
     await authService.EnsureIndexesAsync();
@@ -149,10 +148,6 @@ try
         configuration["BootstrapAdmin:Name"],
         configuration["BootstrapAdmin:Email"],
         configuration["BootstrapAdmin:Password"]);
-}
-catch (Exception ex)
-{
-    Console.WriteLine($"[Startup Warning] Background initialization failed: {ex.Message}");
 }
 
 app.Run();
