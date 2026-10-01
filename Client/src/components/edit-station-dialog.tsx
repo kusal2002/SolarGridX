@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { Search, MapPin } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
@@ -90,6 +90,8 @@ export function EditStationDialog({
     latitude: "",
     longitude: "",
     totalCapacityKwh: "",
+    operatingStartTime: "",
+    operatingEndTime: "",
     isActive: true,
   })
 
@@ -110,22 +112,35 @@ export function EditStationDialog({
     }
   }, [gpsLocation])
 
-  // sync form fields whenever a different station is passed in
-  useEffect(() => {
+  const resetForm = useCallback(() => {
     if (station) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setFormData({
         stationName: station.stationName,
         location: station.location,
         latitude: station.latitude.toString(),
         longitude: station.longitude.toString(),
         totalCapacityKwh: station.totalCapacityKwh.toString(),
+        operatingStartTime: station.operatingStartTime || "",
+        operatingEndTime: station.operatingEndTime || "",
         isActive: station.isActive,
       })
       setError("")
       setSearchQuery("")
     }
   }, [station])
+
+  // sync form fields whenever a different station is passed in
+  useEffect(() => {
+    if (station) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      resetForm()
+    }
+  }, [station, resetForm])
+
+  const handleCancel = () => {
+    resetForm()
+    onOpenChange(false)
+  }
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type, checked } = e.target
@@ -193,6 +208,18 @@ export function EditStationDialog({
     setLoading(true)
     setError("")
 
+    if (!formData.operatingStartTime || !formData.operatingEndTime) {
+      setError("Both operating start and end times are required.")
+      setLoading(false)
+      return
+    }
+
+    if (formData.operatingStartTime >= formData.operatingEndTime) {
+      setError("Operating start time must be strictly before operating end time.")
+      setLoading(false)
+      return
+    }
+
     try {
       const updated = await updateStation(station.id, {
         stationName: formData.stationName,
@@ -200,9 +227,12 @@ export function EditStationDialog({
         latitude: parseFloat(formData.latitude),
         longitude: parseFloat(formData.longitude),
         totalCapacityKwh: parseFloat(formData.totalCapacityKwh),
+        operatingStartTime: formData.operatingStartTime,
+        operatingEndTime: formData.operatingEndTime,
         isActive: formData.isActive,
       })
       onStationUpdated(updated)
+      resetForm()
       onOpenChange(false)
     } catch (err) {
       console.error(err)
@@ -328,6 +358,31 @@ export function EditStationDialog({
                 />
               </div>
 
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="edit-operatingStartTime">Operating Start Time</Label>
+                  <Input
+                    id="edit-operatingStartTime"
+                    name="operatingStartTime"
+                    type="time"
+                    value={formData.operatingStartTime}
+                    onChange={handleChange}
+                    required
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="edit-operatingEndTime">Operating End Time</Label>
+                  <Input
+                    id="edit-operatingEndTime"
+                    name="operatingEndTime"
+                    type="time"
+                    value={formData.operatingEndTime}
+                    onChange={handleChange}
+                    required
+                  />
+                </div>
+              </div>
+
               <div className="grid gap-2">
                 <Label>Station Status</Label>
                 <div className="flex overflow-hidden rounded-lg border">
@@ -417,7 +472,7 @@ export function EditStationDialog({
             <Button
               type="button"
               variant="outline"
-              onClick={() => onOpenChange(false)}
+              onClick={handleCancel}
             >
               Cancel
             </Button>

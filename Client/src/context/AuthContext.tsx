@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react"
 import { getMyProfile } from "@/lib/auth-api"
 import type { LoginResponse, User } from "@/types/user"
@@ -26,7 +27,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const token = localStorage.getItem("solargridx-token")
     if (!token) {
-      setCheckingSession(false)
+      setTimeout(() => setCheckingSession(false), 0)
       return () => {
         window.removeEventListener("solargridx:logout", handleLogoutEvent)
       }
