@@ -28,6 +28,14 @@ public class SlotService
             .ToListAsync();
     }
 
+    // Get all slots including inactive
+    public async Task<List<EnergyBookingSlot>> GetAllIncludingInactiveAsync()
+    {
+        return await _slots
+            .Find(_ => true)
+            .ToListAsync();
+    }
+
     // Get slot by Id
     public async Task<EnergyBookingSlot?> GetByIdAsync(string id)
     {
@@ -49,16 +57,42 @@ public class SlotService
             .ToListAsync();
     }
 
+    // Get all slots (including inactive) by station Id
+    public async Task<List<EnergyBookingSlot>> GetByStationIdIncludingInactiveAsync(
+        string stationId)
+    {
+        return await _slots
+            .Find(slot => slot.StationId == stationId)
+            .ToListAsync();
+    }
+
     // Create slot
     public async Task<EnergyBookingSlot?> CreateAsync(
         CreateSlotRequest request)
     {
+        var requestedDate = request.SlotDate.Date;
+        var currentDate = DateTime.Now.Date;
+
+        if (requestedDate < currentDate)
+        {
+            throw new ArgumentException("Slot date cannot be in the past.");
+        }
+
         // Validate time range
         if (request.StartTime >= request.EndTime)
         {
             throw new ArgumentException(
                 "Start time must be before end time."
             );
+        }
+
+        if (requestedDate == currentDate)
+        {
+            var currentTime = DateTime.Now.TimeOfDay;
+            if (request.StartTime <= currentTime)
+            {
+                throw new ArgumentException("For today's date, the start time must be later than the current time.");
+            }
         }
 
         // Validate energy capacity
@@ -81,7 +115,36 @@ public class SlotService
             return null;
         }
 
-        var requestedDate = request.SlotDate.Date;
+        // Validate slot capacity does not exceed station total capacity
+        if (request.EnergyCapacityKwh > station.TotalCapacityKwh)
+        {
+            throw new ArgumentException(
+                $"Energy capacity ({request.EnergyCapacityKwh} kWh) cannot exceed the station's total capacity ({station.TotalCapacityKwh} kWh)."
+            );
+        }
+
+        if (!string.IsNullOrEmpty(station.OperatingStartTime) || !string.IsNullOrEmpty(station.OperatingEndTime))
+        {
+            if (string.IsNullOrEmpty(station.OperatingStartTime) || string.IsNullOrEmpty(station.OperatingEndTime) ||
+                string.Compare(station.OperatingStartTime, station.OperatingEndTime) >= 0)
+            {
+                throw new ArgumentException("Station operating schedule is invalid.");
+            }
+
+            if (TimeSpan.TryParse(station.OperatingStartTime, out var opStart) &&
+                TimeSpan.TryParse(station.OperatingEndTime, out var opEnd))
+            {
+                if (request.StartTime < opStart || request.EndTime > opEnd)
+                {
+                    throw new ArgumentException("Slot times must fall within the station's operating hours.");
+                }
+            }
+            else
+            {
+                throw new ArgumentException("Station operating schedule format is invalid.");
+            }
+        }
+
         var nextDate = requestedDate.AddDays(1);
 
         // Get active slots same station , date
@@ -153,6 +216,44 @@ public class SlotService
         if (slot is null)
         {
             return null;
+        }
+
+        var station = await _stations
+            .Find(item =>
+                item.Id == slot.StationId)
+            .FirstOrDefaultAsync();
+
+        if (station != null)
+        {
+            // Validate slot capacity does not exceed station total capacity
+            if (request.EnergyCapacityKwh > station.TotalCapacityKwh)
+            {
+                throw new ArgumentException(
+                    $"Energy capacity ({request.EnergyCapacityKwh} kWh) cannot exceed the station's total capacity ({station.TotalCapacityKwh} kWh)."
+                );
+            }
+        }
+
+        if (station != null && (!string.IsNullOrEmpty(station.OperatingStartTime) || !string.IsNullOrEmpty(station.OperatingEndTime)))
+        {
+            if (string.IsNullOrEmpty(station.OperatingStartTime) || string.IsNullOrEmpty(station.OperatingEndTime) ||
+                string.Compare(station.OperatingStartTime, station.OperatingEndTime) >= 0)
+            {
+                throw new ArgumentException("Station operating schedule is invalid.");
+            }
+
+            if (TimeSpan.TryParse(station.OperatingStartTime, out var opStart) &&
+                TimeSpan.TryParse(station.OperatingEndTime, out var opEnd))
+            {
+                if (request.StartTime < opStart || request.EndTime > opEnd)
+                {
+                    throw new ArgumentException("Slot times must fall within the station's operating hours.");
+                }
+            }
+            else
+            {
+                throw new ArgumentException("Station operating schedule format is invalid.");
+            }
         }
 
         var requestedDate = request.SlotDate.Date;

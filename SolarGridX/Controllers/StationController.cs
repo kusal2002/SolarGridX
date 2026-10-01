@@ -29,7 +29,7 @@ public class StationController : ControllerBase
 
     // Get all stations including inactive stations
     [HttpGet("all")]
-    [Authorize(Roles = "Backoffice")]
+    [Authorize(Roles = "Backoffice,Grid Operator")]
     public async Task<IActionResult> GetAllIncludingInactive()
     {
         var stations = await _stationService

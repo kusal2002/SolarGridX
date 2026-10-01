@@ -36,47 +36,47 @@ export function CreateReservationDialog({
   const [requestedKwh, setRequestedKwh] = useState<number | "">("")
 
   useEffect(() => {
+    async function loadData() {
+      try {
+        setLoading(true)
+        setError("")
+        const [stationList, slotList] = await Promise.all([
+          getStations().catch(() => []),
+          getActiveSlots().catch(() => []),
+        ])
+        setStations(stationList)
+        setSlots(slotList)
+        
+        // Auto-select first station that has active slots, or first active station
+        const nowMidnight = new Date()
+        nowMidnight.setHours(0, 0, 0, 0)
+        const sevenDaysLater = new Date(nowMidnight)
+        sevenDaysLater.setDate(sevenDaysLater.getDate() + 7)
+
+        const stationWithSlots = stationList.find((st: Station) =>
+          slotList.some((sl) => {
+            if (!sl.isActive || sl.stationId !== st.id) return false
+            const d = new Date(sl.slotDate)
+            return d >= nowMidnight && d <= sevenDaysLater
+          })
+        )
+
+        if (stationWithSlots) {
+          setSelectedStationId(stationWithSlots.id)
+        } else if (stationList.length > 0) {
+          setSelectedStationId(stationList[0].id)
+        }
+      } catch {
+        setError("Failed to load stations or slots.")
+      } finally {
+        setLoading(false)
+      }
+    }
+
     if (open) {
       loadData()
     }
   }, [open])
-
-  async function loadData() {
-    try {
-      setLoading(true)
-      setError("")
-      const [stationList, slotList] = await Promise.all([
-        getStations().catch(() => []),
-        getActiveSlots().catch(() => []),
-      ])
-      setStations(stationList)
-      setSlots(slotList)
-      
-      // Auto-select first station that has active slots, or first active station
-      const nowMidnight = new Date()
-      nowMidnight.setHours(0, 0, 0, 0)
-      const sevenDaysLater = new Date(nowMidnight)
-      sevenDaysLater.setDate(sevenDaysLater.getDate() + 7)
-
-      const stationWithSlots = stationList.find((st: Station) =>
-        slotList.some((sl) => {
-          if (!sl.isActive || sl.stationId !== st.id) return false
-          const d = new Date(sl.slotDate)
-          return d >= nowMidnight && d <= sevenDaysLater
-        })
-      )
-
-      if (stationWithSlots) {
-        setSelectedStationId(stationWithSlots.id)
-      } else if (stationList.length > 0) {
-        setSelectedStationId(stationList[0].id)
-      }
-    } catch {
-      setError("Failed to load stations or slots.")
-    } finally {
-      setLoading(false)
-    }
-  }
 
   // Filter slots for selected station and within 7-day booking window
   const nowMidnight = new Date()

@@ -59,12 +59,16 @@ class ReservationViewModel(
             val slotsRes = repository.getSlots()
             val myRes = repository.getProsumerReservations(prosumerNic)
 
+            val error = stationsRes.exceptionOrNull()?.message
+                ?: slotsRes.exceptionOrNull()?.message
+                ?: myRes.exceptionOrNull()?.message
+
             _uiState.value = _uiState.value.copy(
                 isLoading = false,
                 stations = stationsRes.getOrDefault(emptyList()),
                 slots = slotsRes.getOrDefault(emptyList()),
                 myReservations = myRes.getOrDefault(emptyList()),
-                errorMessage = myRes.exceptionOrNull()?.message
+                errorMessage = error
             )
         }
     }

@@ -12,5 +12,9 @@ public class UpdateStationRequest
 
     public double TotalCapacityKwh { get; set; }
 
+    public string OperatingStartTime { get; set; } = string.Empty;
+
+    public string OperatingEndTime { get; set; } = string.Empty;
+
     public bool IsActive { get; set; }
 }

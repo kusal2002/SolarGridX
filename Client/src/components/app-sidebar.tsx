@@ -17,10 +17,12 @@ import {
   Building2Icon,
   UserRoundCogIcon,
   TerminalIcon,
+  CalendarCheck2Icon,
 } from "lucide-react"
 import type { User } from "@/types/user"
+import type { View } from "@/router/routes"
 
-export function AppSidebar({ currentUser, activeView, onNavigate, onLogout, ...props }: React.ComponentProps<typeof Sidebar> & { currentUser: User; activeView: "users" | "stations"; onNavigate: (view: "users" | "stations") => void; onLogout: () => void }) {
+export function AppSidebar({ currentUser, activeView, onNavigate, onLogout, ...props }: React.ComponentProps<typeof Sidebar> & { currentUser: User; activeView: View; onNavigate: (view: View) => void; onLogout: () => void }) {
   const navMain = [
     {
       title: currentUser.role === "Backoffice" ? "User Management" : "My Account",
@@ -32,8 +34,24 @@ export function AppSidebar({ currentUser, activeView, onNavigate, onLogout, ...p
       title: "Station Management",
       url: "stations",
       icon: <Building2Icon />,
-      isActive: activeView === "stations",
+      isActive: activeView === "stations" || activeView === "slots",
+      items: [
+        {
+          title: "Stations",
+          url: "stations",
+        },
+        {
+          title: "Slots",
+          url: "slots",
+        },
+      ],
     }] : []),
+    {
+      title: "Reservations",
+      url: "reservations",
+      icon: <CalendarCheck2Icon />,
+      isActive: activeView === "reservations",
+    },
   ]
 
   return (
@@ -54,7 +72,7 @@ export function AppSidebar({ currentUser, activeView, onNavigate, onLogout, ...p
         </SidebarMenu>
       </SidebarHeader>
       <SidebarContent>
-        <NavMain items={navMain} onNavigate={(view) => onNavigate(view as "users" | "stations")} />
+        <NavMain items={navMain} onNavigate={(view) => onNavigate(view as View)} />
       </SidebarContent>
       <SidebarFooter>
         <NavUser

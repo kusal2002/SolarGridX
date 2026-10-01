@@ -1,15 +1,10 @@
 import type { Station } from "@/types/station"
 
-const API_URL = import.meta.env.VITE_API_URL || "https://localhost:7172/api"
+import { request } from "./api-client"
 
-export async function getStations(): Promise<Station[]> {
-  const response = await fetch(`${API_URL}/stations/all`)
-
-  if (!response.ok) {
-    throw new Error("Failed to fetch stations")
-  }
-
-  return response.json()
+export async function getStations(includeInactive = false): Promise<Station[]> {
+  const endpoint = includeInactive ? "/stations/all" : "/stations"
+  return request<Station[]>(endpoint)
 }
 
 export async function createStation(data: {
@@ -18,20 +13,13 @@ export async function createStation(data: {
   latitude: number
   longitude: number
   totalCapacityKwh: number
+  operatingStartTime: string
+  operatingEndTime: string
 }) {
-  const response = await fetch(`${API_URL}/stations`, {
+  return request<Station>("/stations", {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
     body: JSON.stringify(data),
   })
-
-  if (!response.ok) {
-    throw new Error("Failed to create station")
-  }
-
-  return response.json()
 }
 
 export async function updateStation(
@@ -42,46 +30,25 @@ export async function updateStation(
     latitude: number
     longitude: number
     totalCapacityKwh: number
+    operatingStartTime: string
+    operatingEndTime: string
     isActive: boolean
   }
 ) {
-  const response = await fetch(`${API_URL}/stations/${id}`, {
+  return request<Station>(`/stations/${id}`, {
     method: "PUT",
-    headers: {
-      "Content-Type": "application/json",
-    },
     body: JSON.stringify(data),
   })
-
-  if (!response.ok) {
-    throw new Error("Failed to update station")
-  }
-
-  return response.json()
 }
 
 export async function deactivateStation(id: string) {
-  const response = await fetch(`${API_URL}/stations/${id}`, {
+  return request<unknown>(`/stations/${id}`, {
     method: "DELETE",
   })
-
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}))
-    throw new Error(errorData.message || "Failed to deactivate station")
-  }
-
-  return response.json()
 }
 
 export async function reactivateStation(id: string) {
-  const response = await fetch(`${API_URL}/stations/${id}/reactivate`, {
+  return request<unknown>(`/stations/${id}/reactivate`, {
     method: "PATCH",
   })
-
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}))
-    throw new Error(errorData.message || "Failed to reactivate station")
-  }
-
-  return response.json()
 }

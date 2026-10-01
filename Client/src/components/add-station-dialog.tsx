@@ -81,6 +81,8 @@ export function AddStationDialog({ onStationAdded }: AddStationDialogProps) {
     latitude: "",
     longitude: "",
     totalCapacityKwh: "",
+    operatingStartTime: "",
+    operatingEndTime: "",
   })
 
   const [searchQuery, setSearchQuery] = useState("")
@@ -89,6 +91,8 @@ export function AddStationDialog({ onStationAdded }: AddStationDialogProps) {
   const {
     location: gpsLocation,
     loading: gpsLoading,
+    error: gpsError,
+    approximate: gpsApproximate,
     getLocation,
   } = useGeolocation()
 
@@ -102,6 +106,25 @@ export function AddStationDialog({ onStationAdded }: AddStationDialogProps) {
       }))
     }
   }, [gpsLocation])
+
+  const resetForm = () => {
+    setFormData({
+      stationName: "",
+      location: "",
+      latitude: "",
+      longitude: "",
+      totalCapacityKwh: "",
+      operatingStartTime: "",
+      operatingEndTime: "",
+    })
+    setSearchQuery("")
+    setError("")
+  }
+
+  const handleCancel = () => {
+    resetForm()
+    setOpen(false)
+  }
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target
@@ -165,6 +188,18 @@ export function AddStationDialog({ onStationAdded }: AddStationDialogProps) {
     setLoading(true)
     setError("")
 
+    if (!formData.operatingStartTime || !formData.operatingEndTime) {
+      setError("Both operating start and end times are required.")
+      setLoading(false)
+      return
+    }
+
+    if (formData.operatingStartTime >= formData.operatingEndTime) {
+      setError("Operating start time must be strictly before operating end time.")
+      setLoading(false)
+      return
+    }
+
     try {
       const newStation = await createStation({
         stationName: formData.stationName,
@@ -172,18 +207,13 @@ export function AddStationDialog({ onStationAdded }: AddStationDialogProps) {
         latitude: parseFloat(formData.latitude),
         longitude: parseFloat(formData.longitude),
         totalCapacityKwh: parseFloat(formData.totalCapacityKwh),
+        operatingStartTime: formData.operatingStartTime,
+        operatingEndTime: formData.operatingEndTime,
       })
 
       onStationAdded(newStation)
+      resetForm()
       setOpen(false)
-      setFormData({
-        stationName: "",
-        location: "",
-        latitude: "",
-        longitude: "",
-        totalCapacityKwh: "",
-      })
-      setSearchQuery("")
     } catch (err) {
       console.error(err)
       setError("Failed to create station. Please try again.")
@@ -264,6 +294,18 @@ export function AddStationDialog({ onStationAdded }: AddStationDialogProps) {
                   {gpsLoading ? "Getting Location..." : "Get My Location"}
                 </Button>
               </div>
+              {gpsError && (
+                <div className={`rounded-md border p-3 text-xs ${
+                  gpsApproximate
+                    ? "border-yellow-300 bg-yellow-50 text-yellow-800 dark:border-yellow-700 dark:bg-yellow-950 dark:text-yellow-300"
+                    : "border-red-200 bg-red-50 text-red-800 dark:border-red-800 dark:bg-red-950 dark:text-red-300"
+                }`}>
+                  <p className="font-semibold">
+                    {gpsApproximate ? "📍 Approximate location (IP-based)" : "⚠ Could not get location"}
+                  </p>
+                  <p className="mt-1">{gpsError}</p>
+                </div>
+              )}
               <div className="grid grid-cols-2 gap-4">
                 <div className="grid gap-2">
                   <Label htmlFor="latitude">Latitude</Label>
@@ -305,6 +347,30 @@ export function AddStationDialog({ onStationAdded }: AddStationDialogProps) {
                   onChange={handleChange}
                   required
                 />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="operatingStartTime">Operating Start Time</Label>
+                  <Input
+                    id="operatingStartTime"
+                    name="operatingStartTime"
+                    type="time"
+                    value={formData.operatingStartTime}
+                    onChange={handleChange}
+                    required
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="operatingEndTime">Operating End Time</Label>
+                  <Input
+                    id="operatingEndTime"
+                    name="operatingEndTime"
+                    type="time"
+                    value={formData.operatingEndTime}
+                    onChange={handleChange}
+                    required
+                  />
+                </div>
               </div>
             </div>
 
@@ -364,7 +430,7 @@ export function AddStationDialog({ onStationAdded }: AddStationDialogProps) {
             <Button
               type="button"
               variant="outline"
-              onClick={() => setOpen(false)}
+              onClick={handleCancel}
             >
               Cancel
             </Button>

@@ -1,34 +1,6 @@
 import type { LoginResponse, PagedUsers, User } from "@/types/user"
 
-const API_URL = import.meta.env.VITE_API_URL
-
-if (!API_URL) {
-  throw new Error("VITE_API_URL is not configured.")
-}
-
-async function request<T>(path: string, options: RequestInit = {}) {
-  const token = localStorage.getItem("solargridx-token")
-  const response = await fetch(`${API_URL}${path}`, {
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...options.headers,
-    },
-  })
-
-  if (!response.ok) {
-    if (response.status === 401) {
-      localStorage.removeItem("solargridx-token")
-      localStorage.removeItem("solargridx-user")
-      window.dispatchEvent(new Event("solargridx:logout"))
-    }
-    const body = await response.json().catch(() => ({}))
-    throw new Error(body.message || "The request could not be completed.")
-  }
-
-  return response.json() as Promise<T>
-}
+import { request } from "./api-client"
 
 export function login(email: string, password: string) {
   return request<LoginResponse>("/auth/login", {

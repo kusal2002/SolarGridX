@@ -414,6 +414,7 @@ fun KpiMiniChip(
 // ==========================================
 // 1. AVAILABLE SLOTS VIEW (Member 3)
 // ==========================================
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AvailableSlotsView(
     stations: List<SolarStation>,
@@ -421,6 +422,7 @@ fun AvailableSlotsView(
     onBookSlotClick: (EnergySlot) -> Unit
 ) {
     var selectedStationId by remember { mutableStateOf("") } // "" means All Stations
+    var isStationDropdownExpanded by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
 
     val filteredSlots = slots.filter { slot ->
@@ -471,11 +473,214 @@ fun AvailableSlotsView(
 
         Spacer(modifier = Modifier.height(10.dp))
 
+        // Station Dropdown Selection (Member 3)
+        ExposedDropdownMenuBox(
+            expanded = isStationDropdownExpanded,
+            onExpandedChange = { isStationDropdownExpanded = it },
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            val selectedStation = stations.find { it.id == selectedStationId }
+            val stationDisplayText = if (selectedStationId.isEmpty()) {
+                val totalActive = slots.count { it.isActive }
+                "All Stations ($totalActive available)"
+            } else {
+                val stationActive = slots.count { it.stationId == selectedStationId && it.isActive }
+                "${selectedStation?.stationName ?: "Selected Station"} ($stationActive available)"
+            }
+
+            OutlinedTextField(
+                value = stationDisplayText,
+                onValueChange = {},
+                readOnly = true,
+                label = { Text("Filter by Station", fontSize = 12.sp, color = TextSecondary) },
+                leadingIcon = {
+                    Icon(
+                        Icons.Default.EvStation,
+                        contentDescription = "Solar Station",
+                        tint = GreenPrimary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                },
+                trailingIcon = {
+                    ExposedDropdownMenuDefaults.TrailingIcon(expanded = isStationDropdownExpanded)
+                },
+                modifier = Modifier
+                    .menuAnchor(MenuAnchorType.PrimaryNotEditable)
+                    .fillMaxWidth(),
+                shape = RoundedCornerShape(10.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedContainerColor = CardBg,
+                    unfocusedContainerColor = CardBg,
+                    focusedBorderColor = GreenPrimary,
+                    unfocusedBorderColor = BorderLight,
+                    focusedTextColor = TextPrimary,
+                    unfocusedTextColor = TextPrimary,
+                    focusedLabelColor = GreenPrimary,
+                    unfocusedLabelColor = TextSecondary
+                ),
+                singleLine = true
+            )
+
+            ExposedDropdownMenu(
+                expanded = isStationDropdownExpanded,
+                onDismissRequest = { isStationDropdownExpanded = false },
+                modifier = Modifier.background(CardBg)
+            ) {
+                // Option 1: All Stations
+                val isAllSelected = selectedStationId.isEmpty()
+                val totalActiveSlots = slots.count { it.isActive }
+
+                DropdownMenuItem(
+                    text = {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "All Solar Stations",
+                                    fontWeight = if (isAllSelected) FontWeight.Bold else FontWeight.Medium,
+                                    color = if (isAllSelected) GreenPrimary else TextPrimary,
+                                    fontSize = 14.sp
+                                )
+                                Text(
+                                    text = "View slots across all solar stations",
+                                    fontSize = 11.sp,
+                                    color = TextMuted
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Surface(
+                                color = if (isAllSelected) GreenLight else Color(0xFFF1F5F9),
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Text(
+                                    text = "$totalActiveSlots slots",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = if (isAllSelected) GreenDark else TextSecondary,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                                )
+                            }
+                        }
+                    },
+                    leadingIcon = {
+                        Icon(
+                            Icons.Default.GridView,
+                            contentDescription = null,
+                            tint = if (isAllSelected) GreenPrimary else TextMuted
+                        )
+                    },
+                    trailingIcon = {
+                        if (isAllSelected) {
+                            Icon(
+                                Icons.Default.Check,
+                                contentDescription = "Selected",
+                                tint = GreenPrimary,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    },
+                    onClick = {
+                        selectedStationId = ""
+                        isStationDropdownExpanded = false
+                    }
+                )
+
+                HorizontalDivider(color = BorderLight.copy(alpha = 0.6f))
+
+                if (stations.isEmpty()) {
+                    DropdownMenuItem(
+                        text = {
+                            Text(
+                                text = "No stations available",
+                                fontSize = 13.sp,
+                                color = TextMuted
+                            )
+                        },
+                        onClick = { isStationDropdownExpanded = false }
+                    )
+                } else {
+                    stations.forEach { station ->
+                        val isSelected = selectedStationId == station.id
+                        val count = slots.count { it.stationId == station.id && it.isActive }
+
+                        DropdownMenuItem(
+                            text = {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = station.stationName,
+                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                            color = if (isSelected) GreenPrimary else TextPrimary,
+                                            fontSize = 14.sp,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                        if (station.location.isNotBlank()) {
+                                            Text(
+                                                text = station.location,
+                                                fontSize = 11.sp,
+                                                color = TextMuted,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                        }
+                                    }
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Surface(
+                                        color = if (isSelected) GreenLight else Color(0xFFF1F5F9),
+                                        shape = RoundedCornerShape(8.dp)
+                                    ) {
+                                        Text(
+                                            text = "$count slots",
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = if (isSelected) GreenDark else TextSecondary,
+                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                                        )
+                                    }
+                                }
+                            },
+                            leadingIcon = {
+                                Icon(
+                                    Icons.Default.EvStation,
+                                    contentDescription = null,
+                                    tint = if (isSelected) GreenPrimary else TextMuted
+                                )
+                            },
+                            trailingIcon = {
+                                if (isSelected) {
+                                    Icon(
+                                        Icons.Default.Check,
+                                        contentDescription = "Selected",
+                                        tint = GreenPrimary,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+                            },
+                            onClick = {
+                                selectedStationId = station.id
+                                isStationDropdownExpanded = false
+                            }
+                        )
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(10.dp))
+
         // Search Bar
         OutlinedTextField(
             value = searchQuery,
             onValueChange = { searchQuery = it },
-            placeholder = { Text("Search station, location, or date...", fontSize = 13.sp, color = TextMuted) },
+            placeholder = { Text("Search location, date, or time...", fontSize = 13.sp, color = TextMuted) },
             leadingIcon = {
                 Icon(Icons.Default.Search, contentDescription = null, tint = TextMuted, modifier = Modifier.size(18.dp))
             },
@@ -498,55 +703,6 @@ fun AvailableSlotsView(
                 unfocusedTextColor = TextPrimary
             )
         )
-
-        Spacer(modifier = Modifier.height(10.dp))
-
-        // Station Filter Chips
-        LazyRow(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            item {
-                FilterChip(
-                    selected = selectedStationId.isEmpty(),
-                    onClick = { selectedStationId = "" },
-                    label = {
-                        Text(
-                            text = "All Stations (${slots.filter { it.isActive }.size})",
-                            fontSize = 12.sp,
-                            fontWeight = if (selectedStationId.isEmpty()) FontWeight.Bold else FontWeight.Normal
-                        )
-                    },
-                    colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = GreenPrimary,
-                        selectedLabelColor = Color.White,
-                        containerColor = CardBg,
-                        labelColor = TextSecondary
-                    )
-                )
-            }
-
-            items(stations) { station ->
-                val count = slots.count { it.stationId == station.id && it.isActive }
-                FilterChip(
-                    selected = selectedStationId == station.id,
-                    onClick = { selectedStationId = station.id },
-                    label = {
-                        Text(
-                            text = "${station.stationName} ($count)",
-                            fontSize = 12.sp,
-                            fontWeight = if (selectedStationId == station.id) FontWeight.Bold else FontWeight.Normal
-                        )
-                    },
-                    colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = GreenPrimary,
-                        selectedLabelColor = Color.White,
-                        containerColor = CardBg,
-                        labelColor = TextSecondary
-                    )
-                )
-            }
-        }
 
         Spacer(modifier = Modifier.height(10.dp))
 
