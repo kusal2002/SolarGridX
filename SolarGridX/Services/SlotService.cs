@@ -28,6 +28,14 @@ public class SlotService
             .ToListAsync();
     }
 
+    // Get all slots including inactive
+    public async Task<List<EnergyBookingSlot>> GetAllIncludingInactiveAsync()
+    {
+        return await _slots
+            .Find(_ => true)
+            .ToListAsync();
+    }
+
     // Get slot by Id
     public async Task<EnergyBookingSlot?> GetByIdAsync(string id)
     {
@@ -46,6 +54,15 @@ public class SlotService
             .Find(slot =>
                 slot.StationId == stationId &&
                 slot.IsActive == true)
+            .ToListAsync();
+    }
+
+    // Get all slots (including inactive) by station Id
+    public async Task<List<EnergyBookingSlot>> GetByStationIdIncludingInactiveAsync(
+        string stationId)
+    {
+        return await _slots
+            .Find(slot => slot.StationId == stationId)
             .ToListAsync();
     }
 

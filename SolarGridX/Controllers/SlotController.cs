@@ -26,6 +26,15 @@ public class SlotController : ControllerBase
         return Ok(slots);
     }
 
+    // Get all slots including inactive
+    [HttpGet("all")]
+    [Authorize(Roles = "Backoffice,Grid Operator")]
+    public async Task<IActionResult> GetAllIncludingInactive()
+    {
+        var slots = await _slotService.GetAllIncludingInactiveAsync();
+        return Ok(slots);
+    }
+
     //Get slot by id
     [HttpGet("{id}")]
     public async Task<IActionResult> GetById(string id)
@@ -48,6 +57,16 @@ public class SlotController : ControllerBase
     string stationId)
     {
         var slots = await _slotService.GetByStationIdAsync(stationId);
+        return Ok(slots);
+    }
+
+    //Get all slots by station id (including inactive)
+    [HttpGet("station/{stationId}/all")]
+    [Authorize(Roles = "Backoffice,Grid Operator")]
+    public async Task<IActionResult> GetByStationIdIncludingInactive(
+    string stationId)
+    {
+        var slots = await _slotService.GetByStationIdIncludingInactiveAsync(stationId);
         return Ok(slots);
     }
 

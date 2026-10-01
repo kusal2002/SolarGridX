@@ -2,8 +2,9 @@ import type { Station } from "@/types/station"
 
 import { request } from "./api-client"
 
-export async function getStations(): Promise<Station[]> {
-  return request<Station[]>("/stations/all")
+export async function getStations(includeInactive = false): Promise<Station[]> {
+  const endpoint = includeInactive ? "/stations/all" : "/stations"
+  return request<Station[]>(endpoint)
 }
 
 export async function createStation(data: {

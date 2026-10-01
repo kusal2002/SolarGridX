@@ -10,6 +10,7 @@ import { Search, Pencil, Power } from "lucide-react"
 import { AddStationDialog } from "@/components/add-station-dialog"
 import { ViewStationDialog } from "@/components/view-station-dialog"
 import { EditStationDialog } from "@/components/edit-station-dialog"
+import { useAuth } from "@/context/AuthContext"
 
 export function StationsPage() {
   const [stations, setStations] = useState<Station[]>([])
@@ -24,12 +25,17 @@ export function StationsPage() {
   const [editStation, setEditStation] = useState<Station | null>(null)
   const [editOpen, setEditOpen] = useState(false)
 
+  const { user } = useAuth()
+  const isBackoffice = user?.role === "Backoffice"
+  const canManageStations = isBackoffice
+  const canViewInactive = isBackoffice
+
   useEffect(() => {
     async function loadStations() {
       try {
         setLoading(true)
         setError("")
-        const data = await getStations()
+        const data = await getStations(canViewInactive)
         setStations(data)
       } catch (error) {
         console.error(error)
@@ -40,7 +46,7 @@ export function StationsPage() {
     }
 
     loadStations()
-  }, [])
+  }, [canViewInactive])
 
   const filteredStations = stations
     .filter((station) => {
@@ -114,11 +120,13 @@ export function StationsPage() {
           </p>
         </div>
 
-        <AddStationDialog
-          onStationAdded={(newStation) =>
-            setStations([newStation, ...stations])
-          }
-        />
+        {canManageStations && (
+          <AddStationDialog
+            onStationAdded={(newStation) =>
+              setStations([newStation, ...stations])
+            }
+          />
+        )}
       </div>
 
       <div className="grid gap-4 sm:grid-cols-3">
@@ -187,7 +195,9 @@ export function StationsPage() {
                 <th className="px-4 py-3 font-medium">Location</th>
                 <th className="px-4 py-3 font-medium">Capacity (kWh)</th>
                 <th className="px-4 py-3 font-medium">Status</th>
-                <th className="px-4 py-3 text-right font-medium">Actions</th>
+                {canManageStations && (
+                  <th className="px-4 py-3 text-right font-medium">Actions</th>
+                )}
               </tr>
             </thead>
 
@@ -213,38 +223,40 @@ export function StationsPage() {
                       {station.isActive ? "Active" : "Inactive"}
                     </span>
                   </td>
-                  <td className="px-4 py-3">
-                    <div className="flex justify-end gap-1">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={(e) => handleEditClick(e, station)}
-                      >
-                        <Pencil className="size-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={(e) => handleToggleStatus(e, station)}
-                        title={
-                          station.isActive
-                            ? "Deactivate Station"
-                            : "Reactivate Station"
-                        }
-                      >
-                        <Power
-                          className={`size-4 ${station.isActive ? "text-red-500" : "text-green-500"}`}
-                        />
-                      </Button>
-                    </div>
-                  </td>
+                  {canManageStations && (
+                    <td className="px-4 py-3">
+                      <div className="flex justify-end gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={(e) => handleEditClick(e, station)}
+                        >
+                          <Pencil className="size-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={(e) => handleToggleStatus(e, station)}
+                          title={
+                            station.isActive
+                              ? "Deactivate Station"
+                              : "Reactivate Station"
+                          }
+                        >
+                          <Power
+                            className={`size-4 ${station.isActive ? "text-red-500" : "text-green-500"}`}
+                          />
+                        </Button>
+                      </div>
+                    </td>
+                  )}
                 </tr>
               ))}
 
               {filteredStations.length === 0 && (
                 <tr>
                   <td
-                    colSpan={6}
+                    colSpan={canManageStations ? 6 : 5}
                     className="px-4 py-8 text-center text-muted-foreground"
                   >
                     No stations found.

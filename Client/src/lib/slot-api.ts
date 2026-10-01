@@ -1,11 +1,15 @@
 import { request } from "./api-client"
 import type { Slot } from "@/types/slot"
-export async function getSlots(): Promise<Slot[]> {
-  return request<Slot[]>("/slots")
+export async function getSlots(includeInactive = false): Promise<Slot[]> {
+  const endpoint = includeInactive ? "/slots/all" : "/slots"
+  return request<Slot[]>(endpoint)
 }
 
-export async function getSlotsByStationId(stationId: string): Promise<Slot[]> {
-  return request<Slot[]>(`/slots/station/${encodeURIComponent(stationId)}`)
+export async function getSlotsByStationId(stationId: string, includeInactive = false): Promise<Slot[]> {
+  const endpoint = includeInactive 
+    ? `/slots/station/${encodeURIComponent(stationId)}/all` 
+    : `/slots/station/${encodeURIComponent(stationId)}`
+  return request<Slot[]>(endpoint)
 }
 
 export async function createSlot(data: {

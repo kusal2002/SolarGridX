@@ -7,6 +7,7 @@ import { AddSlotDialog } from "@/components/add-slot-dialog"
 import { EditSlotDialog } from "@/components/edit-slot-dialog"
 import { Pencil, Power } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { useAuth } from "@/context/AuthContext"
 
 export function SlotsPage() {
   const [slots, setSlots] = useState<Slot[]>([])
@@ -19,6 +20,10 @@ export function SlotsPage() {
   const [stationFilter, setStationFilter] = useState<string>("All")
   const [statusFilter, setStatusFilter] = useState<"All" | "Active" | "Inactive">("All")
 
+  const { user } = useAuth()
+  const canManageSlots = user?.role === "Backoffice" || user?.role === "Grid Operator"
+  const canViewInactive = canManageSlots
+
   useEffect(() => {
     async function loadData() {
       try {
@@ -27,8 +32,8 @@ export function SlotsPage() {
         
         // Fetch both stations and slots
         const [stationsData, slotsData] = await Promise.all([
-          getStations(),
-          getSlots()
+          getStations(canViewInactive),
+          getSlots(canViewInactive)
         ])
         
         setStations(stationsData)
@@ -42,7 +47,7 @@ export function SlotsPage() {
     }
 
     loadData()
-  }, [])
+  }, [canViewInactive])
 
   const handleStationFilterChange = async (event: React.ChangeEvent<HTMLSelectElement>) => {
     const newStationId = event.target.value
@@ -53,9 +58,9 @@ export function SlotsPage() {
       setError("")
       let data: Slot[]
       if (newStationId === "All") {
-        data = await getSlots()
+        data = await getSlots(canViewInactive)
       } else {
-        data = await getSlotsByStationId(newStationId)
+        data = await getSlotsByStationId(newStationId, canViewInactive)
       }
       setSlots(data)
     } catch (err) {
@@ -156,9 +161,11 @@ export function SlotsPage() {
           </p>
         </div>
 
-        <AddSlotDialog
-          onSlotAdded={(newSlot) => setSlots([newSlot, ...slots])}
-        />
+        {canManageSlots && (
+          <AddSlotDialog
+            onSlotAdded={(newSlot) => setSlots([newSlot, ...slots])}
+          />
+        )}
       </div>
 
       <div className="grid gap-4 sm:grid-cols-3">
@@ -234,7 +241,9 @@ export function SlotsPage() {
                     <th className="px-4 py-3 font-medium">Capacity (kWh)</th>
                     <th className="px-4 py-3 font-medium">Available (kWh)</th>
                     <th className="px-4 py-3 font-medium">Status</th>
-                    <th className="px-4 py-3 font-medium text-right">Actions</th>
+                    {canManageSlots && (
+                      <th className="px-4 py-3 font-medium text-right">Actions</th>
+                    )}
                   </tr>
                 </thead>
 
@@ -302,7 +311,7 @@ export function SlotsPage() {
                   {upcomingSlots.length === 0 && (
                     <tr>
                       <td
-                        colSpan={7}
+                        colSpan={canManageSlots ? 8 : 7}
                         className="px-4 py-8 text-center text-muted-foreground"
                       >
                         No upcoming slots found.
@@ -327,7 +336,9 @@ export function SlotsPage() {
                     <th className="px-4 py-3 font-medium">Capacity (kWh)</th>
                     <th className="px-4 py-3 font-medium">Available (kWh)</th>
                     <th className="px-4 py-3 font-medium">Status</th>
-                    <th className="px-4 py-3 font-medium text-right">Actions</th>
+                    {canManageSlots && (
+                      <th className="px-4 py-3 font-medium text-right">Actions</th>
+                    )}
                   </tr>
                 </thead>
 
@@ -354,48 +365,50 @@ export function SlotsPage() {
                           {slot.isActive ? "Active (Completed)" : "Inactive"}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-right">
-                        <div className="flex justify-end gap-1">
-                          {slot.isActive && (
+                      {canManageSlots && (
+                        <td className="px-4 py-3 text-right">
+                          <div className="flex justify-end gap-1">
+                            {slot.isActive && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  setEditingSlot(slot)
+                                }}
+                                title="Edit Slot"
+                              >
+                                <Pencil className="size-4" />
+                                <span className="sr-only">Edit</span>
+                              </Button>
+                            )}
                             <Button
                               variant="ghost"
                               size="icon"
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                setEditingSlot(slot)
-                              }}
-                              title="Edit Slot"
+                              onClick={(e) => handleToggleStatus(e, slot)}
+                              title={
+                                slot.isActive
+                                  ? "Deactivate Slot"
+                                  : "Reactivate Slot"
+                              }
                             >
-                              <Pencil className="size-4" />
-                              <span className="sr-only">Edit</span>
+                              <Power
+                                className={`size-4 ${slot.isActive ? "text-red-500" : "text-green-500"}`}
+                              />
+                              <span className="sr-only">
+                                {slot.isActive ? "Deactivate" : "Reactivate"}
+                              </span>
                             </Button>
-                          )}
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={(e) => handleToggleStatus(e, slot)}
-                            title={
-                              slot.isActive
-                                ? "Deactivate Slot"
-                                : "Reactivate Slot"
-                            }
-                          >
-                            <Power
-                              className={`size-4 ${slot.isActive ? "text-red-500" : "text-green-500"}`}
-                            />
-                            <span className="sr-only">
-                              {slot.isActive ? "Deactivate" : "Reactivate"}
-                            </span>
-                          </Button>
-                        </div>
-                      </td>
+                          </div>
+                        </td>
+                      )}
                     </tr>
                   ))}
 
                   {pastSlots.length === 0 && (
                     <tr>
                       <td
-                        colSpan={7}
+                        colSpan={canManageSlots ? 8 : 7}
                         className="px-4 py-8 text-center text-muted-foreground"
                       >
                         No past slots found.
