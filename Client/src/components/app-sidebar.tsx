@@ -75,7 +75,11 @@ export function AppSidebar({ currentUser, activeView, onNavigate, onLogout, ...p
         <NavMain items={navMain} onNavigate={(view) => onNavigate(view as View)} />
       </SidebarContent>
       <SidebarFooter>
-        <NavUser user={{ name: currentUser.name, email: currentUser.email, avatar: "" }} onLogout={onLogout} />
+        <NavUser
+          user={{ name: currentUser.name, email: currentUser.email, avatar: "" }}
+          onAccount={() => onNavigate("users")}
+          onLogout={onLogout}
+        />
       </SidebarFooter>
     </Sidebar>
   )

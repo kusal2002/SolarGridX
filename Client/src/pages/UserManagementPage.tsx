@@ -1,22 +1,48 @@
 import { useEffect, useState } from "react"
 import {
+  ArrowLeft,
+  Ban,
   Check,
+  CircleCheck,
+  CircleOff,
+  Clock3,
+  Download,
   Mail,
   Pencil,
   Plus,
   Search,
+  ShieldCheck,
   UserRound,
   UserRoundCog,
+  Users,
   X,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import {
   createStaffUser,
   getMyProfile,
+  getUserByNic,
   getUsers,
-  requestDeactivation,
+  requestDeactivation as requestDeactivationApi,
   updateProfile,
   updateUserStatus,
 } from "@/lib/auth-api"
@@ -34,6 +60,11 @@ function StatusBadge({ status }: { status: string }) {
       {status}
     </span>
   )
+}
+
+function csvValue(value: string | number | null | undefined) {
+  const text = value == null ? "" : String(value)
+  return `"${text.replaceAll('"', '""')}"`
 }
 
 function StatusActions({
@@ -126,14 +157,82 @@ export function UserManagementPage({
   const [page, setPage] = useState(1)
   const pageSize = 10
   const [editing, setEditing] = useState(false)
+  const [editingUser, setEditingUser] = useState<User | null>(null)
+  const [selectedUser, setSelectedUser] = useState<User | null>(null)
+  const [detailsBusy, setDetailsBusy] = useState(false)
   const [showStaff, setShowStaff] = useState(false)
   const [busy, setBusy] = useState(false)
+  const [downloading, setDownloading] = useState(false)
+  const [confirmation, setConfirmation] = useState<{
+    message: string
+    action: () => Promise<void>
+  } | null>(null)
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
   const [profileForm, setProfileForm] = useState({
     name: currentUser.name,
     email: currentUser.email,
   })
+  const [userEditForm, setUserEditForm] = useState({ name: "", email: "" })
+  const [directoryView, setDirectoryView] = useState<"all" | "prosumers" | "pending">("all")
+
+  const downloadUsers = async (
+    filename: string,
+    filterRole?: string,
+    filterStatus?: string
+  ) => {
+    setDownloading(true)
+    setError("")
+    try {
+      const downloadedUsers: User[] = []
+      let currentPage = 1
+      let totalPages = 1
+
+      do {
+        const result = await getUsers(
+          filterStatus,
+          filterRole,
+          "",
+          currentPage,
+          100,
+          "createdAt",
+          "desc"
+        )
+        downloadedUsers.push(...result.items)
+        totalPages = result.totalPages
+        currentPage += 1
+      } while (currentPage <= totalPages)
+
+      const rows = [
+        ["NIC", "Name", "Email", "Role", "Status", "Created At"],
+        ...downloadedUsers.map((user) => [
+          user.nic,
+          user.name,
+          user.email,
+          user.role,
+          user.accountStatus,
+          user.createdAt,
+        ]),
+      ]
+      const csv = rows.map((row) => row.map(csvValue).join(",")).join("\n")
+      const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }))
+      const link = document.createElement("a")
+      link.href = url
+      link.download = `${filename}.csv`
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      URL.revokeObjectURL(url)
+    } catch (downloadError) {
+      setError(
+        downloadError instanceof Error
+          ? downloadError.message
+          : "Unable to download users."
+      )
+    } finally {
+      setDownloading(false)
+    }
+  }
   const [staffForm, setStaffForm] = useState({
     nic: "",
     name: "",
@@ -203,6 +302,55 @@ export function UserManagementPage({
       setBusy(false)
     }
   }
+  const startEditingUser = (user: User) => {
+    setEditingUser(user)
+    setUserEditForm({ name: user.name, email: user.email })
+    setError("")
+    setSuccess("")
+  }
+  const openUserDetails = async (user: User) => {
+    setDetailsBusy(true)
+    setError("")
+    try {
+      setSelectedUser(await getUserByNic(user.nic))
+    } catch (detailsError) {
+      setError(
+        detailsError instanceof Error
+          ? detailsError.message
+          : "Unable to load user details."
+      )
+    } finally {
+      setDetailsBusy(false)
+    }
+  }
+  const saveUser = async (event: React.FormEvent) => {
+    event.preventDefault()
+    if (!editingUser) return
+
+    setBusy(true)
+    setError("")
+    setSuccess("")
+    try {
+      const updated = await updateProfile(
+        editingUser.nic,
+        userEditForm.name,
+        userEditForm.email
+      )
+      setUsers((items) =>
+        items.map((item) => (item.nic === updated.nic ? updated : item))
+      )
+      setEditingUser(null)
+      setSuccess(`${updated.name}'s account was updated.`)
+    } catch (saveError) {
+      setError(
+        saveError instanceof Error
+          ? saveError.message
+          : "Unable to update user account."
+      )
+    } finally {
+      setBusy(false)
+    }
+  }
   const changeStatus = async (user: User, nextStatus: string) => {
     setBusy(true)
     setError("")
@@ -223,24 +371,35 @@ export function UserManagementPage({
       setBusy(false)
     }
   }
-  const deactivate = async () => {
-    setBusy(true)
-    setError("")
-    setSuccess("")
-    try {
-      const updated = await requestDeactivation(profile.nic)
-      setProfile(updated)
-      onUserUpdated(updated)
-      setSuccess("Your deactivation request was submitted.")
-    } catch (deactivationError) {
-      setError(
-        deactivationError instanceof Error
-          ? deactivationError.message
-          : "Unable to request deactivation."
-      )
-    } finally {
-      setBusy(false)
-    }
+  const requestStatusChange = (user: User, nextStatus: string) => {
+    setConfirmation({
+      message: `Are you sure you want to change ${user.name}'s account status to ${nextStatus}?`,
+      action: () => changeStatus(user, nextStatus),
+    })
+  }
+  const askDeactivation = () => {
+    setConfirmation({
+      message: "Are you sure you want to request deactivation of your account?",
+      action: async () => {
+        setBusy(true)
+        setError("")
+        setSuccess("")
+        try {
+          const updated = await requestDeactivationApi(profile.nic)
+          setProfile(updated)
+          onUserUpdated(updated)
+          setSuccess("Your deactivation request was submitted.")
+        } catch (deactivationError) {
+          setError(
+            deactivationError instanceof Error
+              ? deactivationError.message
+              : "Unable to request deactivation."
+          )
+        } finally {
+          setBusy(false)
+        }
+      },
+    })
   }
   const addStaff = async (event: React.FormEvent) => {
     event.preventDefault()
@@ -274,9 +433,6 @@ export function UserManagementPage({
   return (
     <div className="flex flex-1 flex-col gap-6 p-6">
       <div>
-        <p className="text-sm font-medium text-emerald-600">
-          Member 1 · Identity
-        </p>
         <h1 className="text-2xl font-semibold tracking-tight">
           {isBackoffice ? "User management" : "My account"}
         </h1>
@@ -377,7 +533,7 @@ export function UserManagementPage({
             <Button
               className="mt-5 bg-white text-slate-950 hover:bg-slate-100"
               disabled={profile.accountStatus !== "Active" || busy}
-              onClick={deactivate}
+              onClick={askDeactivation}
             >
               Request deactivation
             </Button>
@@ -396,7 +552,52 @@ export function UserManagementPage({
           </div>
         )}
       </section>
-      {isBackoffice && (
+      {isBackoffice && selectedUser && (
+        <section className="rounded-xl border bg-card p-5">
+          <div className="flex items-start justify-between gap-4 border-b pb-5">
+            <div>
+              <Button variant="ghost" size="sm" onClick={() => setSelectedUser(null)}>
+                <ArrowLeft />
+                Back to directory
+              </Button>
+              <p className="mt-4 text-sm text-muted-foreground">User details</p>
+              <h2 className="mt-1 text-2xl font-semibold">{selectedUser.name}</h2>
+              <p className="text-sm text-muted-foreground">{selectedUser.email}</p>
+            </div>
+            {detailsBusy && <span className="text-sm text-muted-foreground">Loading...</span>}
+          </div>
+          <dl className="grid gap-4 py-5 sm:grid-cols-2">
+            <div><dt className="text-sm text-muted-foreground">NIC</dt><dd className="mt-1 font-medium">{selectedUser.nic}</dd></div>
+            <div><dt className="text-sm text-muted-foreground">Role</dt><dd className="mt-1 font-medium">{selectedUser.role}</dd></div>
+            <div><dt className="text-sm text-muted-foreground">Status</dt><dd className="mt-1"><StatusBadge status={selectedUser.accountStatus} /></dd></div>
+            <div><dt className="text-sm text-muted-foreground">Created</dt><dd className="mt-1 font-medium">{new Date(selectedUser.createdAt).toLocaleString()}</dd></div>
+          </dl>
+          <div className="flex flex-wrap gap-2 border-t pt-5">
+            {selectedUser.nic !== profile.nic && (
+              <>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setSelectedUser(null)
+                    startEditingUser(selectedUser)
+                  }}
+                >
+                  <Pencil />
+                  Edit user
+                </Button>
+                <StatusActions
+                  user={selectedUser}
+                  busy={busy}
+                  onChange={(nextStatus) =>
+                    requestStatusChange(selectedUser, nextStatus)
+                  }
+                />
+              </>
+            )}
+          </div>
+        </section>
+      )}
+      {isBackoffice && !selectedUser && (
         <section className="rounded-xl border bg-card">
           <div className="flex flex-col gap-4 border-b p-5 lg:flex-row lg:items-center lg:justify-between">
             <div>
@@ -406,6 +607,42 @@ export function UserManagementPage({
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
+              <Button
+                variant={directoryView === "all" ? "default" : "outline"}
+                size="sm"
+                onClick={() => {
+                  setDirectoryView("all")
+                  setRole("All")
+                  setStatus("All")
+                  setPage(1)
+                }}
+              >
+                All users
+              </Button>
+              <Button
+                variant={directoryView === "prosumers" ? "default" : "outline"}
+                size="sm"
+                onClick={() => {
+                  setDirectoryView("prosumers")
+                  setRole("Prosumer")
+                  setStatus("All")
+                  setPage(1)
+                }}
+              >
+                Prosumers
+              </Button>
+              <Button
+                variant={directoryView === "pending" ? "default" : "outline"}
+                size="sm"
+                onClick={() => {
+                  setDirectoryView("pending")
+                  setRole("Prosumer")
+                  setStatus("Pending")
+                  setPage(1)
+                }}
+              >
+                Pending prosumers
+              </Button>
               <div className="flex items-center gap-2 rounded-lg border px-3 py-2 sm:w-64">
                 <Search className="size-4 text-muted-foreground" />
                 <input
@@ -461,12 +698,109 @@ export function UserManagementPage({
                 <option value="name:desc">Name Z-A</option>
                 <option value="role:asc">Role A-Z</option>
               </select>
+              <DropdownMenu>
+                <DropdownMenuTrigger
+                  render={
+                    <Button variant="outline" disabled={downloading}>
+                      <Download />
+                      {downloading ? "Preparing..." : "Download users"}
+                    </Button>
+                  }
+                />
+                <DropdownMenuContent align="end" className="w-64 p-2">
+                  <DropdownMenuGroup>
+                    <DropdownMenuLabel className="px-3 pb-2 pt-1 text-[11px] uppercase tracking-wider">
+                      Download by role
+                    </DropdownMenuLabel>
+                    <DropdownMenuItem className="px-3 py-2" onClick={() => void downloadUsers("all-users")}>
+                      <Users />
+                      All users
+                    </DropdownMenuItem>
+                    <DropdownMenuItem className="px-3 py-2" onClick={() => void downloadUsers("prosumers", "Prosumer")}>
+                      <UserRound />
+                      Prosumers
+                    </DropdownMenuItem>
+                    <DropdownMenuItem className="px-3 py-2" onClick={() => void downloadUsers("backoffice-users", "Backoffice")}>
+                      <ShieldCheck />
+                      Backoffice users
+                    </DropdownMenuItem>
+                    <DropdownMenuItem className="px-3 py-2" onClick={() => void downloadUsers("grid-operators", "Grid Operator")}>
+                      <UserRoundCog />
+                      Grid Operators
+                    </DropdownMenuItem>
+                  </DropdownMenuGroup>
+                  <DropdownMenuSeparator className="my-2" />
+                  <DropdownMenuGroup>
+                    <DropdownMenuLabel className="px-3 pb-2 pt-1 text-[11px] uppercase tracking-wider">
+                      Download by status
+                    </DropdownMenuLabel>
+                    <DropdownMenuItem className="px-3 py-2" onClick={() => void downloadUsers("pending-users", undefined, "Pending")}>
+                      <Clock3 />
+                      Pending users
+                    </DropdownMenuItem>
+                    <DropdownMenuItem className="px-3 py-2" onClick={() => void downloadUsers("active-users", undefined, "Active")}>
+                      <CircleCheck className="text-emerald-600" />
+                      Active users
+                    </DropdownMenuItem>
+                    <DropdownMenuItem className="px-3 py-2" onClick={() => void downloadUsers("inactive-users", undefined, "Inactive")}>
+                      <CircleOff className="text-red-600" />
+                      Inactive users
+                    </DropdownMenuItem>
+                    <DropdownMenuItem className="px-3 py-2" onClick={() => void downloadUsers("deactivation-requested-users", undefined, "DeactivationRequested")}>
+                      <Ban className="text-amber-600" />
+                      Deactivation requested
+                    </DropdownMenuItem>
+                  </DropdownMenuGroup>
+                </DropdownMenuContent>
+              </DropdownMenu>
               <Button onClick={() => setShowStaff(!showStaff)}>
                 <Plus />
                 Add staff
               </Button>
             </div>
           </div>
+          {editingUser && (
+            <form
+              onSubmit={saveUser}
+              className="grid gap-3 border-b bg-muted/20 p-5 sm:grid-cols-[1fr_1fr_auto_auto] sm:items-end"
+            >
+              <div className="space-y-2">
+                <Label htmlFor="edit-user-name">Full name</Label>
+                <Input
+                  id="edit-user-name"
+                  required
+                  value={userEditForm.name}
+                  onChange={(e) =>
+                    setUserEditForm({ ...userEditForm, name: e.target.value })
+                  }
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-user-email">Email</Label>
+                <Input
+                  id="edit-user-email"
+                  type="email"
+                  required
+                  value={userEditForm.email}
+                  onChange={(e) =>
+                    setUserEditForm({ ...userEditForm, email: e.target.value })
+                  }
+                />
+              </div>
+              <Button type="submit" disabled={busy}>
+                <Check />
+                Save user
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setEditingUser(null)}
+              >
+                <X />
+                Cancel
+              </Button>
+            </form>
+          )}
           {showStaff && (
             <form
               onSubmit={addStaff}
@@ -554,13 +888,32 @@ export function UserManagementPage({
                     </td>
                     <td className="px-5 py-3 text-right">
                       {user.nic !== profile.nic && (
-                        <StatusActions
-                          user={user}
-                          busy={busy}
-                          onChange={(nextStatus) =>
-                            changeStatus(user, nextStatus)
-                          }
-                        />
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            disabled={busy || detailsBusy}
+                            onClick={() => void openUserDetails(user)}
+                          >
+                            View details
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={busy}
+                            onClick={() => startEditingUser(user)}
+                          >
+                            <Pencil />
+                            Edit
+                          </Button>
+                          <StatusActions
+                            user={user}
+                            busy={busy}
+                            onChange={(nextStatus) =>
+                              requestStatusChange(user, nextStatus)
+                            }
+                          />
+                        </div>
                       )}
                     </td>
                   </tr>
@@ -610,6 +963,38 @@ export function UserManagementPage({
           </div>
         </section>
       )}
+      <Dialog
+        open={confirmation !== null}
+        onOpenChange={(open) => {
+          if (!open && !busy) setConfirmation(null)
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirm account change</DialogTitle>
+            <DialogDescription>{confirmation?.message}</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              disabled={busy}
+              onClick={() => setConfirmation(null)}
+            >
+              Cancel
+            </Button>
+            <Button
+              disabled={busy || !confirmation}
+              onClick={async () => {
+                if (!confirmation) return
+                await confirmation.action()
+                setConfirmation(null)
+              }}
+            >
+              {busy ? "Working..." : "Confirm"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

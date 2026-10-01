@@ -20,6 +20,10 @@ export function getMyProfile() {
   return request<User>("/auth/me")
 }
 
+export function getUserByNic(nic: string) {
+  return request<User>(`/auth/users/${encodeURIComponent(nic)}`)
+}
+
 export function getUsers(
   status?: string,
   role?: string,
