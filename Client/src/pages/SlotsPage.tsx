@@ -1,4 +1,12 @@
 import { useEffect, useState, useMemo } from "react"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { getSlots, getSlotsByStationId, deactivateSlot, reactivateSlot } from "@/lib/slot-api"
 import { getStations } from "@/lib/station-api"
 import type { Slot } from "@/types/slot"
@@ -17,12 +25,16 @@ export function SlotsPage() {
   
   const [editingSlot, setEditingSlot] = useState<Slot | null>(null)
   
+  const [actionError, setActionError] = useState("")
+
   const [stationFilter, setStationFilter] = useState<string>("All")
   const [statusFilter, setStatusFilter] = useState<"All" | "Active" | "Inactive">("All")
 
   const { user } = useAuth()
   const canManageSlots = user?.role === "Backoffice" || user?.role === "Grid Operator"
   const canViewInactive = canManageSlots
+
+  const canViewInactiveStations = user?.role === "Backoffice" || user?.role === "Grid Operator"
 
   useEffect(() => {
     async function loadData() {
@@ -32,7 +44,7 @@ export function SlotsPage() {
         
         // Fetch both stations and slots
         const [stationsData, slotsData] = await Promise.all([
-          getStations(canViewInactive),
+          getStations(canViewInactiveStations),
           getSlots(canViewInactive)
         ])
         
@@ -47,7 +59,7 @@ export function SlotsPage() {
     }
 
     loadData()
-  }, [canViewInactive])
+  }, [canViewInactive, canViewInactiveStations])
 
   const handleStationFilterChange = async (event: React.ChangeEvent<HTMLSelectElement>) => {
     const newStationId = event.target.value
@@ -78,6 +90,7 @@ export function SlotsPage() {
   const handleToggleStatus = async (e: React.MouseEvent, slot: Slot) => {
     e.stopPropagation()
     try {
+      setActionError("")
       if (slot.isActive) {
         await deactivateSlot(slot.id)
       } else {
@@ -91,9 +104,9 @@ export function SlotsPage() {
       )
     } catch (err: unknown) {
       if (err instanceof Error) {
-        alert(err.message || "Failed to change slot status.")
+        setActionError(err.message || "Failed to change slot status.")
       } else {
-        alert("Failed to change slot status.")
+        setActionError("Failed to change slot status.")
       }
     }
   }
@@ -429,6 +442,20 @@ export function SlotsPage() {
         onOpenChange={(open) => !open && setEditingSlot(null)}
         onSlotUpdated={handleSlotUpdated}
       />
+
+      <Dialog open={!!actionError} onOpenChange={(open) => !open && setActionError("")}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Unable to Deactivate Slot</DialogTitle>
+            <DialogDescription className="text-red-600 mt-2">
+              {actionError}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button onClick={() => setActionError("")}>OK</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

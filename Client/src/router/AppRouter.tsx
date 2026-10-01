@@ -26,7 +26,7 @@ export function AppRouter() {
   useEffect(() => {
     if (user) {
       const requestedView = viewFromPath(window.location.pathname)
-      if (user.role === "Prosumer" && requestedView === "stations") {
+      if (user.role === "Prosumer" && (requestedView === "stations" || requestedView === "slots")) {
         setTimeout(() => handleNavigate("users", true), 0)
       }
     }

@@ -1,5 +1,13 @@
 import { useEffect, useState } from "react"
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import {
   getStations,
   deactivateStation,
   reactivateStation,
@@ -25,10 +33,12 @@ export function StationsPage() {
   const [editStation, setEditStation] = useState<Station | null>(null)
   const [editOpen, setEditOpen] = useState(false)
 
+  const [actionError, setActionError] = useState("")
+
   const { user } = useAuth()
   const isBackoffice = user?.role === "Backoffice"
   const canManageStations = isBackoffice
-  const canViewInactive = isBackoffice
+  const canViewInactive = isBackoffice || user?.role === "Grid Operator"
 
   useEffect(() => {
     async function loadStations() {
@@ -87,6 +97,7 @@ export function StationsPage() {
   const handleToggleStatus = async (e: React.MouseEvent, station: Station) => {
     e.stopPropagation()
     try {
+      setActionError("")
       if (station.isActive) {
         await deactivateStation(station.id)
       } else {
@@ -101,9 +112,9 @@ export function StationsPage() {
       )
     } catch (err: unknown) {
       if (err instanceof Error) {
-        alert(err.message || "Failed to change station status.")
+        setActionError(err.message || "Failed to change station status.")
       } else {
-        alert("Failed to change station status.")
+        setActionError("Failed to change station status.")
       }
     }
   }
@@ -280,6 +291,20 @@ export function StationsPage() {
         onOpenChange={setEditOpen}
         onStationUpdated={handleStationUpdated}
       />
+
+      <Dialog open={!!actionError} onOpenChange={(open) => !open && setActionError("")}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Unable to Deactivate Station</DialogTitle>
+            <DialogDescription className="text-red-600 mt-2">
+              {actionError}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button onClick={() => setActionError("")}>OK</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

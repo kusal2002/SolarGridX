@@ -18,7 +18,7 @@ export async function request<T>(path: string, options: RequestInit = {}): Promi
   })
 
   if (!response.ok) {
-    if (response.status === 401 || response.status === 403) {
+    if (response.status === 401) {
       localStorage.removeItem("solargridx-token")
       localStorage.removeItem("solargridx-user")
       window.dispatchEvent(new Event("solargridx:logout"))
