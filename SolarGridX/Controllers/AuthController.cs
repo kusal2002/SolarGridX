@@ -38,10 +38,7 @@ namespace SolarGridX.Controllers
                 });
             }
 
-            return Created(
-                $"/api/auth/users/{result.NIC}",
-                result
-            );
+            return CreatedAtAction(nameof(GetUser), new { nic = result.NIC }, result);
         }
 
         [HttpPost("login")]
@@ -138,7 +135,7 @@ namespace SolarGridX.Controllers
             var result = await _authService.CreateStaffUserAsync(dto);
             return result == null
                 ? Conflict(new { message = "NIC or email is already registered." })
-                : Created($"/api/auth/users/{result.NIC}", result);
+                : CreatedAtAction(nameof(GetUser), new { nic = result.NIC }, result);
         }
 
         [HttpPut("users/{nic}/profile")]
