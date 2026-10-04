@@ -15,6 +15,7 @@ android {
         versionCode = 1
         versionName = "1.0"
 
+
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -64,4 +65,10 @@ dependencies {
     implementation("com.squareup.retrofit2:retrofit:2.11.0")
     implementation("com.squareup.retrofit2:converter-gson:2.11.0")
     implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
+
+    // Location Services
+    implementation(libs.play.services.location)
+
+    // MapLibre OpenStreetMap SDK
+    implementation(libs.maplibre.android.sdk)
 }

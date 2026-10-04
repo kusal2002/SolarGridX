@@ -9,6 +9,8 @@ data class SolarStation(
     @SerializedName("latitude") val latitude: Double = 0.0,
     @SerializedName("longitude") val longitude: Double = 0.0,
     @SerializedName("totalCapacityKwh") val totalCapacityKwh: Double = 0.0,
+    @SerializedName("operatingStartTime") val operatingStartTime: String? = null,
+    @SerializedName("operatingEndTime") val operatingEndTime: String? = null,
     @SerializedName("isActive") val isActive: Boolean = true
 )
 
