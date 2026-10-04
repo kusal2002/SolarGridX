@@ -1,0 +1,24 @@
+info:
+  name: Approve Reservation Status (Staff)
+  type: http
+  seq: 10
+
+http:
+  method: PATCH
+  url: "{{baseUrl}}/api/reservation/{{reservationId}}/status"
+  body:
+    type: json
+    data: |-
+      {
+        "status": "Approved"
+      }
+  auth:
+    type: bearer
+    token: "{{backofficeToken}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

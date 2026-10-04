@@ -1,0 +1,23 @@
+info:
+  name: "06 Record Progress - expect 200"
+  type: http
+  seq: 6
+
+http:
+  method: PATCH
+  url: "{{baseUrl}}/api/energy-transfers/{{transferId}}/progress"
+  body:
+    type: json
+    data: |-
+      {
+        "transferredEnergyKWh": {{progressEnergyKWh}}
+      }
+  auth:
+    type: bearer
+    token: "{{backofficeToken}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

@@ -1,0 +1,51 @@
+info:
+  name: Create Stations
+  type: http
+  seq: 3
+
+http:
+  method: POST
+  url: http://localhost:5084/api/stations/
+  body:
+    type: json
+    data: |-
+      {
+        "stationName": "2 nd West Coast Solar Station",
+        "location": "Negombo2",
+        "latitude": 7.2083,
+        "longitude": 79.8358,
+        "totalCapacityKwh": 150
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false
+
+examples:
+  - name: Create-station
+    request:
+      url: http://localhost:5084/api/stations/
+      method: POST
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "stationName": "West Coast Solar Station",
+            "location": "Negombo",
+            "latitude": 7.2083,
+            "longitude": 79.8358,
+            "totalCapacityKwh": 150
+          }
+    response:
+      status: 200
+      statusText: OK
+      body:
+        type: text
+        data: ""

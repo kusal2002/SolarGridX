@@ -1,0 +1,17 @@
+info:
+  name: "13 Invalid ID Rejected - expect 400"
+  type: http
+  seq: 13
+
+http:
+  method: GET
+  url: "{{baseUrl}}/api/energy-transfers/bad-id"
+  auth:
+    type: bearer
+    token: "{{backofficeToken}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

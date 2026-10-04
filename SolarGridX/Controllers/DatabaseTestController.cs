@@ -1,9 +1,11 @@
+using Microsoft.AspNetCore.Authorization;
 ﻿using Microsoft.AspNetCore.Mvc;
 using MongoDB.Bson;
 using MongoDB.Driver;
 
 namespace SolarGridX.Controllers
 {
+    [AllowAnonymous]
     [ApiController]
     [Route("/api/database-test")]
 
@@ -39,6 +41,43 @@ namespace SolarGridX.Controllers
                     message = "Database connection failed.",
                     error = ex.Message
                 });
+            }
+        }
+        [HttpGet("stations-debug")]
+        public async Task<IActionResult> GetStationsDebug()
+        {
+            try
+            {
+                var collection = _database.GetCollection<BsonDocument>("SolarStationInfo");
+                var stations = await collection.Find(new BsonDocument()).ToListAsync();
+                return Ok(new
+                {
+                    count = stations.Count,
+                    stations = stations.Select(s => BsonTypeMapper.MapToDotNetValue(s))
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { error = ex.Message });
+            }
+        }
+
+        [HttpGet("slots-debug")]
+        public async Task<IActionResult> GetSlotsDebug()
+        {
+            try
+            {
+                var collection = _database.GetCollection<BsonDocument>("EnergyBookingSlots");
+                var slots = await collection.Find(new BsonDocument()).ToListAsync();
+                return Ok(new
+                {
+                    count = slots.Count,
+                    slots = slots.Select(s => BsonTypeMapper.MapToDotNetValue(s))
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { error = ex.Message });
             }
         }
     }

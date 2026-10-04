@@ -1,0 +1,26 @@
+info:
+  name: "Create Energy Transfer - expect 201"
+  type: http
+  seq: 2
+
+http:
+  method: POST
+  url: "{{baseUrl}}/api/energy-transfers"
+  body:
+    type: json
+    data: |-
+      {
+        "reservationId": "{{reservationId}}",
+        "sellerId": "{{sellerNIC}}",
+        "buyerId": "{{buyerNIC}}",
+        "expectedEnergyKWh": {{expectedEnergyKWh}}
+      }
+  auth:
+    type: bearer
+    token: "{{backofficeToken}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

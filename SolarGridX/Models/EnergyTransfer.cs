@@ -8,7 +8,7 @@ namespace SolarGridX.Models
     {
         [BsonId]
         [BsonRepresentation(BsonType.ObjectId)]
-        public string?id { get; set; }
+        public string? id { get; set; }
 
         [BsonElement("reservationId")]
         public string ReservationId { get; set; } = string.Empty;
@@ -36,5 +36,27 @@ namespace SolarGridX.Models
 
         [BsonElement("completedAt")]
         public DateTime? CompletedAt { get; set; }
+
+        [BsonElement("endedAt")]
+        public DateTime? EndedAt { get; set; }
+
+        [BsonElement("updatedAt")]
+        public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+
+        [BsonElement("reason")]
+        public string? Reason { get; set; }
+
+        [BsonElement("history")]
+        public List<EnergyTransferEvent> History { get; set; } = [];
+    }
+
+    public class EnergyTransferEvent
+    {
+        public string Action { get; set; } = string.Empty;
+        public string Status { get; set; } = string.Empty;
+        public decimal TransferredEnergyKWh { get; set; }
+        public DateTime At { get; set; }
+        public string ActorNIC { get; set; } = string.Empty;
+        public string? Reason { get; set; }
     }
 }

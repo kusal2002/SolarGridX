@@ -1,0 +1,17 @@
+info:
+  name: Test JWT Revocation After Deactivation
+  type: http
+  seq: 15
+
+http:
+  method: POST
+  url: http://localhost:5084/api/auth/users/{{prosumerNic}}/deactivation-request
+  auth:
+    type: bearer
+    token: "{{prosumerToken}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

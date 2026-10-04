@@ -1,67 +1,68 @@
-﻿using Microsoft.AspNetCore.Http;
+using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using SolarGridX.Services;
 using SolarGridX.DTOs;
-using SolarGridX.Models;
+using SolarGridX.Services;
 
-namespace SolarGridX.Controllers
+namespace SolarGridX.Controllers;
+
+[Route("api/energy-transfers")]
+[Authorize(Roles = "Backoffice,Grid Operator")]
+[ApiController]
+public class EnergyTransfersController(EnergyTransferService service) : ControllerBase
 {
-    [Route("api/energy-transfers")]
-    [ApiController]
-    public class EnergyTransfersController : ControllerBase
+    [HttpGet]
+    public Task<IActionResult> GetAll([FromQuery] EnergyTransferQuery query, CancellationToken ct = default) =>
+        Execute(async () => Ok(await service.GetAllAsync(query, ct)));
+
+    [HttpGet("{id}")]
+    public Task<IActionResult> GetById(string id, CancellationToken ct = default) => Execute(async () =>
     {
-        private readonly EnergyTransferService _transferservice;
+        var transfer = await service.GetByIdAsync(id, ct);
+        return transfer == null ? NotFound(new { message = "Energy transfer not found." }) : Ok(transfer);
+    });
 
-        public EnergyTransfersController(
-            EnergyTransferService transferservice)
-        {
-            _transferservice = transferservice;
-        }
+    [HttpGet("{id}/history")]
+    public Task<IActionResult> GetHistory(string id, CancellationToken ct = default) => Execute(async () =>
+    {
+        var transfer = await service.GetByIdAsync(id, ct);
+        return transfer == null ? NotFound(new { message = "Energy transfer not found." }) : Ok(transfer.History);
+    });
 
-        //GET: api/energy-transfers
-        [HttpGet]
-        public async Task<IActionResult> GetAll() { 
-            var transfers = await _transferservice.GetAllAsync();
-            return Ok(transfers);
-        }
+    [HttpPost]
+    public Task<IActionResult> Create([FromBody] CreateEnergyTransferRequest request, CancellationToken ct = default) => Execute(async () =>
+    {
+        var transfer = await service.CreateAsync(request, Actor, ct);
+        return CreatedAtAction(nameof(GetById), new { id = transfer.id }, transfer);
+    });
 
-        // POST: api/energy-transfers
-        [HttpPost]
-        public async Task<IActionResult> Create(
-            [FromBody] CreateEnergyTransferRequest request)
-        {
-            if (string.IsNullOrWhiteSpace(request.ReservationId) ||
-                string.IsNullOrWhiteSpace(request.SellerId) ||
-                string.IsNullOrWhiteSpace(request.BuyerId))
-            {
-                return BadRequest(new
-                {
-                    message = "Reservation, seller and buyer IDs are required."
-                });
-            }
+    [HttpPatch("{id}/start")]
+    public Task<IActionResult> Start(string id, CancellationToken ct = default) => Change(id, "start", null, null, ct);
 
-            if (request.SellerId == request.BuyerId)
-            {
-                return BadRequest(new
-                {
-                    message = "Seller and buyer cannot be the same user."
-                });
-            }
+    [HttpPatch("{id}/progress")]
+    public Task<IActionResult> Progress(string id, [FromBody] TransferEnergyRequest request, CancellationToken ct = default) =>
+        Change(id, "progress", request.TransferredEnergyKWh, null, ct);
 
-            var transfer = new EnergyTransfer
-            {
-                ReservationId = request.ReservationId,
-                SellerId = request.SellerId,
-                BuyerId = request.BuyerId,
-                ExpectedEnergyKWh = request.ExpectedEnergyKWh,
-                TransferredEnergyKWh = 0,
-                Status = "Pending",
-                CreatedAt = DateTime.UtcNow
-            };
+    [HttpPatch("{id}/complete")]
+    public Task<IActionResult> Complete(string id, [FromBody] TransferEnergyRequest request, CancellationToken ct = default) =>
+        Change(id, "complete", request.TransferredEnergyKWh, null, ct);
 
-            await _transferservice.CreateAsync(transfer);
+    [HttpPatch("{id}/cancel")]
+    public Task<IActionResult> Cancel(string id, [FromBody] EndEnergyTransferRequest request, CancellationToken ct = default) =>
+        Change(id, "cancel", null, request.Reason, ct);
 
-            return StatusCode(201, transfer);
-        }
+    [HttpPatch("{id}/fail")]
+    public Task<IActionResult> Fail(string id, [FromBody] EndEnergyTransferRequest request, CancellationToken ct = default) =>
+        Change(id, "fail", null, request.Reason, ct);
+
+    private string Actor => User.FindFirstValue(ClaimTypes.NameIdentifier)!;
+
+    private Task<IActionResult> Change(string id, string action, decimal? energy, string? reason, CancellationToken ct) =>
+        Execute(async () => Ok(await service.ChangeAsync(id, action, energy, reason, Actor, ct)));
+
+    private async Task<IActionResult> Execute(Func<Task<IActionResult>> operation)
+    {
+        try { return await operation(); }
+        catch (TransferException ex) { return StatusCode(ex.StatusCode, new { message = ex.Message }); }
     }
 }

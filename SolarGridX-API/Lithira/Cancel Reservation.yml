@@ -1,0 +1,18 @@
+info:
+  name: Cancel Reservation
+  type: http
+  seq: 8
+
+http:
+  method: PATCH
+  url: "{{baseUrl}}/api/reservation/{{reservationId}}/cancel?reason=Change%20of%20plans"
+  auth:
+    type: bearer
+    token: "{{prosumerToken}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

@@ -1,0 +1,22 @@
+info:
+  name: Test Login - Backoffice JWT
+  type: http
+  seq: 9
+
+http:
+  method: POST
+  url: http://localhost:5084/api/auth/login
+  body:
+    type: json
+    data: |-
+      {
+        "email": "{{backofficeEmail}}",
+        "password": "{{backofficePassword}}"
+      }
+  auth: none
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

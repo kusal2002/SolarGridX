@@ -1,0 +1,24 @@
+info:
+  name: Register Prosumer
+  type: http
+  seq: 1
+
+http:
+  method: POST
+  url: http://localhost:5084/api/auth/register
+  body:
+    type: json
+    data: |-
+      {
+        "nic": "{{prosumerNic}}",
+        "name": "Test Prosumer",
+        "email": "{{prosumerEmail}}",
+        "password": "TestPassword123"
+      }
+  auth: none
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

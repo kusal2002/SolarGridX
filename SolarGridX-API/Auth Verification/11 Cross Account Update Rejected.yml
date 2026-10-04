@@ -1,0 +1,25 @@
+info:
+  name: "11 Cross Account Update Rejected - expect 403"
+  type: http
+  seq: 11
+
+http:
+  method: PUT
+  url: "{{baseUrl}}/api/auth/users/{{otherUserNic}}/profile"
+  body:
+    type: json
+    data: |-
+      {
+        "name": "Must Not Change",
+        "email": "other-test@example.com"
+      }
+  auth:
+    type: bearer
+    token: "{{prosumerToken}}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+

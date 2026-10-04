@@ -1,0 +1,22 @@
+info:
+  name: Login
+  type: http
+  seq: 2
+
+http:
+  method: POST
+  url: https://localhost:7172/api/auth/login
+  body:
+    type: json
+    data: |-
+      {
+        "email": "kusalsalpura@gmail.com",
+        "password": "Kusal@123"
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: true
