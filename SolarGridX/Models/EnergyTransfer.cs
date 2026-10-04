@@ -46,6 +46,12 @@ namespace SolarGridX.Models
         [BsonElement("reason")]
         public string? Reason { get; set; }
 
+        [BsonElement("verifiedBy")]
+        public string? VerifiedBy { get; set; }
+
+        [BsonElement("verifiedAt")]
+        public DateTime? VerifiedAt { get; set; }
+
         [BsonElement("history")]
         public List<EnergyTransferEvent> History { get; set; } = [];
     }

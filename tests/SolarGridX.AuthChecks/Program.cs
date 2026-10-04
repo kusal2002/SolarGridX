@@ -50,19 +50,21 @@ void Expect(bool condition, string description)
 foreach (var action in new[] { "GetUsers", "CreateStaffUser", "UpdateStatus" })
     await CheckPolicy(typeof(AuthController), action, "Backoffice");
 await CheckPolicy(typeof(AuthController), "RequestDeactivation", "Prosumer");
-foreach (var action in new[] { "Create", "Update", "Delete", "Reactivate", "GetAllIncludingInactive" })
+foreach (var action in new[] { "Create", "Update", "Delete", "Reactivate" })
     await CheckPolicy(typeof(StationController), action, "Backoffice");
+await CheckPolicy(typeof(StationController), "GetAllIncludingInactive", "Backoffice", "Grid Operator");
 foreach (var action in new[] { "GetAll", "GetById" })
     await CheckPolicy(typeof(StationController), action, "Backoffice", "Grid Operator", "Prosumer");
 foreach (var action in new[] { "Create", "Update", "Deactivate", "Reactivate" })
     await CheckPolicy(typeof(SlotController), action, "Backoffice", "Grid Operator");
 await CheckPolicy(typeof(SlotController), "Delete", "Backoffice");
-foreach (var action in new[] { "GetAll", "UpdateStatus" })
-    await CheckPolicy(typeof(ReservationController), action, "Backoffice", "Grid Operator");
-foreach (var action in new[] { "GetById", "GetByProsumer", "Create", "Update", "Cancel" })
+await CheckPolicy(typeof(ReservationController), "UpdateStatus", "Backoffice", "Grid Operator");
+foreach (var action in new[] { "GetAll", "GetQr", "GetById", "GetByProsumer", "Create", "Update", "Cancel" })
     await CheckPolicy(typeof(ReservationController), action, "Backoffice", "Grid Operator", "Prosumer");
-foreach (var action in new[] { "GetAll", "GetById", "GetHistory", "Create", "Start", "Progress", "Complete", "Cancel", "Fail" })
+foreach (var action in new[] { "GetAll", "GetById", "GetHistory", "Create", "Verify", "Start", "Progress", "Complete", "Cancel", "Fail" })
     await CheckPolicy(typeof(EnergyTransfersController), action, "Backoffice", "Grid Operator");
+foreach (var action in new[] { "List", "Summary" })
+    await CheckPolicy(typeof(BookingsController), action, "Backoffice", "Grid Operator", "Prosumer");
 await CheckPolicy(typeof(DatabaseTestController), "TestConnection", "Backoffice");
 
 // Protect new controller actions from accidentally becoming public.
@@ -83,7 +85,7 @@ var auth = new AuthController(null!) { ControllerContext = context };
 Expect(await auth.GetUser("other") is ForbidResult, "Cannot read another account");
 Expect(await auth.UpdateProfile("other", new UpdateProfileDto { Name = "Other", Email = "other@example.com" }) is ForbidResult, "Cannot edit another account");
 Expect(await auth.RequestDeactivation("other") is ForbidResult, "Cannot deactivate another account");
-var reservations = new ReservationController(null!) { ControllerContext = context };
+var reservations = new ReservationController(null!, null!) { ControllerContext = context };
 Expect(await reservations.GetByProsumer("other") is ForbidResult, "Cannot list another prosumer's bookings");
 Expect(await reservations.Create(new CreateReservationRequest { ProsumerNIC = "other" }) is ForbidResult, "Cannot book using another NIC");
 

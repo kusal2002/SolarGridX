@@ -2,6 +2,14 @@ using System.ComponentModel.DataAnnotations;
 
 namespace SolarGridX.DTOs;
 
+public class VerifyTransferRequest
+{
+    [Required, StringLength(4096)]
+    public string Payload { get; set; } = string.Empty;
+    [Required, StringLength(32)]
+    public string SellerNIC { get; set; } = string.Empty;
+}
+
 public class TransferEnergyRequest
 {
     // Cumulative meter value, never a delta. Required distinguishes missing from zero.

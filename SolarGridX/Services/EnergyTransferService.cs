@@ -60,7 +60,8 @@ public class EnergyTransferService
         return _reservations.Find(r => r.Id == reservationId).FirstOrDefaultAsync()!;
     }
 
-    public async Task<EnergyTransfer> CreateAsync(CreateEnergyTransferRequest request, string actor, CancellationToken ct = default)
+    public async Task<EnergyTransfer> CreateAsync(CreateEnergyTransferRequest request, string actor, CancellationToken ct = default,
+        ReservationQrService.Ticket? ticket = null)
     {
         var reservationId = NormalizeId(request.ReservationId);
         if (string.IsNullOrWhiteSpace(request.SellerId) || string.IsNullOrWhiteSpace(request.BuyerId) ||
@@ -76,7 +77,9 @@ public class EnergyTransferService
                     ?? throw new TransferException(404, "Reservation not found.");
                 if (reservation.Status != "Approved")
                     throw new TransferException(409, "Only approved reservations can create a transfer.");
-                if (reservation.TransferId != null)
+                if (ticket != null && (ticket.ReservationId != reservationId || ticket.Version != reservation.UpdatedAt.Ticks || ticket.ExpiresAt <= DateTime.UtcNow))
+                    throw new TransferException(409, "QR is stale. Ask the prosumer to refresh it.");
+                if (reservation.TransferId != null && ticket == null)
                     throw new TransferException(409, "A transfer already exists for this reservation.");
                 if (reservation.ProsumerNIC != request.BuyerId)
                     throw new TransferException(400, "Buyer NIC must match the reservation's prosumer NIC.");
@@ -92,6 +95,15 @@ public class EnergyTransferService
                 }
                 await RequireActiveSlotAsync(s, reservation, token);
                 var now = DateTime.UtcNow;
+                if (reservation.TransferId != null)
+                {
+                    var existing = await _transfers.Find(s, t => t.id == reservation.TransferId).FirstOrDefaultAsync(token);
+                    if (existing == null || existing.Status != "Pending" || existing.SellerId != request.SellerId)
+                        throw new TransferException(409, "Transfer is missing, already started, or has a different seller.");
+                    MarkVerified(existing, actor, now);
+                    await _transfers.ReplaceOneAsync(s, t => t.id == existing.id, existing, cancellationToken: token);
+                    return existing;
+                }
                 var transfer = new EnergyTransfer
                 {
                     id = ObjectId.GenerateNewId().ToString(), ReservationId = reservationId,
@@ -99,6 +111,7 @@ public class EnergyTransferService
                     ExpectedEnergyKWh = request.ExpectedEnergyKWh, CreatedAt = now, UpdatedAt = now,
                     History = [new EnergyTransferEvent { Action = "create", Status = "Pending", ActorNIC = actor, At = now }]
                 };
+                if (ticket != null) MarkVerified(transfer, actor, now);
                 reservation.TransferId = transfer.id;
                 reservation.UpdatedAt = now;
                 await _reservations.ReplaceOneAsync(s, r => r.Id == reservationId, reservation, cancellationToken: token);
@@ -127,6 +140,8 @@ public class EnergyTransferService
             // Legacy transfers need explicit review before being attached to a reservation.
             if (reservation.TransferId != transfer.id || reservation.Status != expectedStatus)
                 throw new TransferException(409, "Reservation is not linked to this active transfer; review legacy data if applicable.");
+            if (action is "start" or "complete" && transfer.VerifiedAt == null)
+                throw new TransferException(409, "Scan and verify the reservation QR before starting or completing.");
             if (action == "start") await RequireActiveSlotAsync(s, reservation, token);
             EnergyTransferRules.Apply(transfer, action, energy, reason, actor, DateTime.UtcNow);
             reservation.Status = transfer.Status switch
@@ -164,4 +179,12 @@ public class EnergyTransferService
 
     private static string NormalizeId(string id) => ObjectId.TryParse(id, out var parsed)
         ? parsed.ToString() : throw new TransferException(400, "ID must be a 24-character MongoDB ObjectId.");
+
+    private static void MarkVerified(EnergyTransfer transfer, string actor, DateTime now)
+    {
+        transfer.VerifiedBy = actor;
+        transfer.VerifiedAt = now;
+        transfer.UpdatedAt = now;
+        transfer.History.Add(new EnergyTransferEvent { Action = "verify", Status = transfer.Status, ActorNIC = actor, At = now });
+    }
 }

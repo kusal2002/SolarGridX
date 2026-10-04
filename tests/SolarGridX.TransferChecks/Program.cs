@@ -1,4 +1,10 @@
 using System.ComponentModel.DataAnnotations;
+using System.Text.Json;
+using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
+using SolarGridX.Controllers;
 using Microsoft.Extensions.Configuration;
 using MongoDB.Bson;
 using MongoDB.Driver;
@@ -26,6 +32,19 @@ Check(!Valid(new TransferEnergyRequest()), "missing meter value");
 Check(!Valid(new TransferEnergyRequest { TransferredEnergyKWh = -1 }), "negative meter value");
 Check(!Valid(new EndEnergyTransferRequest { Reason = "   " }), "blank reason");
 Check(!Valid(new EnergyTransferQuery { Page = 0, PageSize = 101 }), "bounded pagination");
+Check(!Valid(new VerifyTransferRequest()), "QR payload and seller required");
+var protection = new EphemeralDataProtectionProvider();
+var qr = new ReservationQrService(protection);
+string Payload(EnergyReservation r) => JsonSerializer.SerializeToElement(qr.Issue(r)).GetProperty("payload").GetString()!;
+var sample = new EnergyReservation { Id = ObjectId.GenerateNewId().ToString(), UpdatedAt = DateTime.UtcNow };
+var payload = Payload(sample);
+Check(qr.Read(payload).ReservationId == sample.Id, "QR round trip");
+Check(!payload.Contains(sample.Id), "QR does not expose reservation ID");
+await Reject(() => { qr.Read(payload[..^5] + "xxxxx"); return Task.CompletedTask; }, 400);
+await Reject(() => { qr.Read("not-a-qr"); return Task.CompletedTask; }, 400);
+var expired = protection.CreateProtector("SolarGridX.ReservationQR.v1").Protect(JsonSerializer.Serialize(
+    new ReservationQrService.Ticket(sample.Id, sample.UpdatedAt.Ticks, DateTime.UtcNow.AddMinutes(-1))));
+await Reject(() => { qr.Read(expired); return Task.CompletedTask; }, 400);
 foreach (var state in new[] { "Pending", "InProgress", "Completed", "Cancelled", "Failed" })
 foreach (var action in new[] { "start", "progress", "complete", "cancel", "fail" })
 {
@@ -62,7 +81,7 @@ try
     await service.EnsureIndexesAsync();
     await db.GetCollection<User>("Users").InsertManyAsync(new[] {
         new User { NIC = "seller" }, new User { NIC = "buyer" },
-        new User { NIC = "inactive", AccountStatus = "Inactive" } });
+        new User { NIC = "inactive", AccountStatus = AccountStatus.Inactive } });
     var station = new SolarStation { Id = ObjectId.GenerateNewId().ToString() };
     await db.GetCollection<SolarStation>("SolarStationInfo").InsertOneAsync(station);
     var slot = new EnergyBookingSlot { Id = ObjectId.GenerateNewId().ToString(), StationId = station.Id,
@@ -84,6 +103,20 @@ try
     var pending = await Booking(false);
     await Reject(() => service.CreateAsync(Request(pending), "operator"), 409);
     var booking = await Booking();
+    ControllerContext Context(string nic) => new() { HttpContext = new DefaultHttpContext { User = new ClaimsPrincipal(
+        new ClaimsIdentity(new[] { new Claim(ClaimTypes.NameIdentifier, nic), new Claim(ClaimTypes.Role, "Prosumer") }, "test")) } };
+    var qrController = new ReservationController(reservations, qr) { ControllerContext = Context("other-buyer") };
+    Check(await qrController.GetQr(booking.Id) is ForbidResult, "another prosumer cannot get QR");
+    qrController.ControllerContext = Context("buyer");
+    Check(await qrController.GetQr(pending.Id) is ConflictObjectResult, "pending booking cannot issue QR");
+    Check(await qrController.GetQr(booking.Id) is OkObjectResult, "approved owner can get QR");
+    var dashboard = new BookingsController(reservations) { ControllerContext = Context("buyer") };
+    var counts = JsonSerializer.SerializeToElement(((OkObjectResult)await dashboard.Summary()).Value);
+    Check(counts.GetProperty("pending").GetInt32() == 1 && counts.GetProperty("approvedFuture").GetInt32() == 1, "live future/pending counts");
+    dashboard.ControllerContext = Context("other-buyer");
+    var ownList = JsonSerializer.SerializeToElement(((OkObjectResult)await dashboard.List("search")).Value);
+    Check(ownList.GetProperty("total").GetInt32() == 0, "booking list scoped to owner");
+    Check(await dashboard.List("current", page: 0) is BadRequestObjectResult, "bad booking pagination rejected");
     var wrong = Request(booking); wrong.BuyerId = "seller"; wrong.SellerId = "buyer";
     await Reject(() => service.CreateAsync(wrong, "operator"), 400);
     wrong = Request(booking); wrong.ExpectedEnergyKWh = 4;
@@ -106,6 +139,12 @@ try
     await RejectReservation(() => reservations.UpdateAsync(booking.Id, new UpdateReservationRequest { RequestedEnergyKwh = 4 }));
     await RejectReservation(() => reservations.UpdateStatusAsync(booking.Id, "Completed"));
     await Reject(() => Change(transfer, "complete", 5), 409);
+    await Reject(() => Change(transfer, "start"), 409);
+    booking = (await reservations.GetByIdAsync(booking.Id))!;
+    await Reject(() => service.CreateAsync(Request(booking), "operator", ticket:
+        new ReservationQrService.Ticket(booking.Id, booking.UpdatedAt.Ticks - 1, DateTime.UtcNow.AddMinutes(15))), 409);
+    transfer = await service.CreateAsync(Request(booking), "operator", ticket: qr.Read(Payload(booking)));
+    Check(transfer.VerifiedBy == "operator" && transfer.VerifiedAt != null, "QR verification audited");
     transfer = await Change(transfer, "start");
     Check(transfer.Status == "InProgress" && transfer.StartedAt != null, "start");
     await Change(transfer, "progress", 2);
@@ -113,9 +152,10 @@ try
     await Reject(() => Change(transfer, "progress", 6), 400);
     await Reject(() => Change(transfer, "complete", 4), 400);
     transfer = await Change(transfer, "complete", 5);
-    Check(transfer.Status == "Completed" && transfer.CompletedAt != null && transfer.History.Count == 4, "completion/history");
+    Check(transfer.Status == "Completed" && transfer.CompletedAt != null && transfer.History.Count == 5, "completion/history");
     Check((await reservations.GetByIdAsync(booking.Id))!.Status == "Completed", "reservation completed atomically");
     await Reject(() => Change(transfer, "complete", 5), 409);
+    await Reject(() => service.CreateAsync(Request(booking), "operator", ticket: qr.Read(Payload(booking))), 409);
     Check((await slots.Find(s => s.Id == booking.SlotId).FirstAsync()).AvailableEnergyKwh == 95, "completed energy not released");
 
     var cancelBooking = await Booking();
@@ -129,7 +169,8 @@ try
     Check((await slots.Find(s => s.Id == cancelBooking.SlotId).FirstAsync()).AvailableEnergyKwh == 100, "capacity restored once");
     await Reject(() => service.CreateAsync(Request(cancelBooking), "operator"), 409);
     var failBooking = await Booking();
-    var failed = await service.CreateAsync(Request(failBooking), "operator");
+    failBooking = (await reservations.GetByIdAsync(failBooking.Id))!;
+    var failed = await service.CreateAsync(Request(failBooking), "operator", ticket: qr.Read(Payload(failBooking)));
     await Change(failed, "start");
     await Change(failed, "progress", 2);
     failed = await Change(failed, "fail");

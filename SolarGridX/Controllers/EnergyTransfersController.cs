@@ -9,8 +9,23 @@ namespace SolarGridX.Controllers;
 [Route("api/energy-transfers")]
 [Authorize(Roles = "Backoffice,Grid Operator")]
 [ApiController]
-public class EnergyTransfersController(EnergyTransferService service) : ControllerBase
+public class EnergyTransfersController(EnergyTransferService service, ReservationQrService qr) : ControllerBase
 {
+    [HttpPost("verify")]
+    public Task<IActionResult> Verify(VerifyTransferRequest request, CancellationToken ct) => Execute(async () =>
+    {
+        var ticket = qr.Read(request.Payload);
+        var reservation = await service.GetReservationByIdAsync(ticket.ReservationId)
+            ?? throw new TransferException(404, "Reservation not found.");
+        if (!double.IsFinite(reservation.RequestedEnergyKwh) || reservation.RequestedEnergyKwh < 0.001 || reservation.RequestedEnergyKwh > 1000000)
+            throw new TransferException(400, "Reservation has invalid energy.");
+        var transfer = await service.CreateAsync(new CreateEnergyTransferRequest
+        {
+            ReservationId = reservation.Id, SellerId = request.SellerNIC,
+            BuyerId = reservation.ProsumerNIC, ExpectedEnergyKWh = (decimal)reservation.RequestedEnergyKwh
+        }, Actor, ct, ticket);
+        return Ok(transfer);
+    });
     [HttpGet]
     public Task<IActionResult> GetAll([FromQuery] EnergyTransferQuery query, CancellationToken ct = default) =>
         Execute(async () => Ok(await service.GetAllAsync(query, ct)));

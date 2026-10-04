@@ -12,18 +12,35 @@ namespace SolarGridX.Controllers;
 public class ReservationController : ControllerBase
 {
     private readonly ReservationService _reservationService;
+    private readonly ReservationQrService _qr;
 
-    public ReservationController(ReservationService reservationService)
+    public ReservationController(ReservationService reservationService, ReservationQrService qr)
     {
         _reservationService = reservationService;
+        _qr = qr;
     }
 
     [HttpGet]
     [Authorize(Roles = "Backoffice,Grid Operator,Prosumer")]
     public async Task<IActionResult> GetAll()
     {
-        var list = await _reservationService.GetAllAsync();
+        var list = User.IsInRole("Prosumer")
+            ? await _reservationService.GetByProsumerAsync(User.FindFirstValue(ClaimTypes.NameIdentifier)!)
+            : await _reservationService.GetAllAsync();
         return Ok(list);
+    }
+
+    [HttpGet("{id}/qr")]
+    public async Task<IActionResult> GetQr(string id)
+    {
+        if (!MongoDB.Bson.ObjectId.TryParse(id, out var parsed))
+            return BadRequest(new { message = "Invalid reservation ID." });
+        var reservation = await _reservationService.GetByIdAsync(parsed.ToString());
+        if (reservation == null) return NotFound(new { message = "Reservation not found." });
+        if (!CanAccess(reservation.ProsumerNIC)) return Forbid();
+        if (reservation.Status != "Approved")
+            return Conflict(new { message = "Only approved reservations have a transaction QR." });
+        return Ok(_qr.Issue(reservation));
     }
 
     [HttpGet("{id}")]

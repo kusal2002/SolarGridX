@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.Extensions.Options;
 using MongoDB.Driver;
 using Microsoft.IdentityModel.Tokens;
@@ -16,6 +17,8 @@ builder.Services.Configure<MongoDbSettings>(
 );
 
 builder.Services.AddScoped<EnergyTransferService>();
+builder.Services.AddDataProtection().SetApplicationName("SolarGridX");
+builder.Services.AddScoped<ReservationQrService>();
 builder.Services.AddScoped<AuthService>();
 
 //Stations
