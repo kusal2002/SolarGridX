@@ -37,6 +37,36 @@ data class ReservationUiState(
             }
             return active.minByOrNull { it.reservationDate + " " + it.startTime }
         }
+
+    val availableActiveSlots: List<EnergySlot>
+        get() {
+            val now = System.currentTimeMillis()
+            val sdf = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).apply {
+                timeZone = TimeZone.getDefault()
+            }
+            val dateSdf = SimpleDateFormat("yyyy-MM-dd", Locale.US).apply {
+                timeZone = TimeZone.getDefault()
+            }
+            return slots.filter { slot ->
+                if (!slot.isActive || slot.availableEnergyKwh <= 0.0) return@filter false
+                try {
+                    val datePart = slot.slotDate.split("T")[0].trim()
+                    val slotDateObj = dateSdf.parse(datePart) ?: return@filter false
+                    val diffDays = (slotDateObj.time - now) / (1000.0 * 60 * 60 * 24)
+                    if (diffDays > 7.0) return@filter false
+
+                    val timeSource = if (slot.endTime.isNotBlank()) slot.endTime.trim() else slot.startTime.trim()
+                    val timeParts = timeSource.split(":")
+                    val hour = timeParts.getOrNull(0)?.padStart(2, '0') ?: "00"
+                    val minute = timeParts.getOrNull(1)?.padStart(2, '0') ?: "00"
+                    val second = timeParts.getOrNull(2)?.padStart(2, '0') ?: "00"
+                    val slotDateTime = sdf.parse("$datePart $hour:$minute:$second")
+                    (slotDateTime?.time ?: Long.MAX_VALUE) > now
+                } catch (e: Exception) {
+                    true
+                }
+            }
+        }
 }
 
 class ReservationViewModel(
@@ -156,6 +186,44 @@ class ReservationViewModel(
             Pair(hoursRemaining >= 12.0, hoursRemaining)
         } catch (e: Exception) {
             Pair(true, 24.0)
+        }
+    }
+
+    // Helper: checks if slot is expired (past date or past end-time)
+    fun isSlotExpired(slot: EnergySlot): Boolean {
+        return try {
+            val datePart = slot.slotDate.split("T")[0].trim()
+            val timeSource = if (slot.endTime.isNotBlank()) slot.endTime.trim() else slot.startTime.trim()
+            val timeParts = timeSource.split(":")
+            val hour = timeParts.getOrNull(0)?.padStart(2, '0') ?: "00"
+            val minute = timeParts.getOrNull(1)?.padStart(2, '0') ?: "00"
+            val second = timeParts.getOrNull(2)?.padStart(2, '0') ?: "00"
+
+            val sdf = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).apply {
+                timeZone = TimeZone.getDefault()
+            }
+            val slotDateTime = sdf.parse("$datePart $hour:$minute:$second")
+            val now = System.currentTimeMillis()
+            (slotDateTime?.time ?: Long.MAX_VALUE) <= now
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    // Helper: checks if slot is outside 7-day advance booking window
+    fun isSlotBeyond7Days(slot: EnergySlot): Boolean {
+        return try {
+            val datePart = slot.slotDate.split("T")[0].trim()
+            val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.US).apply {
+                timeZone = TimeZone.getDefault()
+            }
+            val slotDate = sdf.parse(datePart) ?: return false
+            val now = System.currentTimeMillis()
+            val diffMs = slotDate.time - now
+            val diffDays = diffMs / (1000.0 * 60 * 60 * 24)
+            diffDays > 7.0
+        } catch (e: Exception) {
+            false
         }
     }
 
