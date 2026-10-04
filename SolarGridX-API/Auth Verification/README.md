@@ -24,7 +24,7 @@ Reviewed 2026-09-29. Verdict: the core identity API is substantially implemented
 
 ## Scope and verification
 
-The full linked ChatGPT conversation could not be retrieved; the preview is not the original assignment specification. Exact rubric compliance is therefore unverified. Login currently accepts email/password only. DeactivationRequested immediately blocks login and authenticated requests; confirm whether the assignment expects this or access until approval. Web App.tsx currently renders the stations UI directly without a login gate.
+The full linked ChatGPT conversation could not be retrieved; the preview is not the original assignment specification. Exact rubric compliance is therefore unverified. Login currently accepts email/password only. `DeactivationRequested` intentionally blocks login and authenticated requests immediately: submitting a deactivation request revokes the current token, and the account must be reactivated by Backoffice before a new token can be issued. Web App.tsx currently renders the stations UI directly without a login gate.
 
 The current source builds with zero warnings/errors using:
 
