@@ -29,6 +29,12 @@ fun SolarBottomNavigation(
         ),
 
         BottomNavItem(
+            "Stations",
+            Icons.Filled.LocationOn,
+            Icons.Outlined.LocationOn
+        ),
+
+        BottomNavItem(
             "Trade",
             Icons.Filled.SwapHoriz,
             Icons.Outlined.SwapHoriz

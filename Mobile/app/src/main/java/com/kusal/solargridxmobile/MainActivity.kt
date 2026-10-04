@@ -34,6 +34,7 @@ import com.kusal.solargridxmobile.ui.auth.RegisterScreen
 import com.kusal.solargridxmobile.ui.auth.SolarGreen
 import com.kusal.solargridxmobile.ui.navigation.SolarBottomNavigation
 import com.kusal.solargridxmobile.ui.reservation.ReservationScreen
+import com.kusal.solargridxmobile.ui.station.StationMapScreen
 import com.kusal.solargridxmobile.ui.reservation.ReservationViewModel
 import com.kusal.solargridxmobile.ui.theme.SolarGridXMobileTheme
 
@@ -165,12 +166,13 @@ fun SolarGridXApp(
                     viewModel = reservationViewModel,
                     onNavigateToTab = { selectedTab = it }
                 )
-                1 -> ReservationScreen(viewModel = reservationViewModel)
-                2 -> MonitorScreen(
+                1 -> StationMapScreen()
+                2 -> ReservationScreen(viewModel = reservationViewModel)
+                3 -> MonitorScreen(
                     viewModel = reservationViewModel,
                     onNavigateToTab = { selectedTab = it }
                 )
-                3 -> ProfileScreen(
+                4 -> ProfileScreen(
                     sessionManager = sessionManager,
                     viewModel = reservationViewModel,
                     onLogout = onLogout
