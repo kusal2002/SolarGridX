@@ -35,7 +35,7 @@ fun SolarBottomNavigation(
         ),
 
         BottomNavItem(
-            "Monitor",
+            "Transfers",
             Icons.Filled.ShowChart,
             Icons.Outlined.ShowChart
         ),

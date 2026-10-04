@@ -11,7 +11,7 @@ class ReservationDbHelper(context: Context) :
 
     companion object {
         private const val DATABASE_NAME = "solargridx_local.db"
-        private const val DATABASE_VERSION = 1
+        private const val DATABASE_VERSION = 2
 
         const val TABLE_RESERVATIONS = "reservations"
         const val COL_ID = "id"
@@ -19,6 +19,7 @@ class ReservationDbHelper(context: Context) :
         const val COL_STATION_ID = "station_id"
         const val COL_STATION_NAME = "station_name"
         const val COL_SLOT_ID = "slot_id"
+        const val COL_TRANSFER_ID = "transfer_id"
         const val COL_RESERVATION_DATE = "reservation_date"
         const val COL_START_TIME = "start_time"
         const val COL_END_TIME = "end_time"
@@ -37,6 +38,7 @@ class ReservationDbHelper(context: Context) :
                 $COL_STATION_ID TEXT NOT NULL,
                 $COL_STATION_NAME TEXT,
                 $COL_SLOT_ID TEXT NOT NULL,
+                $COL_TRANSFER_ID TEXT,
                 $COL_RESERVATION_DATE TEXT NOT NULL,
                 $COL_START_TIME TEXT NOT NULL,
                 $COL_END_TIME TEXT NOT NULL,
@@ -51,8 +53,7 @@ class ReservationDbHelper(context: Context) :
     }
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
-        db.execSQL("DROP TABLE IF EXISTS $TABLE_RESERVATIONS")
-        onCreate(db)
+        if (oldVersion < 2) db.execSQL("ALTER TABLE $TABLE_RESERVATIONS ADD COLUMN $COL_TRANSFER_ID TEXT")
     }
 
     fun saveReservations(reservations: List<EnergyReservation>) {
@@ -66,6 +67,7 @@ class ReservationDbHelper(context: Context) :
                     put(COL_STATION_ID, res.stationId)
                     put(COL_STATION_NAME, res.stationName)
                     put(COL_SLOT_ID, res.slotId)
+                    put(COL_TRANSFER_ID, res.transferId)
                     put(COL_RESERVATION_DATE, res.reservationDate)
                     put(COL_START_TIME, res.startTime)
                     put(COL_END_TIME, res.endTime)
@@ -109,6 +111,7 @@ class ReservationDbHelper(context: Context) :
                     stationId = it.getString(it.getColumnIndexOrThrow(COL_STATION_ID)),
                     stationName = it.getString(it.getColumnIndexOrThrow(COL_STATION_NAME)),
                     slotId = it.getString(it.getColumnIndexOrThrow(COL_SLOT_ID)),
+                    transferId = it.getString(it.getColumnIndexOrThrow(COL_TRANSFER_ID)),
                     reservationDate = it.getString(it.getColumnIndexOrThrow(COL_RESERVATION_DATE)),
                     startTime = it.getString(it.getColumnIndexOrThrow(COL_START_TIME)),
                     endTime = it.getString(it.getColumnIndexOrThrow(COL_END_TIME)),

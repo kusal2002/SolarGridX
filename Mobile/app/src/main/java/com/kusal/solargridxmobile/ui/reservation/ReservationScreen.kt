@@ -1032,7 +1032,7 @@ fun MyReservationsView(
         Spacer(modifier = Modifier.height(10.dp))
 
         // Status Filter Chips
-        val statusList = listOf("All", "Pending", "Approved", "Completed", "Cancelled")
+        val statusList = listOf("All", "Pending", "Approved", "InProgress", "Completed", "Cancelled")
         LazyRow(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             modifier = Modifier.fillMaxWidth()
@@ -1129,8 +1129,8 @@ fun ReservationCard(
     onCancelClick: () -> Unit,
     onModifyClick: () -> Unit
 ) {
-    val isActionable = reservation.status.equals("Pending", ignoreCase = true) ||
-            reservation.status.equals("Approved", ignoreCase = true)
+    val isActionable = reservation.transferId == null && (reservation.status.equals("Pending", ignoreCase = true) ||
+            reservation.status.equals("Approved", ignoreCase = true))
 
     Card(
         modifier = Modifier.fillMaxWidth(),

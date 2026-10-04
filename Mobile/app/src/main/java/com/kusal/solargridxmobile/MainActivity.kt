@@ -36,6 +36,7 @@ import com.kusal.solargridxmobile.ui.navigation.SolarBottomNavigation
 import com.kusal.solargridxmobile.ui.reservation.ReservationScreen
 import com.kusal.solargridxmobile.ui.reservation.ReservationViewModel
 import com.kusal.solargridxmobile.ui.theme.SolarGridXMobileTheme
+import com.kusal.solargridxmobile.ui.transfer.TransferScreen
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -141,7 +142,7 @@ fun SolarGridXApp(
     reservationViewModel: ReservationViewModel,
     onLogout: () -> Unit
 ) {
-    var selectedTab by remember { mutableIntStateOf(0) } // Default to Home dashboard
+    var selectedTab by remember { mutableIntStateOf(if (sessionManager.getUserRole() in listOf("Grid Operator", "Backoffice")) 2 else 0) }
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
@@ -166,10 +167,7 @@ fun SolarGridXApp(
                     onNavigateToTab = { selectedTab = it }
                 )
                 1 -> ReservationScreen(viewModel = reservationViewModel)
-                2 -> MonitorScreen(
-                    viewModel = reservationViewModel,
-                    onNavigateToTab = { selectedTab = it }
-                )
+                2 -> TransferScreen(sessionManager)
                 3 -> ProfileScreen(
                     sessionManager = sessionManager,
                     viewModel = reservationViewModel,
