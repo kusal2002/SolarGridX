@@ -4,6 +4,7 @@ import {
   updateReservationStatus,
 } from "@/lib/reservation-api"
 import type { EnergyReservation } from "@/types/reservation"
+import { useAuth } from "@/context/AuthContext"
 import { Button } from "@/components/ui/button"
 import {
   Search,
@@ -22,12 +23,14 @@ import { CancelReservationDialog } from "@/components/cancel-reservation-dialog"
 import { ModifyReservationDialog } from "@/components/modify-reservation-dialog"
 
 export function ReservationsPage() {
+  const { user } = useAuth()
+  const canOperate = user?.role === "Backoffice" || user?.role === "Grid Operator"
   const [reservations, setReservations] = useState<EnergyReservation[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState<
-    "All" | "Pending" | "Approved" | "Completed" | "Cancelled"
+    "All" | "Pending" | "Approved" | "InProgress" | "Completed" | "Cancelled"
   >("All")
 
   // Modals
@@ -56,7 +59,7 @@ export function ReservationsPage() {
   // Quick Status Transition (Approve / Complete)
   async function handleStatusChange(
     id: string,
-    newStatus: "Approved" | "Completed"
+    newStatus: "Approved"
   ) {
     try {
       const updated = await updateReservationStatus(id, newStatus)
@@ -114,6 +117,8 @@ export function ReservationsPage() {
             Completed
           </span>
         )
+      case "InProgress":
+        return <span className="rounded-full bg-blue-100 px-2.5 py-0.5 text-xs text-blue-800">In progress</span>
       case "Cancelled":
         return (
           <span className="inline-flex items-center gap-1 rounded-full bg-zinc-100 px-2.5 py-0.5 text-xs font-semibold text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400">
@@ -189,7 +194,7 @@ export function ReservationsPage() {
         </div>
 
         <div className="flex flex-wrap gap-1.5">
-          {(["All", "Pending", "Approved", "Completed", "Cancelled"] as const).map((filter) => (
+          {(["All", "Pending", "Approved", "InProgress", "Completed", "Cancelled"] as const).map((filter) => (
             <button
               key={filter}
               onClick={() => setStatusFilter(filter)}
@@ -235,7 +240,7 @@ export function ReservationsPage() {
               <tbody className="divide-y">
                 {filteredReservations.map((res) => {
                   const isModifiable =
-                    res.status === "Pending" || res.status === "Approved"
+                    !res.transferId && (res.status === "Pending" || res.status === "Approved")
 
                   return (
                     <tr key={res.id} className="hover:bg-muted/30 transition-colors">
@@ -266,7 +271,7 @@ export function ReservationsPage() {
                       <td className="px-4 py-3 text-right">
                         <div className="flex items-center justify-end gap-1.5">
                           {/* Approve Action */}
-                          {res.status === "Pending" && (
+                          {canOperate && res.status === "Pending" && (
                             <Button
                               size="sm"
                               variant="outline"
@@ -279,15 +284,15 @@ export function ReservationsPage() {
                           )}
 
                           {/* Complete Action (Member 4 demo) */}
-                          {res.status === "Approved" && (
+                          {canOperate && (res.status === "Approved" || res.status === "InProgress") && (
                             <Button
                               size="sm"
                               variant="outline"
                               className="h-7 text-xs text-emerald-600 hover:text-emerald-700"
-                              onClick={() => handleStatusChange(res.id, "Completed")}
-                              title="Complete Energy Transfer"
+                              onClick={() => { window.location.href = "/transfers" }}
+                              title="Open transfers to verify and complete"
                             >
-                              Complete
+                              Transfer
                             </Button>
                           )}
 

@@ -5,6 +5,8 @@ import { UserManagementPage } from "@/pages/UserManagementPage"
 import { StationsPage } from "@/pages/StationsPage"
 import { SlotsPage } from "@/pages/SlotsPage"
 import { ReservationsPage } from "@/pages/ReservationsPage"
+import { TransfersPage } from "@/pages/TransfersPage"
+import { AccessDeniedPage } from "@/pages/AccessDeniedPage"
 import { MainLayout } from "@/components/layout/main-layout"
 import { navigateToView, viewFromPath, type View } from "./routes"
 
@@ -19,18 +21,14 @@ export function AppRouter() {
 
   useEffect(() => {
     const handlePopState = () => setActiveView(viewFromPath(window.location.pathname))
+    const handleLogout = () => handleNavigate("users", true)
     window.addEventListener("popstate", handlePopState)
-    return () => window.removeEventListener("popstate", handlePopState)
-  }, [])
-
-  useEffect(() => {
-    if (user) {
-      const requestedView = viewFromPath(window.location.pathname)
-      if (user.role === "Prosumer" && (requestedView === "stations" || requestedView === "slots")) {
-        setTimeout(() => handleNavigate("users", true), 0)
-      }
+    window.addEventListener("solargridx:logout", handleLogout)
+    return () => {
+      window.removeEventListener("popstate", handlePopState)
+      window.removeEventListener("solargridx:logout", handleLogout)
     }
-  }, [user])
+  }, [])
 
   if (checkingSession) {
     return (
@@ -44,9 +42,15 @@ export function AppRouter() {
     return <AuthPage onAuthenticated={login} />
   }
 
+  if (user.role === "Prosumer" && ["stations", "slots", "transfers"].includes(activeView)) {
+    return <AccessDeniedPage onBack={() => handleNavigate("users", true)} />
+  }
+
   return (
-    <MainLayout user={user} activeView={activeView} onNavigate={handleNavigate} onLogout={logout}>
-      {activeView === "stations" ? (
+    <MainLayout user={user} activeView={activeView} onNavigate={handleNavigate} onLogout={() => { logout(); handleNavigate("users", true) }}>
+      {activeView === "transfers" ? (
+        <TransfersPage />
+      ) : activeView === "stations" ? (
         <StationsPage />
       ) : activeView === "slots" ? (
         <SlotsPage />

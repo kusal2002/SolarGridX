@@ -4,11 +4,12 @@ export interface EnergyReservation {
   stationId: string
   stationName?: string
   slotId: string
+  transferId?: string | null
   reservationDate: string
   startTime: string
   endTime: string
   requestedEnergyKwh: number
-  status: "Pending" | "Approved" | "Cancelled" | "Completed"
+  status: "Pending" | "Approved" | "InProgress" | "Cancelled" | "Completed"
   cancellationReason?: string
   createdAt: string
   updatedAt: string
