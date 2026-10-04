@@ -1,16 +1,15 @@
 info:
-  name: Get All Reservations
+  name: "14 Get approved reservation QR"
   type: http
-  seq: 8
+  seq: 14
 http:
   method: GET
-  url: '{{baseUrl}}/api/Reservation'
+  url: "{{baseUrl}}/api/Reservation/{{reservationId}}/qr"
   auth:
     type: bearer
-    token: '{{backofficeToken}}'
+    token: "{{prosumerToken}}"
 settings:
   encodeUrl: true
   timeout: 0
   followRedirects: true
   maxRedirects: 5
-  forwardAuthorizationHeader: false

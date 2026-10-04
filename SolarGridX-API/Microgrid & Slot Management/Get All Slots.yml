@@ -1,16 +1,15 @@
 info:
-  name: Get All Reservations
+  name: "Get All Slots"
   type: http
-  seq: 8
+  seq: 26
 http:
   method: GET
-  url: '{{baseUrl}}/api/Reservation'
+  url: "{{baseUrl}}/api/slots/all"
   auth:
     type: bearer
-    token: '{{backofficeToken}}'
+    token: "{{backofficeToken}}"
 settings:
   encodeUrl: true
   timeout: 0
   followRedirects: true
   maxRedirects: 5
-  forwardAuthorizationHeader: false

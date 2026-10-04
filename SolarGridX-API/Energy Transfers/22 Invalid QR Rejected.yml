@@ -1,0 +1,19 @@
+info:
+  name: "22 Invalid QR rejected - expect 400"
+  type: http
+  seq: 22
+http:
+  method: POST
+  url: "{{baseUrl}}/api/energy-transfers/verify"
+  body:
+    type: json
+    data: |-
+      { "payload": "invalid-qr", "sellerNIC": "{{sellerNIC}}" }
+  auth:
+    type: bearer
+    token: "{{backofficeToken}}"
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

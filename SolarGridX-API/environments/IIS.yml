@@ -1,41 +1,28 @@
 name: IIS
 variables:
   - name: baseUrl
-    value: http://192.168.0.122:5000
-    description: ""
+    value: http://192.168.0.104:5000
   - name: backofficeEmail
     value: admin@solargridx.com
-    description: ""
   - name: backofficePassword
-    value: Admin@123
-    description: ""
+    value: ""
   - name: backofficeToken
     value: ""
-    description: ""
   - name: prosumerEmail
     value: adlransika@gmail.com
-    description: ""
   - name: prosumerPassword
-    value: Lithira123
-    description: ""
+    value: ""
   - name: prosumerNic
     value: "200309501110"
-    description: ""
   - name: prosumerToken
-    value: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJodHRwOi8vc2NoZW1hcy54bWxzb2FwLm9yZy93cy8yMDA1LzA1L2lkZW50aXR5L2NsYWltcy9uYW1laWRlbnRpZmllciI6IjIwMDMwOTUwMTExMCIsImh0dHA6Ly9zY2hlbWFzLnhtbHNvYXAub3JnL3dzLzIwMDUvMDUvaWRlbnRpdHkvY2xhaW1zL25hbWUiOiJMaXRoaXJhIFJhbnNpa2EiLCJodHRwOi8vc2NoZW1hcy54bWxzb2FwLm9yZy93cy8yMDA1LzA1L2lkZW50aXR5L2NsYWltcy9lbWFpbGFkZHJlc3MiOiJhZGxyYW5zaWthQGdtYWlsLmNvbSIsImh0dHA6Ly9zY2hlbWFzLm1pY3Jvc29mdC5jb20vd3MvMjAwOC8wNi9pZGVudGl0eS9jbGFpbXMvcm9sZSI6IlByb3N1bWVyIiwic2VjdXJpdHlfc3RhbXAiOiI5MzY2NmRjZjIwZDU0ZDBiYWRkMzI1NjdkYjk3NmExMiIsImV4cCI6MTc5MDczMDcxMCwiaXNzIjoiU29sYXJHcmlkWCIsImF1ZCI6IlNvbGFyR3JpZFgifQ.RZSJNgFPXNl8GOA9EYTpk_Qb_O27CSPKVTGOO09BBT4
-    description: ""
+    value: ""
   - name: operatorEmail
     value: operator@solargridx.com
-    description: ""
   - name: operatorPassword
-    value: operator@123
-    description: ""
+    value: ""
   - name: operatorToken
     value: ""
-    description: ""
   - name: slotId
     value: ""
-    description: ""
   - name: reservationId
     value: ""
-    description: ""

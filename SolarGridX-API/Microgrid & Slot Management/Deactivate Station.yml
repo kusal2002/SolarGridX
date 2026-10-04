@@ -1,18 +1,15 @@
 info:
-  name: Database Test
+  name: "Deactivate Station"
   type: http
-  seq: 3
-
+  seq: 23
 http:
-  method: GET
-  url: "{{baseUrl}}/api/database-test"
+  method: DELETE
+  url: "{{baseUrl}}/api/stations/{{stationId}}"
   auth:
     type: bearer
     token: "{{backofficeToken}}"
-
 settings:
   encodeUrl: true
   timeout: 0
   followRedirects: true
   maxRedirects: 5
-  forwardAuthorizationHeader: false

@@ -50,6 +50,8 @@ A nonblank reason of at most 500 characters is required. Cancellation is only al
 
 Transfer start is an explicit staff operation. The module does not automatically start at a slot time or enforce a slot-time execution window.
 
+Start and completion now require server QR verification. Obtain a fresh QR from `GET /api/Reservation/{id}/qr`, then staff call `POST /api/energy-transfers/verify` with `{ "payload": "...", "sellerNIC": "..." }`. Verification creates or verifies the Pending transfer and adds a verify audit event. See [Component 4 quick check](component-4-checklist.md) for the web, Android and Bruno walkthrough. For the older manual Bruno sequence below, verify after Create and before Start.
+
 ## List and errors
 
 Optional query parameters: `status` (Pending/InProgress/Completed/Cancelled/Failed), `reservationId`, `sellerId`, `buyerId`, `page` (default 1), `pageSize` (default 50, max 100). Results are newest first, with ID as the ordering tie-breaker. The response remains an array for compatibility; request subsequent pages until fewer than pageSize records are returned.
