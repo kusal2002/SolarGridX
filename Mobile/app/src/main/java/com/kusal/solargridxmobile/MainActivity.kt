@@ -526,7 +526,7 @@ fun HomeScreen(
                         color = Color(0xFF0F172A)
                     )
                     Text(
-                        text = "${state.slots.filter { it.isActive }.size} active slots",
+                        text = "${state.availableActiveSlots.size} available slots",
                         fontSize = 11.sp,
                         color = Color(0xFF64748B)
                     )

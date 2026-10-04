@@ -12,7 +12,8 @@ import java.util.concurrent.TimeUnit
 
 object ApiClient {
     // Configured for physical phone or emulator over local network
-    const val BASE_URL = "http://192.168.0.122:5000/api/"
+    //const val BASE_URL = "http://192.168.0.100:5000/api/"
+    const val BASE_URL = "http://solargridx.runasp.net/api/"
 
     private var retrofit: Retrofit? = null
     private var sessionManager: SessionManager? = null
@@ -50,8 +51,10 @@ object ApiClient {
                 .writeTimeout(15, TimeUnit.SECONDS)
                 .build()
 
+            val normalizedBaseUrl = if (BASE_URL.endsWith("/")) BASE_URL else "$BASE_URL/"
+
             retrofit = Retrofit.Builder()
-                .baseUrl(BASE_URL)
+                .baseUrl(normalizedBaseUrl)
                 .client(okHttpClient)
                 .addConverterFactory(GsonConverterFactory.create())
                 .build()
