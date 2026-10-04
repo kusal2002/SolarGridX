@@ -24,6 +24,9 @@ import androidx.compose.ui.unit.sp
 import com.kusal.solargridxmobile.data.model.EnergyReservation
 import com.kusal.solargridxmobile.data.model.EnergySlot
 import com.kusal.solargridxmobile.data.model.SolarStation
+import java.text.SimpleDateFormat
+import java.util.Locale
+import java.util.TimeZone
 
 // High-contrast, theme-safe colors
 val GreenPrimary = Color(0xFF15803D)
@@ -414,6 +417,45 @@ fun KpiMiniChip(
 // ==========================================
 // 1. AVAILABLE SLOTS VIEW (Member 3)
 // ==========================================
+
+// Helper: checks if slot has passed current time (expired)
+fun isSlotExpired(slot: EnergySlot): Boolean {
+    return try {
+        val datePart = slot.slotDate.split("T")[0].trim()
+        val timeSource = if (slot.endTime.isNotBlank()) slot.endTime.trim() else slot.startTime.trim()
+        val timeParts = timeSource.split(":")
+        val hour = timeParts.getOrNull(0)?.padStart(2, '0') ?: "00"
+        val minute = timeParts.getOrNull(1)?.padStart(2, '0') ?: "00"
+        val second = timeParts.getOrNull(2)?.padStart(2, '0') ?: "00"
+
+        val sdf = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).apply {
+            timeZone = TimeZone.getDefault()
+        }
+        val slotDateTime = sdf.parse("$datePart $hour:$minute:$second")
+        val now = System.currentTimeMillis()
+        (slotDateTime?.time ?: Long.MAX_VALUE) <= now
+    } catch (e: Exception) {
+        false
+    }
+}
+
+// Helper: checks if slot is beyond 7-day advance booking window
+fun isSlotBeyond7Days(slot: EnergySlot): Boolean {
+    return try {
+        val datePart = slot.slotDate.split("T")[0].trim()
+        val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.US).apply {
+            timeZone = TimeZone.getDefault()
+        }
+        val slotDate = sdf.parse(datePart) ?: return false
+        val now = System.currentTimeMillis()
+        val diffMs = slotDate.time - now
+        val diffDays = diffMs / (1000.0 * 60 * 60 * 24)
+        diffDays > 7.0
+    } catch (e: Exception) {
+        false
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AvailableSlotsView(
@@ -434,7 +476,7 @@ fun AvailableSlotsView(
                 slot.slotDate.contains(searchQuery, ignoreCase = true) ||
                 slot.startTime.contains(searchQuery, ignoreCase = true)
 
-        slot.isActive && matchesStation && matchesSearch
+        slot.isActive && !isSlotExpired(slot) && !isSlotBeyond7Days(slot) && slot.availableEnergyKwh > 0.0 && matchesStation && matchesSearch
     }
 
     Column(
@@ -481,10 +523,10 @@ fun AvailableSlotsView(
         ) {
             val selectedStation = stations.find { it.id == selectedStationId }
             val stationDisplayText = if (selectedStationId.isEmpty()) {
-                val totalActive = slots.count { it.isActive }
+                val totalActive = slots.count { it.isActive && !isSlotExpired(it) && !isSlotBeyond7Days(it) && it.availableEnergyKwh > 0.0 }
                 "All Stations ($totalActive available)"
             } else {
-                val stationActive = slots.count { it.stationId == selectedStationId && it.isActive }
+                val stationActive = slots.count { it.stationId == selectedStationId && it.isActive && !isSlotExpired(it) && !isSlotBeyond7Days(it) && it.availableEnergyKwh > 0.0 }
                 "${selectedStation?.stationName ?: "Selected Station"} ($stationActive available)"
             }
 
@@ -528,7 +570,7 @@ fun AvailableSlotsView(
             ) {
                 // Option 1: All Stations
                 val isAllSelected = selectedStationId.isEmpty()
-                val totalActiveSlots = slots.count { it.isActive }
+                val totalActiveSlots = slots.count { it.isActive && !isSlotExpired(it) && !isSlotBeyond7Days(it) && it.availableEnergyKwh > 0.0 }
 
                 DropdownMenuItem(
                     text = {
@@ -604,7 +646,7 @@ fun AvailableSlotsView(
                 } else {
                     stations.forEach { station ->
                         val isSelected = selectedStationId == station.id
-                        val count = slots.count { it.stationId == station.id && it.isActive }
+                        val count = slots.count { it.stationId == station.id && it.isActive && !isSlotExpired(it) && !isSlotBeyond7Days(it) && it.availableEnergyKwh > 0.0 }
 
                         DropdownMenuItem(
                             text = {

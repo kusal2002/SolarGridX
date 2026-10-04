@@ -17,11 +17,31 @@ public class SlotController : ControllerBase
         _slotService = slotService;
     }
 
+    private DateTime GetSriLankaTime()
+    {
+        try
+        {
+            var tz = TimeZoneInfo.FindSystemTimeZoneById("Asia/Colombo");
+            return TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, tz);
+        }
+        catch (TimeZoneNotFoundException)
+        {
+            var tz = TimeZoneInfo.FindSystemTimeZoneById("Sri Lanka Standard Time");
+            return TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, tz);
+        }
+    }
+
     //Get all active slots
     [HttpGet]
     public async Task<IActionResult> GetAll()
     {
         var slots = await _slotService.GetAllAsync();
+
+        if (User.IsInRole("Prosumer"))
+        {
+            var now = GetSriLankaTime();
+            slots = slots.Where(s => s.SlotDate.Date.Add(s.EndTime) > now && s.AvailableEnergyKwh > 0).ToList();
+        }
 
         return Ok(slots);
     }
@@ -57,6 +77,13 @@ public class SlotController : ControllerBase
     string stationId)
     {
         var slots = await _slotService.GetByStationIdAsync(stationId);
+
+        if (User.IsInRole("Prosumer"))
+        {
+            var now = GetSriLankaTime();
+            slots = slots.Where(s => s.SlotDate.Date.Add(s.EndTime) > now && s.AvailableEnergyKwh > 0).ToList();
+        }
+
         return Ok(slots);
     }
 

@@ -40,7 +40,17 @@ export function ModifyReservationDialog({
       try {
         const allSlots = await getActiveSlots()
         if (reservation) {
-          setSlots(allSlots.filter((s) => s.stationId === reservation.stationId))
+          const currentTime = Date.now()
+          setSlots(
+            allSlots.filter((s) => {
+              if (s.stationId !== reservation.stationId || !s.isActive) return false
+              if (s.id === reservation.slotId) return true // keep current slot selectable
+              const [endHours, endMinutes] = (s.endTime || "00:00").split(":").map(Number)
+              const slotEndDateTime = new Date(s.slotDate)
+              slotEndDateTime.setHours(endHours || 0, endMinutes || 0, 0, 0)
+              return slotEndDateTime.getTime() > currentTime && (s.availableEnergyKwh ?? 0) > 0
+            })
+          )
         }
       } catch {
         // Ignore slot load error if fallback
