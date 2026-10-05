@@ -24,7 +24,9 @@ import { EditStationDialog } from "@/components/edit-station-dialog"
 import { useAuth } from "@/context/AuthContext"
 import { request } from "@/lib/api-client"
 
+// Solar stations management page for viewing, creating, editing, and assigning operators to stations
 export function StationsPage() {
+  // Local state for stations, search filters, and dialogs
   const [stations, setStations] = useState<Station[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
@@ -44,11 +46,13 @@ export function StationsPage() {
   const operatorIds = (station: Station) => station.operatorNICs?.length ? station.operatorNICs : station.operatorNIC ? [station.operatorNIC] : []
   const [assigning, setAssigning] = useState("")
 
+  // Role check: Backoffice has full administrative controls
   const { user } = useAuth()
   const isBackoffice = user?.role === "Backoffice"
   const canManageStations = isBackoffice
   const canViewInactive = isBackoffice || user?.role === "Grid Operator"
 
+  // Fetch stations and operators on component mount
   useEffect(() => {
     async function loadStations() {
       try {
@@ -68,6 +72,7 @@ export function StationsPage() {
     loadStations()
   }, [canViewInactive, isBackoffice])
 
+  // Assign one or more grid operators to a station
   async function assignOperator(station: Station, operatorNICs: string[]) {
     setAssigning(station.id)
     try {
@@ -78,6 +83,7 @@ export function StationsPage() {
     finally { setAssigning("") }
   }
 
+  // Filter stations by name/location search text and active status
   const filteredStations = stations
     .filter((station) => {
       const search = searchTerm.toLowerCase()
@@ -98,22 +104,26 @@ export function StationsPage() {
   const totalStations = stations.length
   const activeStations = stations.filter((station) => station.isActive).length
 
+  // Open station details dialog on row click
   const handleRowClick = (station: Station) => {
     setViewStation(station)
     setViewOpen(true)
   }
 
+  // Open edit modal for the selected station
   const handleEditClick = (e: React.MouseEvent, station: Station) => {
     e.stopPropagation() // stop the row click from also triggering the view dialog
     setEditStation(station)
     setEditOpen(true)
   }
 
+  // Update single station in state after edit
   const handleStationUpdated = (updated: Station) => {
     // replace only the edited station in the list without re-fetching
     setStations((prev) => prev.map((s) => (s.id === updated.id ? updated : s)))
   }
 
+  // Handle station deactivation or reactivation
   const handleToggleStatus = async (e: React.MouseEvent, station: Station) => {
     e.stopPropagation()
     try {

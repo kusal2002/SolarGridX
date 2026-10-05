@@ -1,5 +1,8 @@
+// Base HTTP client wrapper for making authenticated fetch requests to the SolarGridX API
+// API base URL configuration from environment variables or local fallback
 export const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5084/api"
 
+// Helper function for API calls with JWT bearer token attachment and error handling
 export async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const token = localStorage.getItem("solargridx-token")
 
@@ -8,6 +11,7 @@ export async function request<T>(path: string, options: RequestInit = {}): Promi
     headers.set("Content-Type", "application/json")
   }
 
+  // Attach stored JWT authorization header if available
   if (token) {
     headers.set("Authorization", `Bearer ${token}`)
   }
@@ -17,8 +21,10 @@ export async function request<T>(path: string, options: RequestInit = {}): Promi
     headers,
   })
 
+  // Handle unauthorized responses or API errors
   if (!response.ok) {
     if (response.status === 401) {
+      // Clear token and trigger logout on 401 Unauthorized
       localStorage.removeItem("solargridx-token")
       localStorage.removeItem("solargridx-user")
       window.dispatchEvent(new Event("solargridx:logout"))

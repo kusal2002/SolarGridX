@@ -6,6 +6,7 @@ interface GeolocationState {
   approximate?: boolean // true when from IP fallback
 }
 
+// Custom hook to acquire user GPS coordinates with IP-based fallback
 export function useGeolocation() {
   const [location, setLocation] = useState<GeolocationState | null>(null)
   const [loading, setLoading] = useState(false)
@@ -25,6 +26,7 @@ export function useGeolocation() {
     }
   }
 
+  // Attempts approximate location lookup using IP address if GPS fails
   const tryIpFallback = useCallback(async () => {
     try {
       const res = await fetch("https://ipwho.is/")
@@ -43,6 +45,7 @@ export function useGeolocation() {
     }
   }, [])
 
+  // Requests browser geolocation using watchPosition with timeout fallback
   const getLocation = useCallback(() => {
     if (!navigator.geolocation) {
       setError("Geolocation is not supported by your browser")

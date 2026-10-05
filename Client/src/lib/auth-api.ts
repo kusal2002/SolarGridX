@@ -2,6 +2,7 @@ import type { LoginResponse, PagedUsers, User } from "@/types/user"
 
 import { request } from "./api-client"
 
+// Sends login credentials to receive JWT token and user info
 export function login(email: string, password: string) {
   return request<LoginResponse>("/auth/login", {
     method: "POST",
@@ -9,6 +10,7 @@ export function login(email: string, password: string) {
   })
 }
 
+// Registers a new prosumer account with pending status
 export function register(data: { nic: string; name: string; email: string; password: string }) {
   return request<User>("/auth/register", {
     method: "POST",
@@ -16,14 +18,17 @@ export function register(data: { nic: string; name: string; email: string; passw
   })
 }
 
+// Retrieves the profile of the currently authenticated user
 export function getMyProfile() {
   return request<User>("/auth/me")
 }
 
+// Fetches user details by National Identity Card (NIC)
 export function getUserByNic(nic: string) {
   return request<User>(`/auth/users/${encodeURIComponent(nic)}`)
 }
 
+// Retrieves paginated list of users with optional filtering and sorting
 export function getUsers(
   status?: string,
   role?: string,
@@ -45,6 +50,7 @@ export function getUsers(
   return request<PagedUsers>(`/auth/users?${query}`)
 }
 
+// Updates user name and email details
 export function updateProfile(nic: string, name: string, email: string) {
   return request<User>(`/auth/users/${encodeURIComponent(nic)}/profile`, {
     method: "PUT",
@@ -52,6 +58,7 @@ export function updateProfile(nic: string, name: string, email: string) {
   })
 }
 
+// Updates user account status (e.g., Active, Inactive)
 export function updateUserStatus(nic: string, status: string) {
   return request<User>(`/auth/users/${encodeURIComponent(nic)}/status`, {
     method: "PATCH",
@@ -59,6 +66,7 @@ export function updateUserStatus(nic: string, status: string) {
   })
 }
 
+// Backoffice endpoint to register a new Grid Operator or Backoffice staff member
 export function createStaffUser(data: { nic: string; name: string; email: string; password: string; role: "Backoffice" | "Grid Operator" }) {
   return request<User>("/auth/staff", {
     method: "POST",
@@ -66,6 +74,7 @@ export function createStaffUser(data: { nic: string; name: string; email: string
   })
 }
 
+// Submits a request to deactivate the user's account
 export function requestDeactivation(nic: string) {
   return request<User>(`/auth/users/${encodeURIComponent(nic)}/deactivation-request`, { method: "POST" })
 }

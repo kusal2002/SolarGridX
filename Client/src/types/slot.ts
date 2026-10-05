@@ -1,3 +1,4 @@
+// Data model representing a scheduled solar charging slot
 export interface Slot {
   id: string
   stationId: string

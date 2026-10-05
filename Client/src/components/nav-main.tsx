@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/sidebar"
 import { ChevronRightIcon } from "lucide-react"
 
+// Renders primary sidebar menu items and navigation triggers
 export function NavMain({
   items,
   onNavigate,

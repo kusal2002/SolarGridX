@@ -1,6 +1,6 @@
 import { ShieldX } from "lucide-react"
 import { Button } from "@/components/ui/button"
-
+// Displays access denied screen when user lacks required role permissions
 export function AccessDeniedPage({ onBack }: { onBack: () => void }) {
   return (
     <main className="flex min-h-screen items-center justify-center bg-background p-6">

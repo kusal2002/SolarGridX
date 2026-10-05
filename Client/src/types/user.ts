@@ -1,3 +1,4 @@
+// User role and account status union types
 export type UserRole = "Prosumer" | "Backoffice" | "Grid Operator" | string
 
 export type AccountStatus =
@@ -7,6 +8,7 @@ export type AccountStatus =
   | "DeactivationRequested"
   | string
 
+// Data model representing a registered system user
 export interface User {
   nic: string
   name: string
@@ -17,10 +19,12 @@ export interface User {
   deactivationRequestedAt?: string | null
 }
 
+// Authentication response containing user profile and JWT token
 export interface LoginResponse extends User {
   token: string
 }
 
+// Paginated API response structure for user listings
 export interface PagedUsers {
   items: User[]
   page: number

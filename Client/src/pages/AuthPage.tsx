@@ -5,14 +5,18 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { login, register } from "@/lib/auth-api"
 import type { LoginResponse } from "@/types/user"
-
+// Authentication page handling user login and prosumer registration
 export function AuthPage({ onAuthenticated }: { onAuthenticated: (user: LoginResponse) => void }) {
+  // Toggle between login and registration mode
   const [mode, setMode] = useState<"login" | "register">("login")
+  // Form input fields
   const [form, setForm] = useState({ nic: "", name: "", email: "", password: "" })
+  // Loading and feedback message states
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState("")
   const [notice, setNotice] = useState("")
 
+  // Handle form submission for login or registration
   const submit = async (event: React.FormEvent) => {
     event.preventDefault()
     setBusy(true)
@@ -20,8 +24,10 @@ export function AuthPage({ onAuthenticated }: { onAuthenticated: (user: LoginRes
     setNotice("")
     try {
       if (mode === "login") {
+        // Authenticate existing user
         onAuthenticated(await login(form.email, form.password))
       } else {
+        // Submit prosumer registration
         const result = await register(form)
         setNotice(`Registration received for ${result.email}. A backoffice user must activate the account before you can sign in.`)
         setMode("login")

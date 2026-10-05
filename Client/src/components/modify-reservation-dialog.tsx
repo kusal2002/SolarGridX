@@ -21,6 +21,7 @@ interface ModifyReservationDialogProps {
   onUpdated: (reservation: EnergyReservation) => void
 }
 
+// Dialog for updating booked energy capacity or switching charging slots
 export function ModifyReservationDialog({
   reservation,
   open,
@@ -35,6 +36,7 @@ export function ModifyReservationDialog({
 
   const [now, setNow] = useState(() => Date.now())
 
+  // Load available alternative slots for the station when modal opens
   useEffect(() => {
     async function loadSlots() {
       try {
@@ -70,13 +72,14 @@ export function ModifyReservationDialog({
 
   if (!reservation) return null
 
-  // 12-Hour check
+  // Check whether reservation is within the 12-hour restriction window
   const reservationDateTime = new Date(
     `${reservation.reservationDate.split("T")[0]}T${reservation.startTime}`
   )
   const hoursRemaining = (reservationDateTime.getTime() - now) / (1000 * 60 * 60)
   const isWithin12Hours = hoursRemaining < 12
 
+  // Submits modified energy capacity or slot selection to API
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!reservation) return

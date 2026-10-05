@@ -30,6 +30,7 @@ interface ViewStationDialogProps {
   onOpenChange: (open: boolean) => void
 }
 
+// Card displaying an individual station property with icon and label
 function DetailCard({
   icon,
   label,
@@ -58,6 +59,7 @@ function DetailCard({
   )
 }
 
+// Read-only modal displaying detailed station information and interactive Leaflet map
 export function ViewStationDialog({
   station,
   open,

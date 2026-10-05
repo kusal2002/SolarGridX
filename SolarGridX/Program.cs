@@ -1,6 +1,6 @@
 // ============================================================================
 // Project: SolarGridX - Smart Solar Microgrid Platform
-// Course: Enterprise Application Development (EAD)
+// Module: Enterprise Application Development (EAD)
 // File: Program.cs
 // Description: Main entry point, dependency injection container setup, JWT configuration, and database initialization.
 // ============================================================================

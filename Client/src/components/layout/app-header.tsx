@@ -18,6 +18,7 @@ interface AppHeaderProps {
   userRole?: string
 }
 
+// Header component with sidebar trigger, dynamic breadcrumb trail, and theme toggle
 export function AppHeader({ activeView, userRole }: AppHeaderProps) {
   const { theme, setTheme } = useTheme()
   return (

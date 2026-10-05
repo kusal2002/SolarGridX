@@ -50,11 +50,13 @@ import {
 } from "@/lib/auth-api"
 import type { User } from "@/types/user"
 
+// Helper function to escape and format strings for CSV export
 function csvValue(value: string | number | null | undefined) {
   const text = value == null ? "" : String(value)
   return `"${text.replaceAll('"', '""')}"`
 }
 
+// Renders context-sensitive action buttons based on account status (Approve, Deactivate, Reactivate)
 function StatusActions({
   user,
   busy,
@@ -125,6 +127,7 @@ function StatusActions({
   return null
 }
 
+// User management page for backoffice administration and profile management
 export function UserManagementPage({
   currentUser,
   onUserUpdated,
@@ -163,6 +166,7 @@ export function UserManagementPage({
   })
   const [userEditForm, setUserEditForm] = useState({ name: "", email: "" })
 
+  // Exports user records to a CSV file across all pages
   const downloadUsers = async (
     filename: string,
     filterRole?: string,
@@ -228,6 +232,7 @@ export function UserManagementPage({
     role: "Grid Operator" as "Backoffice" | "Grid Operator",
   })
 
+  // Loads paginated users matching current filters and sorting
   useEffect(() => {
     if (!isBackoffice) return
     const loadUsers = async () => {
@@ -258,12 +263,15 @@ export function UserManagementPage({
     }
     void loadUsers()
   }, [isBackoffice, status, role, search, page, sortBy, sortDirection])
+
+  // Load profile of currently logged-in user
   useEffect(() => {
     void getMyProfile()
       .then(setProfile)
       .catch(() => undefined)
   }, [])
 
+  // Submits updated profile details (name and email) for the current user
   const saveProfile = async (event: React.FormEvent) => {
     event.preventDefault()
     setBusy(true)
@@ -289,12 +297,16 @@ export function UserManagementPage({
       setBusy(false)
     }
   }
+
+  // Opens edit dialog for a specific user
   const startEditingUser = (user: User) => {
     setEditingUser(user)
     setUserEditForm({ name: user.name, email: user.email })
     setError("")
     setSuccess("")
   }
+
+  // Fetches full user details by NIC and opens details dialog
   const openUserDetails = async (user: User) => {
     setDetailsBusy(true)
     setError("")
@@ -310,6 +322,8 @@ export function UserManagementPage({
       setDetailsBusy(false)
     }
   }
+
+  // Saves updated information for the selected user
   const saveUser = async (event: React.FormEvent) => {
     event.preventDefault()
     if (!editingUser) return
@@ -338,6 +352,8 @@ export function UserManagementPage({
       setBusy(false)
     }
   }
+
+  // Calls API to update a user's account status
   const changeStatus = async (user: User, nextStatus: string) => {
     setBusy(true)
     setError("")
@@ -358,12 +374,16 @@ export function UserManagementPage({
       setBusy(false)
     }
   }
+
+  // Displays confirmation prompt before updating account status
   const requestStatusChange = (user: User, nextStatus: string) => {
     setConfirmation({
       message: `Are you sure you want to change ${user.name}'s account status to ${nextStatus}?`,
       action: () => changeStatus(user, nextStatus),
     })
   }
+
+  // Displays confirmation prompt before requesting account deactivation
   const askDeactivation = () => {
     setConfirmation({
       message: "Are you sure you want to request deactivation of your account?",
@@ -388,6 +408,8 @@ export function UserManagementPage({
       },
     })
   }
+
+  // Creates a new staff user (Backoffice or Grid Operator)
   const addStaff = async (event: React.FormEvent) => {
     event.preventDefault()
     setBusy(true)

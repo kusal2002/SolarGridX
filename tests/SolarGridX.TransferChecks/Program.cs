@@ -1,6 +1,6 @@
 // ============================================================================
 // Project: SolarGridX - Smart Solar Microgrid Platform
-// Course: Enterprise Application Development (EAD)
+// Module: Enterprise Application Development (EAD)
 // File: Program.cs (SolarGridX.TransferChecks)
 // Description: Automated test runner for energy transfer validation, QR codes, meter reading rules, and concurrency.
 // ============================================================================

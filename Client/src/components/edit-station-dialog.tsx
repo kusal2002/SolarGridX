@@ -73,6 +73,7 @@ function MapCenter({
   return null
 }
 
+// Dialog for editing charging station details, operating schedule, and coordinates
 export function EditStationDialog({
   station,
   open,
@@ -84,6 +85,7 @@ export function EditStationDialog({
   const [searchQuery, setSearchQuery] = useState("")
   const [isSearching, setIsSearching] = useState(false)
 
+  // Form input values for station attributes
   const [formData, setFormData] = useState({
     stationName: "",
     location: "",
@@ -112,6 +114,7 @@ export function EditStationDialog({
     }
   }, [gpsLocation])
 
+  // Populates form with existing station data or resets changes
   const resetForm = useCallback(() => {
     if (station) {
       setFormData({
@@ -129,7 +132,7 @@ export function EditStationDialog({
     }
   }, [station])
 
-  // sync form fields whenever a different station is passed in
+  // Sync form fields whenever a different station is passed in
   useEffect(() => {
     if (station) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -137,11 +140,13 @@ export function EditStationDialog({
     }
   }, [station, resetForm])
 
+  // Discards changes and closes dialog
   const handleCancel = () => {
     resetForm()
     onOpenChange(false)
   }
 
+  // Updates form field state on input change
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type, checked } = e.target
     setFormData((prev) => ({
@@ -150,6 +155,7 @@ export function EditStationDialog({
     }))
   }
 
+  // Updates station coordinates from map click with reverse geocoding
   const handleLocationSelect = async (lat: number, lng: number) => {
     setFormData((prev) => ({
       ...prev,
@@ -175,6 +181,7 @@ export function EditStationDialog({
     }
   }
 
+  // Searches location name via OpenStreetMap Nominatim API
   const handleSearch = async () => {
     if (!searchQuery) return
     setIsSearching(true)
@@ -202,6 +209,7 @@ export function EditStationDialog({
     }
   }
 
+  // Validates operating schedule and submits station updates to API
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!station) return
