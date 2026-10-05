@@ -49,6 +49,7 @@ public class BookingsController(ReservationService reservations, StationService 
         var names = (await stations.GetByIdsAsync(items.Select(r => r.StationId).Distinct()))
             .ToDictionary(station => station.Id, station => station.StationName);
         foreach (var booking in items) booking.StationName = names.GetValueOrDefault(booking.StationId);
+        await reservations.PopulateDisplayNamesAsync(items);
         return Ok(new { items, total = ordered.Count, page, pageSize });
     }
 

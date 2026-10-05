@@ -1,3 +1,5 @@
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table"
+import { StatusBadge } from "@/components/status-badge"
 import { useEffect, useState, useMemo } from "react"
 import {
   Dialog,
@@ -244,50 +246,42 @@ export function SlotsPage() {
           <div>
             <h2 className="mb-4 text-lg font-medium">Upcoming / Current Slots</h2>
             <div className="overflow-x-auto rounded-xl border">
-              <table className="w-full text-left text-sm">
-                <thead className="bg-muted/50">
-                  <tr className="border-b">
-                    <th className="px-4 py-3 font-medium">Slot ID</th>
-                    <th className="px-4 py-3 font-medium">Station</th>
-                    <th className="px-4 py-3 font-medium">Date</th>
-                    <th className="px-4 py-3 font-medium">Time (Start - End)</th>
-                    <th className="px-4 py-3 font-medium">Capacity (kWh)</th>
-                    <th className="px-4 py-3 font-medium">Available (kWh)</th>
-                    <th className="px-4 py-3 font-medium">Status</th>
+              <Table className="w-full text-left text-sm">
+                <TableHeader className="bg-muted/50">
+                  <TableRow className="border-b">
+                    <TableHead className="px-4 py-3 font-medium">Slot ID</TableHead>
+                    <TableHead className="px-4 py-3 font-medium">Station</TableHead>
+                    <TableHead className="px-4 py-3 font-medium">Date</TableHead>
+                    <TableHead className="px-4 py-3 font-medium">Time (Start - End)</TableHead>
+                    <TableHead className="px-4 py-3 font-medium">Capacity (kWh)</TableHead>
+                    <TableHead className="px-4 py-3 font-medium">Available (kWh)</TableHead>
+                    <TableHead className="px-4 py-3 font-medium">Status</TableHead>
                     {canManageSlots && (
-                      <th className="px-4 py-3 font-medium text-right">Actions</th>
+                      <TableHead className="px-4 py-3 font-medium text-right">Actions</TableHead>
                     )}
-                  </tr>
-                </thead>
+                  </TableRow>
+                </TableHeader>
 
-                <tbody>
+                <TableBody>
                   {upcomingSlots.map((slot) => (
-                    <tr
+                    <TableRow
                       key={slot.id}
                       className="border-b transition-colors last:border-0 hover:bg-muted/30"
                     >
-                      <td className="px-4 py-3 font-medium">{slot.id}</td>
-                      <td className="px-4 py-3">{stationMap.get(slot.stationId) || slot.stationId}</td>
-                      <td className="px-4 py-3">{new Date(slot.slotDate).toLocaleDateString()}</td>
-                      <td className="px-4 py-3">{slot.startTime.substring(0, 5)} - {slot.endTime.substring(0, 5)}</td>
-                      <td className="px-4 py-3">{slot.energyCapacityKwh}</td>
-                      <td className="px-4 py-3">{slot.availableEnergyKwh}</td>
-                      <td className="px-4 py-3">
-                        <span
-                          className={
-                            slot.isActive
-                              ? "rounded-full bg-green-100 px-2 py-1 text-xs font-medium text-green-700"
-                              : "rounded-full bg-red-100 px-2 py-1 text-xs font-medium text-red-700"
-                          }
-                        >
-                          {slot.isActive ? "Active" : "Inactive"}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-right">
+                      <TableCell className="px-4 py-3 font-medium">{slot.id}</TableCell>
+                      <TableCell className="px-4 py-3">{stationMap.get(slot.stationId) || slot.stationId}</TableCell>
+                      <TableCell className="px-4 py-3">{new Date(slot.slotDate).toLocaleDateString()}</TableCell>
+                      <TableCell className="px-4 py-3">{slot.startTime.substring(0, 5)} - {slot.endTime.substring(0, 5)}</TableCell>
+                      <TableCell className="px-4 py-3">{slot.energyCapacityKwh}</TableCell>
+                      <TableCell className="px-4 py-3">{slot.availableEnergyKwh}</TableCell>
+                      <TableCell className="px-4 py-3">
+                        <StatusBadge status={slot.isActive ? "Active" : "Inactive"} />
+                      </TableCell>
+                      <TableCell className="px-4 py-3 text-right">
                         <div className="flex justify-end gap-1">
                           {slot.isActive && (
                             <Button
-                              variant="ghost"
+                              variant="outline"
                               size="icon"
                               onClick={(e) => {
                                 e.stopPropagation()
@@ -300,7 +294,7 @@ export function SlotsPage() {
                             </Button>
                           )}
                           <Button
-                            variant="ghost"
+                            variant="outline"
                             size="icon"
                             onClick={(e) => handleToggleStatus(e, slot)}
                             title={
@@ -317,73 +311,65 @@ export function SlotsPage() {
                             </span>
                           </Button>
                         </div>
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   ))}
 
                   {upcomingSlots.length === 0 && (
-                    <tr>
-                      <td
+                    <TableRow>
+                      <TableCell
                         colSpan={canManageSlots ? 8 : 7}
                         className="px-4 py-8 text-center text-muted-foreground"
                       >
                         No upcoming slots found.
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   )}
-                </tbody>
-              </table>
+                </TableBody>
+              </Table>
             </div>
           </div>
 
           <div>
             <h2 className="mb-4 text-lg font-medium">Past Slots</h2>
             <div className="overflow-x-auto rounded-xl border">
-              <table className="w-full text-left text-sm opacity-75">
-                <thead className="bg-muted/50">
-                  <tr className="border-b">
-                    <th className="px-4 py-3 font-medium">Slot ID</th>
-                    <th className="px-4 py-3 font-medium">Station</th>
-                    <th className="px-4 py-3 font-medium">Date</th>
-                    <th className="px-4 py-3 font-medium">Time (Start - End)</th>
-                    <th className="px-4 py-3 font-medium">Capacity (kWh)</th>
-                    <th className="px-4 py-3 font-medium">Available (kWh)</th>
-                    <th className="px-4 py-3 font-medium">Status</th>
+              <Table className="w-full text-left text-sm opacity-75">
+                <TableHeader className="bg-muted/50">
+                  <TableRow className="border-b">
+                    <TableHead className="px-4 py-3 font-medium">Slot ID</TableHead>
+                    <TableHead className="px-4 py-3 font-medium">Station</TableHead>
+                    <TableHead className="px-4 py-3 font-medium">Date</TableHead>
+                    <TableHead className="px-4 py-3 font-medium">Time (Start - End)</TableHead>
+                    <TableHead className="px-4 py-3 font-medium">Capacity (kWh)</TableHead>
+                    <TableHead className="px-4 py-3 font-medium">Available (kWh)</TableHead>
+                    <TableHead className="px-4 py-3 font-medium">Status</TableHead>
                     {canManageSlots && (
-                      <th className="px-4 py-3 font-medium text-right">Actions</th>
+                      <TableHead className="px-4 py-3 font-medium text-right">Actions</TableHead>
                     )}
-                  </tr>
-                </thead>
+                  </TableRow>
+                </TableHeader>
 
-                <tbody>
+                <TableBody>
                   {pastSlots.map((slot) => (
-                    <tr
+                    <TableRow
                       key={slot.id}
                       className="border-b transition-colors last:border-0 hover:bg-muted/30"
                     >
-                      <td className="px-4 py-3 font-medium">{slot.id}</td>
-                      <td className="px-4 py-3">{stationMap.get(slot.stationId) || slot.stationId}</td>
-                      <td className="px-4 py-3">{new Date(slot.slotDate).toLocaleDateString()}</td>
-                      <td className="px-4 py-3">{slot.startTime.substring(0, 5)} - {slot.endTime.substring(0, 5)}</td>
-                      <td className="px-4 py-3">{slot.energyCapacityKwh}</td>
-                      <td className="px-4 py-3">{slot.availableEnergyKwh}</td>
-                      <td className="px-4 py-3">
-                        <span
-                          className={
-                            slot.isActive
-                              ? "rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-700"
-                              : "rounded-full bg-red-100 px-2 py-1 text-xs font-medium text-red-700"
-                          }
-                        >
-                          {slot.isActive ? "Active (Completed)" : "Inactive"}
-                        </span>
-                      </td>
+                      <TableCell className="px-4 py-3 font-medium">{slot.id}</TableCell>
+                      <TableCell className="px-4 py-3">{stationMap.get(slot.stationId) || slot.stationId}</TableCell>
+                      <TableCell className="px-4 py-3">{new Date(slot.slotDate).toLocaleDateString()}</TableCell>
+                      <TableCell className="px-4 py-3">{slot.startTime.substring(0, 5)} - {slot.endTime.substring(0, 5)}</TableCell>
+                      <TableCell className="px-4 py-3">{slot.energyCapacityKwh}</TableCell>
+                      <TableCell className="px-4 py-3">{slot.availableEnergyKwh}</TableCell>
+                      <TableCell className="px-4 py-3">
+                        <StatusBadge status={slot.isActive ? "Active" : "Inactive"} />
+                      </TableCell>
                       {canManageSlots && (
-                        <td className="px-4 py-3 text-right">
+                        <TableCell className="px-4 py-3 text-right">
                           <div className="flex justify-end gap-1">
                             {slot.isActive && (
                               <Button
-                                variant="ghost"
+                                variant="outline"
                                 size="icon"
                                 onClick={(e) => {
                                   e.stopPropagation()
@@ -396,7 +382,7 @@ export function SlotsPage() {
                               </Button>
                             )}
                             <Button
-                              variant="ghost"
+                              variant="outline"
                               size="icon"
                               onClick={(e) => handleToggleStatus(e, slot)}
                               title={
@@ -413,23 +399,23 @@ export function SlotsPage() {
                               </span>
                             </Button>
                           </div>
-                        </td>
+                        </TableCell>
                       )}
-                    </tr>
+                    </TableRow>
                   ))}
 
                   {pastSlots.length === 0 && (
-                    <tr>
-                      <td
+                    <TableRow>
+                      <TableCell
                         colSpan={canManageSlots ? 8 : 7}
                         className="px-4 py-8 text-center text-muted-foreground"
                       >
                         No past slots found.
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   )}
-                </tbody>
-              </table>
+                </TableBody>
+              </Table>
             </div>
           </div>
         </div>

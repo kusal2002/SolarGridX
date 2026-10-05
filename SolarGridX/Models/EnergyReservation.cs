@@ -14,6 +14,9 @@ public class EnergyReservation
     [BsonElement("prosumerNIC")]
     public string ProsumerNIC { get; set; } = string.Empty;
 
+    [BsonIgnore]
+    public string? ProsumerName { get; set; }
+
     // Connects to Member 2: Station and Slot
     [BsonRepresentation(BsonType.ObjectId)]
     [BsonElement("stationId")]
