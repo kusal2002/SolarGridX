@@ -26,6 +26,8 @@ Authentication determines which dashboard route is available.
 
 To add components to your app, run the following command:
 
+Use the existing component conventions when adding new UI pieces.
+
 ```bash
 npx shadcn@latest add button
 ```
