@@ -20,9 +20,27 @@ public class SlotService
         );
     }
 
+    public static bool IsPast(EnergyBookingSlot slot, DateTime utcNow)
+    {
+        var zone = TimeZoneInfo.FindSystemTimeZoneById(OperatingSystem.IsWindows() ? "Sri Lanka Standard Time" : "Asia/Colombo");
+        var now = TimeZoneInfo.ConvertTimeFromUtc(utcNow, zone);
+        var day = TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(slot.SlotDate, DateTimeKind.Utc), zone).Date;
+        return day.Add(slot.EndTime) <= now;
+    }
+
+    private async Task ExpirePastSlotsAsync()
+    {
+        var now = DateTime.UtcNow;
+        var active = await _slots.Find(s => s.IsActive).ToListAsync();
+        foreach (var slot in active.Where(s => IsPast(s, now)))
+            await _slots.UpdateOneAsync(s => s.Id == slot.Id && s.IsActive && s.SlotDate == slot.SlotDate && s.EndTime == slot.EndTime,
+                Builders<EnergyBookingSlot>.Update.Set(s => s.IsActive, false).Set(s => s.UpdatedAt, now));
+    }
+
     // Get all active slots
     public async Task<List<EnergyBookingSlot>> GetAllAsync()
     {
+        await ExpirePastSlotsAsync();
         return await _slots
             .Find(slot => slot.IsActive == true)
             .ToListAsync();
@@ -31,6 +49,7 @@ public class SlotService
     // Get all slots including inactive
     public async Task<List<EnergyBookingSlot>> GetAllIncludingInactiveAsync()
     {
+        await ExpirePastSlotsAsync();
         return await _slots
             .Find(_ => true)
             .ToListAsync();
@@ -39,6 +58,7 @@ public class SlotService
     // Get slot by Id
     public async Task<EnergyBookingSlot?> GetByIdAsync(string id)
     {
+        await ExpirePastSlotsAsync();
         return await _slots
             .Find(slot =>
                 slot.Id == id &&
@@ -50,6 +70,7 @@ public class SlotService
     public async Task<List<EnergyBookingSlot>> GetByStationIdAsync(
         string stationId)
     {
+        await ExpirePastSlotsAsync();
         return await _slots
             .Find(slot =>
                 slot.StationId == stationId &&
@@ -61,6 +82,7 @@ public class SlotService
     public async Task<List<EnergyBookingSlot>> GetByStationIdIncludingInactiveAsync(
         string stationId)
     {
+        await ExpirePastSlotsAsync();
         return await _slots
             .Find(slot => slot.StationId == stationId)
             .ToListAsync();
@@ -193,6 +215,7 @@ public class SlotService
     string id,
     UpdateSlotRequest request)
     {
+        await ExpirePastSlotsAsync();
         if (request.StartTime >= request.EndTime)
         {
             throw new ArgumentException(
@@ -335,6 +358,7 @@ public class SlotService
     // Reactivate Slot
     public async Task<EnergyBookingSlot?> ReactivateAsync(string id)
     {
+        await ExpirePastSlotsAsync();
         var slot = await _slots
             .Find(item =>
                 item.Id == id &&
@@ -345,6 +369,9 @@ public class SlotService
         {
             return null;
         }
+
+        if (IsPast(slot, DateTime.UtcNow))
+            throw new InvalidOperationException("Past slots cannot be reactivated. Create a new slot instead.");
 
         var requestedDate = slot.SlotDate.Date;
         var nextDate = requestedDate.AddDays(1);

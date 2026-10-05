@@ -64,6 +64,11 @@ Check(meter.History.Count == 0, "repeated meter reading is idempotent");
 await Reject(() => { EnergyTransferRules.Apply(meter, "complete", 4, null, "op", DateTime.UtcNow); return Task.CompletedTask; }, 400);
 var noOperatorIdentity = new ClaimsPrincipal(new ClaimsIdentity([new Claim(ClaimTypes.Role, "Grid Operator")], "test"));
 Check((await new StationAccessService(null!).StationIdsAsync(noOperatorIdentity))!.Count == 0, "missing operator identity cannot claim unassigned stations");
+var expiryBoundary = new EnergyBookingSlot { SlotDate = new DateTime(2026, 10, 5, 0, 0, 0, DateTimeKind.Utc), EndTime = TimeSpan.FromHours(11) };
+var boundaryUtc = new DateTime(2026, 10, 5, 5, 30, 0, DateTimeKind.Utc);
+Check(!SlotService.IsPast(expiryBoundary, boundaryUtc.AddSeconds(-1)), "slot remains current before its Sri Lanka end time");
+Check(SlotService.IsPast(expiryBoundary, boundaryUtc), "slot expires exactly at its Sri Lanka end time");
+Check(SlotService.IsPast(expiryBoundary, boundaryUtc.AddDays(1)), "older slot remains expired");
 Console.WriteLine($"Passed {checks} validation/lifecycle checks.");
 if (!args.Contains("--integration")) return;
 
@@ -257,6 +262,12 @@ try
         : racedReservation.TransferId == null && racedReservation.Status == "Cancelled", "race preserves reservation state");
     Check((await slots.Find(s => s.Id == raceBooking.SlotId).FirstAsync()).AvailableEnergyKwh == (createRace.Result ? 95 : 100),
         "race preserves capacity");
+    var expiredSlot = new EnergyBookingSlot { Id = ObjectId.GenerateNewId().ToString(), StationId = station.Id, SlotDate = DateTime.UtcNow.AddDays(-2), EndTime = TimeSpan.FromHours(11), IsActive = true };
+    await slots.InsertOneAsync(expiredSlot);
+    var slotService = new SlotService(db);
+    Check(!(await slotService.GetAllAsync()).Any(s => s.Id == expiredSlot.Id), "active API excludes expired slots");
+    Check(!(await slots.Find(s => s.Id == expiredSlot.Id).FirstAsync()).IsActive, "expired status is persisted");
+    await RejectReservation(() => slotService.ReactivateAsync(expiredSlot.Id));
     Console.WriteLine($"Passed {checks} total checks, including MongoDB transactions, races, rollback, and capacity accounting.");
 }
 finally
