@@ -19,14 +19,23 @@ public class StationService
     public Task<List<User>> GetOperatorsAsync() => _stations.Database.GetCollection<User>("Users")
         .Find(u => u.Role == "Grid Operator" && u.AccountStatus == AccountStatus.Active).ToListAsync();
 
-    public async Task<SolarStation?> AssignOperatorAsync(string id, string? nic)
+    private async Task<List<string>> ValidateOperatorsAsync(IEnumerable<string>? requested)
+    {
+        var nics = (requested ?? []).Where(n => !string.IsNullOrWhiteSpace(n)).Select(n => n.Trim()).Distinct().ToList();
+        var active = (await GetOperatorsAsync()).Select(u => u.NIC).ToHashSet();
+        if (nics.Any(n => !active.Contains(n))) throw new ArgumentException("Choose active Grid Operator accounts only.");
+        return nics;
+    }
+
+    public Task<SolarStation?> AssignOperatorAsync(string id, string? nic) =>
+        AssignOperatorsAsync(id, string.IsNullOrWhiteSpace(nic) ? [] : [nic]);
+
+    public async Task<SolarStation?> AssignOperatorsAsync(string id, IEnumerable<string>? requested)
     {
         if (!MongoDB.Bson.ObjectId.TryParse(id, out _)) throw new ArgumentException("Invalid station ID.");
-        nic = string.IsNullOrWhiteSpace(nic) ? null : nic.Trim();
-        if (nic != null && !(await GetOperatorsAsync()).Any(u => u.NIC == nic))
-            throw new ArgumentException("Choose an active Grid Operator account.");
+        var nics = await ValidateOperatorsAsync(requested);
         return await _stations.FindOneAndUpdateAsync(s => s.Id == id,
-            Builders<SolarStation>.Update.Set(s => s.OperatorNIC, nic).Set(s => s.UpdatedAt, DateTime.UtcNow),
+            Builders<SolarStation>.Update.Set(s => s.OperatorNICs, nics).Set(s => s.OperatorNIC, nics.FirstOrDefault()).Set(s => s.UpdatedAt, DateTime.UtcNow),
             new FindOneAndUpdateOptions<SolarStation> { ReturnDocument = ReturnDocument.After });
     }
 
@@ -62,9 +71,12 @@ public class StationService
     {
         ValidateSchedule(request.OperatingStartTime, request.OperatingEndTime);
 
+        var operatorNICs = await ValidateOperatorsAsync(request.OperatorNICs);
         var station = new SolarStation()
         {
             StationName = request.StationName,
+            OperatorNICs = operatorNICs,
+            OperatorNIC = operatorNICs.FirstOrDefault(),
             Location = request.Location,
             Latitude = request.Latitude,
             Longitude = request.Longitude,

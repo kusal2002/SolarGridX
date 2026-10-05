@@ -1,3 +1,4 @@
+import { OperatorSelector, type StationOperator } from "@/components/operator-selector"
 import { useState, useEffect } from "react"
 import { Plus, Search, MapPin } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -40,6 +41,7 @@ const defaultIcon = L.icon({
 L.Marker.prototype.options.icon = defaultIcon
 
 interface AddStationDialogProps {
+  operators?: StationOperator[]
   onStationAdded: (station: Station) => void
 }
 
@@ -70,7 +72,8 @@ function MapCenter({
   return null
 }
 
-export function AddStationDialog({ onStationAdded }: AddStationDialogProps) {
+export function AddStationDialog({ onStationAdded, operators = [] }: AddStationDialogProps) {
+  const [selectedOperators, setSelectedOperators] = useState<string[]>([])
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
@@ -108,6 +111,7 @@ export function AddStationDialog({ onStationAdded }: AddStationDialogProps) {
   }, [gpsLocation])
 
   const resetForm = () => {
+    setSelectedOperators([])
     setFormData({
       stationName: "",
       location: "",
@@ -203,6 +207,7 @@ export function AddStationDialog({ onStationAdded }: AddStationDialogProps) {
     try {
       const newStation = await createStation({
         stationName: formData.stationName,
+        operatorNICs: selectedOperators,
         location: formData.location,
         latitude: parseFloat(formData.latitude),
         longitude: parseFloat(formData.longitude),
@@ -216,7 +221,7 @@ export function AddStationDialog({ onStationAdded }: AddStationDialogProps) {
       setOpen(false)
     } catch (err) {
       console.error(err)
-      setError("Failed to create station. Please try again.")
+      setError(err instanceof Error ? err.message : "Failed to create station. Please try again.")
     } finally {
       setLoading(false)
     }
@@ -426,6 +431,7 @@ export function AddStationDialog({ onStationAdded }: AddStationDialogProps) {
             </div>
           </div>
 
+          <div className="mb-6 space-y-2"><Label>Grid Operators</Label><OperatorSelector operators={operators} value={selectedOperators} onChange={setSelectedOperators} disabled={loading} /></div>
           <DialogFooter>
             <Button
               type="button"

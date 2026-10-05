@@ -2,6 +2,7 @@ export interface Station {
   id: string
   stationName: string
   operatorNIC?: string | null
+  operatorNICs?: string[]
   location: string
   latitude: number
   longitude: number

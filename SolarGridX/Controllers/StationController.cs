@@ -66,7 +66,7 @@ public class StationController : ControllerBase
     [Authorize(Roles = "Backoffice")]
     public async Task<IActionResult> Operators() => Ok((await _stationService.GetOperatorsAsync()).Select(u => new { u.NIC, u.Name }));
 
-    public record Assignment(string? OperatorNIC);
+    public record Assignment(string? OperatorNIC, List<string>? OperatorNICs = null);
 
     [HttpPatch("{id}/operator")]
     [Authorize(Roles = "Backoffice")]
@@ -74,7 +74,7 @@ public class StationController : ControllerBase
     {
         try
         {
-            var station = await _stationService.AssignOperatorAsync(id, request.OperatorNIC);
+            var station = await _stationService.AssignOperatorsAsync(id, request.OperatorNICs ?? (string.IsNullOrWhiteSpace(request.OperatorNIC) ? [] : [request.OperatorNIC]));
             return station == null ? NotFound(new { message = "Station not found." }) : Ok(station);
         }
         catch (ArgumentException ex) { return BadRequest(new { message = ex.Message }); }
@@ -86,6 +86,8 @@ public class StationController : ControllerBase
     public async Task<IActionResult> Create(
         CreateStationRequest request)
     {
+        try
+        {
         var station = await _stationService.CreateAsync(request);
 
         return CreatedAtAction(
@@ -93,6 +95,8 @@ public class StationController : ControllerBase
             new { id = station.Id },
             station
         );
+        }
+        catch (ArgumentException ex) { return BadRequest(new { message = ex.Message }); }
     }
 
     //Update station

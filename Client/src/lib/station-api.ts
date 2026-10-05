@@ -8,6 +8,7 @@ export async function getStations(includeInactive = false): Promise<Station[]> {
 }
 
 export async function createStation(data: {
+  operatorNICs?: string[]
   stationName: string
   location: string
   latitude: number

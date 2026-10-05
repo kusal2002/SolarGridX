@@ -2,6 +2,8 @@ namespace SolarGridX.DTOs.Stations;
 
 public class CreateStationRequest
 {
+    public List<string> OperatorNICs { get; set; } = [];
+
     public string StationName { get; set; } = string.Empty;
 
     public string Location { get; set; } = string.Empty;

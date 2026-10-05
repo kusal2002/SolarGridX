@@ -12,7 +12,7 @@ public class StationAccessService(IMongoDatabase database)
         var nic = user.FindFirstValue(ClaimTypes.NameIdentifier);
         if (string.IsNullOrWhiteSpace(nic)) return [];
         return await database.GetCollection<SolarStation>("SolarStationInfo")
-            .Find(s => s.OperatorNIC == nic).Project(s => s.Id).ToListAsync();
+            .Find(s => s.OperatorNIC == nic || s.OperatorNICs.Contains(nic)).Project(s => s.Id).ToListAsync();
     }
 
     public async Task<bool> CanAccessAsync(ClaimsPrincipal user, string stationId)

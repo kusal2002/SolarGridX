@@ -17,6 +17,9 @@ public class SolarStation
     [BsonElement("operatorNIC")]
     public string? OperatorNIC { get; set; }
 
+    [BsonElement("operatorNICs")]
+    public List<string> OperatorNICs { get; set; } = [];
+
     public string Location { get; set; } = string.Empty;
 
     public double Latitude { get; set; }
