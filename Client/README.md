@@ -2,6 +2,8 @@
 
 This is a template for a new Vite project with React, TypeScript, and shadcn/ui.
 
+The client is the browser-based interface for SolarGridX.
+
 ## Local configuration
 
 Copy `.env.example` to `.env.local` and set the API URL:
