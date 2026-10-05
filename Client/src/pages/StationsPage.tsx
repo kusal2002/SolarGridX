@@ -1,3 +1,5 @@
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table"
+import { StatusBadge } from "@/components/status-badge"
 import { useEffect, useState } from "react"
 import {
   Dialog,
@@ -211,55 +213,47 @@ export function StationsPage() {
 
       {!loading && !error && (
         <div className="overflow-x-auto rounded-xl border">
-          <table className="w-full text-left text-sm">
-            <thead className="bg-muted/50">
-              <tr className="border-b">
-                <th className="px-4 py-3 font-medium">Station ID</th>
-                <th className="px-4 py-3 font-medium">Station Name</th>
-                <th className="px-4 py-3 font-medium">Location</th>
-                <th className="px-4 py-3 font-medium">Capacity (kWh)</th>
-                <th className="px-4 py-3 font-medium">Status</th>
+          <Table className="w-full text-left text-sm">
+            <TableHeader className="bg-muted/50">
+              <TableRow className="border-b">
+                <TableHead className="px-4 py-3 font-medium">Station ID</TableHead>
+                <TableHead className="px-4 py-3 font-medium">Station Name</TableHead>
+                <TableHead className="px-4 py-3 font-medium">Location</TableHead>
+                <TableHead className="px-4 py-3 font-medium">Capacity (kWh)</TableHead>
+                <TableHead className="px-4 py-3 font-medium">Status</TableHead>
                 {canManageStations && (
-                  <th className="px-4 py-3 text-right font-medium">Actions</th>
+                  <TableHead className="px-4 py-3 text-right font-medium">Actions</TableHead>
                 )}
-                <th className="px-4 py-3 font-medium">Grid Operator</th>
-              </tr>
-            </thead>
+                <TableHead className="px-4 py-3 font-medium">Grid Operator</TableHead>
+              </TableRow>
+            </TableHeader>
 
-            <tbody>
+            <TableBody>
               {filteredStations.map((station) => (
-                <tr
+                <TableRow
                   key={station.id}
                   className="cursor-pointer border-b transition-colors last:border-0 hover:bg-muted/30"
                   onClick={() => handleRowClick(station)}
                 >
-                  <td className="px-4 py-3 font-medium">{station.id}</td>
-                  <td className="px-4 py-3">{station.stationName}</td>
-                  <td className="px-4 py-3">{station.location}</td>
-                  <td className="px-4 py-3">{station.totalCapacityKwh}</td>
-                  <td className="px-4 py-3">
-                    <span
-                      className={
-                        station.isActive
-                          ? "rounded-full bg-green-100 px-2 py-1 text-xs font-medium text-green-700"
-                          : "rounded-full bg-red-100 px-2 py-1 text-xs font-medium text-red-700"
-                      }
-                    >
-                      {station.isActive ? "Active" : "Inactive"}
-                    </span>
-                  </td>
+                  <TableCell className="px-4 py-3 font-medium">{station.id}</TableCell>
+                  <TableCell className="px-4 py-3">{station.stationName}</TableCell>
+                  <TableCell className="px-4 py-3">{station.location}</TableCell>
+                  <TableCell className="px-4 py-3">{station.totalCapacityKwh}</TableCell>
+                  <TableCell className="px-4 py-3">
+                    <StatusBadge status={station.isActive ? "Active" : "Inactive"} />
+                  </TableCell>
                   {canManageStations && (
-                    <td className="px-4 py-3">
+                    <TableCell className="px-4 py-3">
                       <div className="flex justify-end gap-1">
                         <Button
-                          variant="ghost"
+                          variant="outline"
                           size="icon"
                           onClick={(e) => handleEditClick(e, station)}
                         >
                           <Pencil className="size-4" />
                         </Button>
                         <Button
-                          variant="ghost"
+                          variant="outline"
                           size="icon"
                           onClick={(e) => handleToggleStatus(e, station)}
                           title={
@@ -273,30 +267,30 @@ export function StationsPage() {
                           />
                         </Button>
                       </div>
-                    </td>
+                    </TableCell>
                   )}
-                  <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
+                  <TableCell className="px-4 py-3" onClick={e => e.stopPropagation()}>
                     {isBackoffice ? <select aria-label={`Operator for ${station.stationName}`} className="rounded-md border bg-background p-2" disabled={assigning === station.id} value={station.operatorNIC ?? ""} onChange={e => void assignOperator(station, e.target.value)}>
                       <option value="">Unassigned</option>
                       {station.operatorNIC && !operators.some(o => o.nic === station.operatorNIC) && <option value={station.operatorNIC}>Inactive operator ({station.operatorNIC})</option>}
                       {operators.map(o => <option key={o.nic} value={o.nic}>{o.name} ({o.nic})</option>)}
                     </select> : station.operatorNIC ?? "Unassigned"}
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               ))}
 
               {filteredStations.length === 0 && (
-                <tr>
-                  <td
+                <TableRow>
+                  <TableCell
                     colSpan={canManageStations ? 7 : 6}
                     className="px-4 py-8 text-center text-muted-foreground"
                   >
                     {!isBackoffice && !stations.length ? "No stations assigned. Ask Backoffice to assign your account to a station." : "No stations found."}
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               )}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </div>
       )}
 

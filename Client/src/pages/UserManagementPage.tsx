@@ -1,3 +1,5 @@
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table"
+import { StatusBadge } from "@/components/status-badge"
 import { useEffect, useState } from "react"
 import {
   ArrowLeft,
@@ -48,20 +50,6 @@ import {
 } from "@/lib/auth-api"
 import type { User } from "@/types/user"
 
-function StatusBadge({ status }: { status: string }) {
-  const style =
-    status === "Active"
-      ? "bg-emerald-100 text-emerald-700"
-      : status === "Inactive"
-        ? "bg-red-100 text-red-700"
-        : "bg-amber-100 text-amber-700"
-  return (
-    <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${style}`}>
-      {status}
-    </span>
-  )
-}
-
 function csvValue(value: string | number | null | undefined) {
   const text = value == null ? "" : String(value)
   return `"${text.replaceAll('"', '""')}"`
@@ -91,7 +79,7 @@ function StatusActions({
   if (user.accountStatus === "Active") {
     return (
       <Button
-        variant="ghost"
+        variant="outline"
         size="sm"
         disabled={busy}
         onClick={() => onChange("Inactive")}
@@ -114,7 +102,7 @@ function StatusActions({
   }
   if (user.accountStatus === "DeactivationRequested") {
     return (
-      <div className="flex justify-end gap-2">
+      <div className="flex items-center justify-end gap-2">
         <Button
           variant="destructive"
           size="sm"
@@ -174,7 +162,6 @@ export function UserManagementPage({
     email: currentUser.email,
   })
   const [userEditForm, setUserEditForm] = useState({ name: "", email: "" })
-  const [directoryView, setDirectoryView] = useState<"all" | "prosumers" | "pending">("all")
 
   const downloadUsers = async (
     filename: string,
@@ -432,13 +419,12 @@ export function UserManagementPage({
 
   return (
     <div className="flex flex-1 flex-col gap-6 p-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">
-          {isBackoffice ? "User management" : "My account"}
-        </h1>
-        <p className="text-muted-foreground">
-          Manage secure access across the SolarGridX network.
-        </p>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">{isBackoffice ? "User management" : "My account"}</h1>
+          <p className="text-sm text-muted-foreground">{isBackoffice ? "Manage users, account access, and staff roles." : "Manage your profile and account access."}</p>
+        </div>
+        {isBackoffice && <Button onClick={() => { setError(""); setShowStaff(true) }}><Plus /> Add user</Button>}
       </div>
       {error && (
         <p className="rounded-lg border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-600">
@@ -450,7 +436,7 @@ export function UserManagementPage({
           {success}
         </p>
       )}
-      <section className="grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(320px,0.7fr)]">
+      {!isBackoffice && (      <section className="grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(320px,0.7fr)]">
         <div className="rounded-xl border bg-card p-5">
           <div className="mb-5 flex items-start justify-between">
             <div>
@@ -552,11 +538,12 @@ export function UserManagementPage({
           </div>
         )}
       </section>
+      )}
       {isBackoffice && selectedUser && (
-        <section className="rounded-xl border bg-card p-5">
+        <Dialog open onOpenChange={(open) => !open && setSelectedUser(null)}><DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl"><DialogHeader><DialogTitle>User details</DialogTitle><DialogDescription>Account information and available actions.</DialogDescription></DialogHeader><div>
           <div className="flex items-start justify-between gap-4 border-b pb-5">
             <div>
-              <Button variant="ghost" size="sm" onClick={() => setSelectedUser(null)}>
+              <Button variant="outline" size="sm" onClick={() => setSelectedUser(null)}>
                 <ArrowLeft />
                 Back to directory
               </Button>
@@ -595,109 +582,15 @@ export function UserManagementPage({
               </>
             )}
           </div>
-        </section>
+        </div></DialogContent></Dialog>
       )}
-      {isBackoffice && !selectedUser && (
+      {isBackoffice && (
         <section className="rounded-xl border bg-card">
-          <div className="flex flex-col gap-4 border-b p-5 lg:flex-row lg:items-center lg:justify-between">
-            <div>
-              <h2 className="font-semibold">Account directory</h2>
-              <p className="text-sm text-muted-foreground">
-                {totalCount} registered account{totalCount === 1 ? "" : "s"}
-              </p>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <Button
-                variant={directoryView === "all" ? "default" : "outline"}
-                size="sm"
-                onClick={() => {
-                  setDirectoryView("all")
-                  setRole("All")
-                  setStatus("All")
-                  setPage(1)
-                }}
-              >
-                All users
-              </Button>
-              <Button
-                variant={directoryView === "prosumers" ? "default" : "outline"}
-                size="sm"
-                onClick={() => {
-                  setDirectoryView("prosumers")
-                  setRole("Prosumer")
-                  setStatus("All")
-                  setPage(1)
-                }}
-              >
-                Prosumers
-              </Button>
-              <Button
-                variant={directoryView === "pending" ? "default" : "outline"}
-                size="sm"
-                onClick={() => {
-                  setDirectoryView("pending")
-                  setRole("Prosumer")
-                  setStatus("Pending")
-                  setPage(1)
-                }}
-              >
-                Pending prosumers
-              </Button>
-              <div className="flex items-center gap-2 rounded-lg border px-3 py-2 sm:w-64">
-                <Search className="size-4 text-muted-foreground" />
-                <input
-                  className="w-full bg-transparent text-sm outline-none"
-                  placeholder="Search users..."
-                  value={search}
-                  onChange={(e) => {
-                    setSearch(e.target.value)
-                    setPage(1)
-                  }}
-                />
-              </div>
-              <select
-                className="rounded-lg border bg-background px-3 py-2 text-sm outline-none"
-                value={status}
-                onChange={(e) => {
-                  setStatus(e.target.value)
-                  setPage(1)
-                }}
-              >
-                <option>All</option>
-                <option>Active</option>
-                <option>Inactive</option>
-                <option>Pending</option>
-                <option>DeactivationRequested</option>
-              </select>
-              <select
-                className="rounded-lg border bg-background px-3 py-2 text-sm outline-none"
-                value={role}
-                onChange={(e) => {
-                  setRole(e.target.value)
-                  setPage(1)
-                }}
-              >
-                <option>All</option>
-                <option>Prosumer</option>
-                <option>Backoffice</option>
-                <option>Grid Operator</option>
-              </select>
-              <select
-                className="rounded-lg border bg-background px-3 py-2 text-sm outline-none"
-                value={`${sortBy}:${sortDirection}`}
-                onChange={(e) => {
-                  const [nextSortBy, nextSortDirection] = e.target.value.split(":")
-                  setSortBy(nextSortBy)
-                  setSortDirection(nextSortDirection)
-                  setPage(1)
-                }}
-              >
-                <option value="createdAt:desc">Newest first</option>
-                <option value="createdAt:asc">Oldest first</option>
-                <option value="name:asc">Name A-Z</option>
-                <option value="name:desc">Name Z-A</option>
-                <option value="role:asc">Role A-Z</option>
-              </select>
+          <div className="space-y-4 border-b p-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="text-sm text-muted-foreground">{totalCount} registered account{totalCount === 1 ? "" : "s"}</p>
+              <div className="flex gap-2">
+                {(search || status !== "All" || role !== "All" || sortBy !== "createdAt" || sortDirection !== "desc") && <Button variant="outline" size="sm" onClick={() => { setSearch(""); setStatus("All"); setRole("All"); setSortBy("createdAt"); setSortDirection("desc"); setPage(1) }}><X /> Clear filters</Button>}
               <DropdownMenu>
                 <DropdownMenuTrigger
                   render={
@@ -753,16 +646,37 @@ export function UserManagementPage({
                   </DropdownMenuGroup>
                 </DropdownMenuContent>
               </DropdownMenu>
-              <Button onClick={() => setShowStaff(!showStaff)}>
-                <Plus />
-                Add staff
-              </Button>
+              </div>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[2fr_1fr_1fr_1fr]">
+              <div className="space-y-1.5">
+                <Label htmlFor="user-search">Search users</Label>
+                <div className="relative"><Search className="pointer-events-none absolute left-3 top-2.5 size-4 text-muted-foreground" /><Input id="user-search" className="pl-9" placeholder="Name, email or NIC" value={search} onChange={e => { setSearch(e.target.value); setPage(1) }} /></div>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="user-status">Status</Label>
+                <select id="user-status" className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm" value={status} onChange={e => { setStatus(e.target.value); setPage(1) }}>
+                  <option value="All">All statuses</option><option>Active</option><option>Inactive</option><option>Pending</option><option value="DeactivationRequested">Deactivation requested</option>
+                </select>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="user-role">Role</Label>
+                <select id="user-role" className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm" value={role} onChange={e => { setRole(e.target.value); setPage(1) }}>
+                  <option value="All">All roles</option><option>Prosumer</option><option>Grid Operator</option><option>Backoffice</option>
+                </select>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="user-sort">Sort by</Label>
+                <select id="user-sort" className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm" value={sortBy + ":" + sortDirection} onChange={e => { const [key,direction] = e.target.value.split(":"); setSortBy(key); setSortDirection(direction); setPage(1) }}>
+                  <option value="createdAt:desc">Newest first</option><option value="createdAt:asc">Oldest first</option><option value="name:asc">Name A–Z</option><option value="name:desc">Name Z–A</option><option value="role:asc">Role A–Z</option>
+                </select>
+              </div>
             </div>
           </div>
-          {editingUser && (
+          <Dialog open={editingUser !== null} onOpenChange={open => !open && setEditingUser(null)}><DialogContent><DialogHeader><DialogTitle>Edit user</DialogTitle><DialogDescription>Update the user’s name and email.</DialogDescription></DialogHeader>
             <form
               onSubmit={saveUser}
-              className="grid gap-3 border-b bg-muted/20 p-5 sm:grid-cols-[1fr_1fr_auto_auto] sm:items-end"
+              className="grid gap-4"
             >
               <div className="space-y-2">
                 <Label htmlFor="edit-user-name">Full name</Label>
@@ -800,31 +714,31 @@ export function UserManagementPage({
                 Cancel
               </Button>
             </form>
-          )}
-          {showStaff && (
+          </DialogContent></Dialog>
+          <Dialog open={showStaff} onOpenChange={setShowStaff}><DialogContent className="sm:max-w-lg"><DialogHeader><DialogTitle>Add user</DialogTitle><DialogDescription>Create a Grid Operator or Backoffice account.</DialogDescription></DialogHeader>{error && <p role="alert" className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">{error}</p>}
             <form
               onSubmit={addStaff}
-              className="grid gap-3 border-b bg-muted/20 p-5 sm:grid-cols-2 lg:grid-cols-5"
+              className="grid gap-4 sm:grid-cols-2"
             >
-              <Input
-                placeholder="NIC"
+              <div className="space-y-2"><Label>NIC</Label><Input
+                aria-label="NIC" placeholder="NIC"
                 required
                 value={staffForm.nic}
                 onChange={(e) =>
                   setStaffForm({ ...staffForm, nic: e.target.value })
                 }
-              />
-              <Input
-                placeholder="Full name"
+              /></div>
+              <div className="space-y-2"><Label>Full name</Label><Input
+                aria-label="Full name" placeholder="Full name"
                 required
                 value={staffForm.name}
                 onChange={(e) =>
                   setStaffForm({ ...staffForm, name: e.target.value })
                 }
-              />
+              /></div>
               <Input
                 type="email"
-                placeholder="Email"
+                aria-label="Email" placeholder="Email"
                 required
                 value={staffForm.email}
                 onChange={(e) =>
@@ -834,15 +748,15 @@ export function UserManagementPage({
               <Input
                 type="password"
                 minLength={8}
-                placeholder="Password"
+                aria-label="Password" placeholder="Password"
                 required
                 value={staffForm.password}
                 onChange={(e) =>
                   setStaffForm({ ...staffForm, password: e.target.value })
                 }
               />
-              <div className="flex gap-2">
-                <select
+              <div className="col-span-full flex gap-2">
+                <select aria-label="User role"
                   className="min-w-0 flex-1 rounded-lg border bg-background px-3 text-sm"
                   value={staffForm.role}
                   onChange={(e) =>
@@ -860,42 +774,43 @@ export function UserManagementPage({
                 </Button>
               </div>
             </form>
-          )}
+          </DialogContent></Dialog>
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="bg-muted/50">
-                <tr className="border-b">
-                  <th className="px-5 py-3 font-medium">User</th>
-                  <th className="px-5 py-3 font-medium">NIC</th>
-                  <th className="px-5 py-3 font-medium">Role</th>
-                  <th className="px-5 py-3 font-medium">Status</th>
-                  <th className="px-5 py-3 text-right font-medium">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
+            <Table className="w-full text-left text-sm">
+              <TableHeader className="bg-muted/40">
+                <TableRow className="border-b">
+                  <TableHead className="px-5 py-3 font-medium">User</TableHead>
+
+                  <TableHead className="px-5 py-3 font-medium">Role</TableHead>
+                  <TableHead className="px-5 py-3 font-medium">Status</TableHead>
+                  <TableHead className="px-5 py-3 text-right font-medium">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {busy && !users.length && <TableRow><TableCell colSpan={4} className="py-8 text-center text-muted-foreground">Loading users…</TableCell></TableRow>}
                 {users.map((user) => (
-                  <tr key={user.nic} className="border-b last:border-0">
-                    <td className="px-5 py-3">
+                  <TableRow key={user.nic} className="border-b last:border-0">
+                    <TableCell className="px-4 py-3">
                       <p className="font-medium">{user.name}</p>
                       <p className="text-xs text-muted-foreground">
                         {user.email}
-                      </p>
-                    </td>
-                    <td className="px-5 py-3">{user.nic}</td>
-                    <td className="px-5 py-3">{user.role}</td>
-                    <td className="px-5 py-3">
+                      </p><p className="mt-1 text-xs text-muted-foreground">NIC: {user.nic}</p>
+                    </TableCell>
+
+                    <TableCell className="px-4 py-3">{user.role}</TableCell>
+                    <TableCell className="px-4 py-3">
                       <StatusBadge status={user.accountStatus} />
-                    </td>
-                    <td className="px-5 py-3 text-right">
+                    </TableCell>
+                    <TableCell className="px-4 py-3 text-right">
                       {user.nic !== profile.nic && (
                         <div className="flex justify-end gap-2">
                           <Button
-                            variant="ghost"
+                            variant="outline"
                             size="sm"
                             disabled={busy || detailsBusy}
                             onClick={() => void openUserDetails(user)}
                           >
-                            View details
+                            <UserRound className="size-4" /> View details
                           </Button>
                           <Button
                             variant="outline"
@@ -915,21 +830,21 @@ export function UserManagementPage({
                           />
                         </div>
                       )}
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 ))}
                 {!busy && users.length === 0 && (
-                  <tr>
-                    <td
-                      colSpan={5}
+                  <TableRow>
+                    <TableCell
+                      colSpan={4}
                       className="px-5 py-8 text-center text-muted-foreground"
                     >
                       No users match these filters.
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 )}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           </div>
           <div className="flex flex-col gap-3 border-t p-4 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
             <span>
