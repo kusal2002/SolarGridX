@@ -24,6 +24,9 @@ import androidx.compose.ui.unit.sp
 import com.kusal.solargridxmobile.data.model.EnergyReservation
 import com.kusal.solargridxmobile.data.model.EnergySlot
 import com.kusal.solargridxmobile.data.model.SolarStation
+import java.text.SimpleDateFormat
+import java.util.Locale
+import java.util.TimeZone
 
 // High-contrast, theme-safe colors
 val GreenPrimary = Color(0xFF15803D)
@@ -305,7 +308,7 @@ fun ReservationScreen(
             when (selectedTab) {
                 0 -> AvailableSlotsView(
                     stations = state.stations,
-                    slots = state.slots,
+                    slots = state.slots.filter { slot -> slot.isActive && !isSlotExpired(slot) && !isSlotBeyond7Days(slot) },
                     onBookSlotClick = { slot ->
                         selectedSlotForBooking = slot
                         showBookDialog = true
@@ -412,6 +415,43 @@ fun KpiMiniChip(
     }
 }
 
+// ── Helpers for Energy Slot Expiry and 7-Day Window Filter ──────────────────
+private fun isSlotExpired(slot: EnergySlot): Boolean {
+    return try {
+        val datePart = slot.slotDate.split("T")[0].trim()
+        val timeSource = if (slot.endTime.isNotBlank()) slot.endTime.trim() else slot.startTime.trim()
+        val timeParts = timeSource.split(":")
+        val hour = timeParts.getOrNull(0)?.padStart(2, '0') ?: "00"
+        val minute = timeParts.getOrNull(1)?.padStart(2, '0') ?: "00"
+        val second = timeParts.getOrNull(2)?.padStart(2, '0') ?: "00"
+
+        val sdf = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).apply {
+            timeZone = TimeZone.getDefault()
+        }
+        val slotDateTime = sdf.parse("$datePart $hour:$minute:$second")
+        val now = System.currentTimeMillis()
+        (slotDateTime?.time ?: Long.MAX_VALUE) <= now
+    } catch (e: Exception) {
+        false
+    }
+}
+
+private fun isSlotBeyond7Days(slot: EnergySlot): Boolean {
+    return try {
+        val datePart = slot.slotDate.split("T")[0].trim()
+        val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.US).apply {
+            timeZone = TimeZone.getDefault()
+        }
+        val slotDate = sdf.parse(datePart) ?: return false
+        val now = System.currentTimeMillis()
+        val diffMs = slotDate.time - now
+        val diffDays = diffMs / (1000.0 * 60 * 60 * 24)
+        diffDays > 7.0
+    } catch (e: Exception) {
+        false
+    }
+}
+
 // ==========================================
 // 1. AVAILABLE SLOTS VIEW (Member 3)
 // ==========================================
@@ -426,7 +466,14 @@ fun AvailableSlotsView(
     var isStationDropdownExpanded by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
 
-    val filteredSlots = slots.filter { slot ->
+    // Filter out expired slots, inactive slots, or slots beyond 7 days advance window
+    val activeAvailableSlots = remember(slots) {
+        slots.filter { slot ->
+            slot.isActive && !isSlotExpired(slot) && !isSlotBeyond7Days(slot)
+        }.sortedWith(compareBy({ it.slotDate }, { it.startTime }))
+    }
+
+    val filteredSlots = activeAvailableSlots.filter { slot ->
         val station = stations.find { it.id == slot.stationId }
         val matchesStation = selectedStationId.isEmpty() || slot.stationId == selectedStationId
         val matchesSearch = searchQuery.isBlank() ||
@@ -435,7 +482,7 @@ fun AvailableSlotsView(
                 slot.slotDate.contains(searchQuery, ignoreCase = true) ||
                 slot.startTime.contains(searchQuery, ignoreCase = true)
 
-        slot.isActive && matchesStation && matchesSearch
+        matchesStation && matchesSearch
     }
 
     Column(
@@ -482,10 +529,10 @@ fun AvailableSlotsView(
         ) {
             val selectedStation = stations.find { it.id == selectedStationId }
             val stationDisplayText = if (selectedStationId.isEmpty()) {
-                val totalActive = slots.count { it.isActive }
+                val totalActive = activeAvailableSlots.size
                 "All Stations ($totalActive available)"
             } else {
-                val stationActive = slots.count { it.stationId == selectedStationId && it.isActive }
+                val stationActive = activeAvailableSlots.count { it.stationId == selectedStationId }
                 "${selectedStation?.stationName ?: "Selected Station"} ($stationActive available)"
             }
 
@@ -529,7 +576,7 @@ fun AvailableSlotsView(
             ) {
                 // Option 1: All Stations
                 val isAllSelected = selectedStationId.isEmpty()
-                val totalActiveSlots = slots.count { it.isActive }
+                val totalActiveSlots = activeAvailableSlots.size
 
                 DropdownMenuItem(
                     text = {
@@ -605,7 +652,7 @@ fun AvailableSlotsView(
                 } else {
                     stations.forEach { station ->
                         val isSelected = selectedStationId == station.id
-                        val count = slots.count { it.stationId == station.id && it.isActive }
+                        val count = activeAvailableSlots.count { it.stationId == station.id }
 
                         DropdownMenuItem(
                             text = {
@@ -724,13 +771,13 @@ fun AvailableSlotsView(
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "No matching energy slots found",
+                        text = if (activeAvailableSlots.isEmpty()) "No upcoming available slots" else "No matching energy slots found",
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Medium,
                         color = TextSecondary
                     )
                     Text(
-                        text = "Try adjusting your station filter or search query",
+                        text = if (activeAvailableSlots.isEmpty()) "All past or expired slots are hidden" else "Try adjusting your station filter or search query",
                         fontSize = 12.sp,
                         color = TextMuted
                     )

@@ -170,7 +170,7 @@ fun SolarGridXApp(
                     viewModel = reservationViewModel,
                     onNavigateToTab = { selectedTab = it }
                 )
-                1 -> StationMapScreen()
+                1 -> StationMapScreen(reservationViewModel = reservationViewModel)
                 2 -> if (operator) TransferScreen(sessionManager, initialView = "pending") else ReservationScreen(viewModel = reservationViewModel)
                 3 -> TransferScreen(sessionManager)
                 4 -> ProfileScreen(

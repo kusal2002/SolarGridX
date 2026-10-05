@@ -12,7 +12,9 @@ import java.util.concurrent.TimeUnit
 
 object ApiClient {
     // Configured for physical phone or emulator over local network
-    const val BASE_URL = "http://192.168.11.192:5000/api/"
+    //const val BASE_URL = "http://192.168.11.192:5000/api/"
+    const val BASE_URL = "http://solargridx.runasp.net/api/"
+
 
     private var retrofit: Retrofit? = null
     private var sessionManager: SessionManager? = null
