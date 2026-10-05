@@ -27,12 +27,14 @@ async Task RejectReservation(Func<Task> call)
 }
 bool Valid(object value) => Validator.TryValidateObject(value, new ValidationContext(value), [], true);
 Check(!Valid(new CreateEnergyTransferRequest()), "empty create");
-Check(!Valid(new CreateEnergyTransferRequest { ReservationId = "RES001", SellerId = "s", BuyerId = "b", ExpectedEnergyKWh = 5 }), "invalid ObjectId");
+Check(!Valid(new CreateEnergyTransferRequest { ReservationId = "RES001" }), "invalid ObjectId");
+Check(Valid(new CreateEnergyTransferRequest { ReservationId = ObjectId.GenerateNewId().ToString() }), "reservation alone creates transfer request");
 Check(!Valid(new TransferEnergyRequest()), "missing meter value");
 Check(!Valid(new TransferEnergyRequest { TransferredEnergyKWh = -1 }), "negative meter value");
 Check(!Valid(new EndEnergyTransferRequest { Reason = "   " }), "blank reason");
 Check(!Valid(new EnergyTransferQuery { Page = 0, PageSize = 101 }), "bounded pagination");
-Check(!Valid(new VerifyTransferRequest()), "QR payload and seller required");
+Check(!Valid(new VerifyTransferRequest()), "QR payload required");
+Check(Valid(new VerifyTransferRequest { Payload = "protected-qr" }), "verification requires no second account");
 var protection = new EphemeralDataProtectionProvider();
 var qr = new ReservationQrService(protection);
 string Payload(EnergyReservation r) => JsonSerializer.SerializeToElement(qr.Issue(r)).GetProperty("payload").GetString()!;
@@ -60,6 +62,8 @@ foreach (var value in new decimal?[] { null, -1, 1, 6 })
 EnergyTransferRules.Apply(meter, "progress", 2, null, "op", DateTime.UtcNow);
 Check(meter.History.Count == 0, "repeated meter reading is idempotent");
 await Reject(() => { EnergyTransferRules.Apply(meter, "complete", 4, null, "op", DateTime.UtcNow); return Task.CompletedTask; }, 400);
+var noOperatorIdentity = new ClaimsPrincipal(new ClaimsIdentity([new Claim(ClaimTypes.Role, "Grid Operator")], "test"));
+Check((await new StationAccessService(null!).StationIdsAsync(noOperatorIdentity))!.Count == 0, "missing operator identity cannot claim unassigned stations");
 Console.WriteLine($"Passed {checks} validation/lifecycle checks.");
 if (!args.Contains("--integration")) return;
 
@@ -80,9 +84,10 @@ try
     var reservations = new ReservationService(db);
     await service.EnsureIndexesAsync();
     await db.GetCollection<User>("Users").InsertManyAsync(new[] {
-        new User { NIC = "seller" }, new User { NIC = "buyer" },
+        new User { NIC = "prosumer" },
+        new User { NIC = "operator", Role = "Grid Operator" },
         new User { NIC = "inactive", AccountStatus = AccountStatus.Inactive } });
-    var station = new SolarStation { Id = ObjectId.GenerateNewId().ToString() };
+    var station = new SolarStation { Id = ObjectId.GenerateNewId().ToString(), StationName = "Test Microgrid Station", OperatorNIC = "operator" };
     await db.GetCollection<SolarStation>("SolarStationInfo").InsertOneAsync(station);
     var slot = new EnergyBookingSlot { Id = ObjectId.GenerateNewId().ToString(), StationId = station.Id,
         SlotDate = DateTime.UtcNow.Date.AddDays(2), EnergyCapacityKwh = 100, AvailableEnergyKwh = 100 };
@@ -94,37 +99,49 @@ try
         var fixtureSlot = new EnergyBookingSlot { Id = ObjectId.GenerateNewId().ToString(), StationId = station.Id,
             SlotDate = slot.SlotDate, EnergyCapacityKwh = 100, AvailableEnergyKwh = 100 };
         await slots.InsertOneAsync(fixtureSlot);
-        var r = await reservations.CreateAsync(new CreateReservationRequest { ProsumerNIC = "buyer", SlotId = fixtureSlot.Id, RequestedEnergyKwh = 5 });
+        var r = await reservations.CreateAsync(new CreateReservationRequest { ProsumerNIC = "prosumer", SlotId = fixtureSlot.Id, RequestedEnergyKwh = 5 });
         if (approve) r = await reservations.UpdateStatusAsync(r.Id, "Approved");
         return r;
     }
-    CreateEnergyTransferRequest Request(EnergyReservation r) => new() { ReservationId = r.Id, SellerId = "seller", BuyerId = "buyer", ExpectedEnergyKWh = 5 };
+    CreateEnergyTransferRequest Request(EnergyReservation r) => new() { ReservationId = r.Id };
     Task<EnergyTransfer> Change(EnergyTransfer t, string action, decimal? value = null) => service.ChangeAsync(t.id!, action, value, "test reason", "operator");
     var pending = await Booking(false);
     await Reject(() => service.CreateAsync(Request(pending), "operator"), 409);
     var booking = await Booking();
-    ControllerContext Context(string nic) => new() { HttpContext = new DefaultHttpContext { User = new ClaimsPrincipal(
-        new ClaimsIdentity(new[] { new Claim(ClaimTypes.NameIdentifier, nic), new Claim(ClaimTypes.Role, "Prosumer") }, "test")) } };
-    var qrController = new ReservationController(reservations, qr) { ControllerContext = Context("other-buyer") };
+    ControllerContext Context(string nic, string role = "Prosumer") => new() { HttpContext = new DefaultHttpContext { User = new ClaimsPrincipal(
+        new ClaimsIdentity(new[] { new Claim(ClaimTypes.NameIdentifier, nic), new Claim(ClaimTypes.Role, role) }, "test")) } };
+    var stationAccess = new StationAccessService(db);
+    var stationService = new StationService(db);
+    var stationApi = new StationController(stationService, stationAccess) { ControllerContext = Context("operator", "Grid Operator") };
+    Check(((OkObjectResult)await stationApi.GetAll()).Value is List<SolarStation> assigned && assigned.Count == 1, "operator station list scoped to assignment");
+    var foreignStation = new SolarStation { Id = ObjectId.GenerateNewId().ToString(), StationName = "Other station", OperatorNIC = "different-operator" };
+    await db.GetCollection<SolarStation>("SolarStationInfo").InsertOneAsync(foreignStation);
+    Check(await stationApi.GetById(foreignStation.Id) is ForbidResult, "foreign station detail blocked");
+    var slotApi = new SlotController(new SlotService(db), stationAccess) { ControllerContext = Context("operator", "Grid Operator") };
+    Check(await slotApi.GetByStationIdIncludingInactive(foreignStation.Id) is ForbidResult, "foreign station slot list blocked");
+    try { await stationService.AssignOperatorAsync(station.Id, "prosumer"); throw new Exception("Expected invalid assignment"); }
+    catch (ArgumentException) { checks++; }
+    Check((await stationService.AssignOperatorAsync(station.Id, "operator"))!.OperatorNIC == "operator", "active operator can be assigned");
+    var qrController = new ReservationController(reservations, qr, stationAccess) { ControllerContext = Context("other-buyer") };
     Check(await qrController.GetQr(booking.Id) is ForbidResult, "another prosumer cannot get QR");
-    qrController.ControllerContext = Context("buyer");
+    qrController.ControllerContext = Context("prosumer");
     Check(await qrController.GetQr(pending.Id) is ConflictObjectResult, "pending booking cannot issue QR");
     Check(await qrController.GetQr(booking.Id) is OkObjectResult, "approved owner can get QR");
-    var dashboard = new BookingsController(reservations) { ControllerContext = Context("buyer") };
+    var dashboard = new BookingsController(reservations, new StationService(db), stationAccess, db) { ControllerContext = Context("prosumer") };
     var counts = JsonSerializer.SerializeToElement(((OkObjectResult)await dashboard.Summary()).Value);
     Check(counts.GetProperty("pending").GetInt32() == 1 && counts.GetProperty("approvedFuture").GetInt32() == 1, "live future/pending counts");
+    var namedBookings = JsonSerializer.SerializeToElement(((OkObjectResult)await dashboard.List("current")).Value);
+    Check(namedBookings.GetProperty("items")[0].GetProperty("StationName").GetString() == station.StationName, "booking includes station name");
     dashboard.ControllerContext = Context("other-buyer");
     var ownList = JsonSerializer.SerializeToElement(((OkObjectResult)await dashboard.List("search")).Value);
     Check(ownList.GetProperty("total").GetInt32() == 0, "booking list scoped to owner");
     Check(await dashboard.List("current", page: 0) is BadRequestObjectResult, "bad booking pagination rejected");
-    var wrong = Request(booking); wrong.BuyerId = "seller"; wrong.SellerId = "buyer";
-    await Reject(() => service.CreateAsync(wrong, "operator"), 400);
-    wrong = Request(booking); wrong.ExpectedEnergyKWh = 4;
-    await Reject(() => service.CreateAsync(wrong, "operator"), 400);
-    wrong = Request(booking); wrong.SellerId = "missing";
-    await Reject(() => service.CreateAsync(wrong, "operator"), 404);
-    wrong.SellerId = "inactive";
-    await Reject(() => service.CreateAsync(wrong, "operator"), 409);
+    var reservationCollection = db.GetCollection<EnergyReservation>("EnergyReservations");
+    await reservationCollection.UpdateOneAsync(r => r.Id == booking.Id, Builders<EnergyReservation>.Update.Set(r => r.ProsumerNIC, "missing"));
+    await Reject(() => service.CreateAsync(Request(booking), "operator"), 404);
+    await reservationCollection.UpdateOneAsync(r => r.Id == booking.Id, Builders<EnergyReservation>.Update.Set(r => r.ProsumerNIC, "inactive"));
+    await Reject(() => service.CreateAsync(Request(booking), "operator"), 409);
+    await reservationCollection.UpdateOneAsync(r => r.Id == booking.Id, Builders<EnergyReservation>.Update.Set(r => r.ProsumerNIC, "prosumer"));
     await Reject(() => service.GetByIdAsync("bad-id"), 400);
     Check(await service.GetByIdAsync(ObjectId.GenerateNewId().ToString()) == null, "unknown ID");
 
@@ -135,6 +152,8 @@ try
     }));
     Check(attempts.Count(t => t != null) == 1, "concurrent creation yields one transfer");
     var transfer = attempts.Single(t => t != null)!;
+    Check(transfer.ProsumerNIC == "prosumer" && transfer.StationId == booking.StationId && transfer.SlotId == booking.SlotId && transfer.ExpectedEnergyKWh == 5,
+        "transfer identity and energy come from reservation with only one active prosumer");
     await RejectReservation(() => reservations.CancelAsync(booking.Id, "blocked"));
     await RejectReservation(() => reservations.UpdateAsync(booking.Id, new UpdateReservationRequest { RequestedEnergyKwh = 4 }));
     await RejectReservation(() => reservations.UpdateStatusAsync(booking.Id, "Completed"));
@@ -154,6 +173,39 @@ try
     transfer = await Change(transfer, "complete", 5);
     Check(transfer.Status == "Completed" && transfer.CompletedAt != null && transfer.History.Count == 5, "completion/history");
     Check((await reservations.GetByIdAsync(booking.Id))!.Status == "Completed", "reservation completed atomically");
+    var historyApi = new EnergyTransfersController(service, qr, reservations, stationAccess) { ControllerContext = Context("prosumer") };
+    Check(await historyApi.GetById(transfer.id!) is OkObjectResult, "prosumer can read own completed transfer");
+    historyApi.ControllerContext = Context("other-prosumer");
+    Check(await historyApi.GetById(transfer.id!) is ForbidResult, "prosumer cannot read another owner's transfer");
+    historyApi.ControllerContext = Context("unassigned-operator", "Grid Operator");
+    Check(await historyApi.GetById(transfer.id!) is ForbidResult, "unassigned operator cannot read transfer");
+    Check(await historyApi.Start(transfer.id!) is ForbidResult, "unassigned operator cannot mutate transfer");
+    historyApi.ControllerContext = Context("operator", "Grid Operator");
+    Check(await historyApi.GetById(transfer.id!) is OkObjectResult, "assigned operator reads completed transfer");
+    dashboard.ControllerContext = Context("operator", "Grid Operator");
+    var completedList = JsonSerializer.SerializeToElement(((OkObjectResult)await dashboard.List("completed")).Value);
+    Check(completedList.GetProperty("total").GetInt32() == 1, "completed view includes finished booking");
+    var stats = JsonSerializer.SerializeToElement(((OkObjectResult)await dashboard.Summary()).Value);
+    Check(stats.GetProperty("completedTransfers").GetInt32() == 1 && stats.GetProperty("deliveredEnergyKwh").GetDecimal() == 5, "dashboard totals completed delivery");
+    dashboard.ControllerContext = Context("unassigned-operator", "Grid Operator");
+    Check(await dashboard.Summary(station.Id) is ForbidResult, "foreign station filter rejected");
+    stats = JsonSerializer.SerializeToElement(((OkObjectResult)await dashboard.Summary()).Value);
+    Check(stats.GetProperty("completedTransfers").GetInt32() == 0 && stats.GetProperty("stationCount").GetInt32() == 0, "unassigned operator sees no system stats");
+    var guardedReservation = new ReservationController(reservations, qr, stationAccess) { ControllerContext = Context("unassigned-operator", "Grid Operator") };
+    Check(await guardedReservation.UpdateStatus(booking.Id, new UpdateReservationStatusRequest { Status = "Approved" }) is ForbidResult, "foreign booking status mutation blocked");
+    historyApi.ControllerContext = Context("prosumer");
+    var ownTransfers = JsonSerializer.SerializeToElement(((OkObjectResult)await historyApi.GetAll(new EnergyTransferQuery { Status = "Completed" })).Value);
+    Check(ownTransfers.GetArrayLength() == 1, "prosumer completed transfer list is visible");
+    historyApi.ControllerContext = Context("other-prosumer");
+    var otherTransfers = JsonSerializer.SerializeToElement(((OkObjectResult)await historyApi.GetAll(new EnergyTransferQuery { Status = "Completed" })).Value);
+    Check(otherTransfers.GetArrayLength() == 0, "prosumer list cannot leak another owner's transfers");
+    await db.GetCollection<EnergyTransfer>("EnergyTransfers").UpdateOneAsync(t => t.id == transfer.id,
+        Builders<EnergyTransfer>.Update.Unset(t => t.ProsumerNIC).Unset(t => t.StationId).Unset(t => t.SlotId));
+    var legacy = await service.GetByIdAsync(transfer.id!);
+    Check(legacy!.ProsumerNIC == "prosumer" && legacy.StationId == booking.StationId && legacy.SlotId == booking.SlotId, "older completed records recover identity from reservation");
+    historyApi.ControllerContext = Context("operator", "Grid Operator");
+    var stationHistory = JsonSerializer.SerializeToElement(((OkObjectResult)await historyApi.GetAll(new EnergyTransferQuery { Status = "Completed", StationId = station.Id })).Value);
+    Check(stationHistory.GetArrayLength() == 1, "station history retains legacy completed records");
     await Reject(() => Change(transfer, "complete", 5), 409);
     await Reject(() => service.CreateAsync(Request(booking), "operator", ticket: qr.Read(Payload(booking))), 409);
     Check((await slots.Find(s => s.Id == booking.SlotId).FirstAsync()).AvailableEnergyKwh == 95, "completed energy not released");

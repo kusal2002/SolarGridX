@@ -1,7 +1,7 @@
 name: IIS
 variables:
   - name: baseUrl
-    value: http://192.168.0.104:5000
+    value: http://192.168.0.100:5000
   - name: backofficeEmail
     value: admin@solargridx.com
   - name: backofficePassword
@@ -11,7 +11,7 @@ variables:
   - name: prosumerEmail
     value: adlransika@gmail.com
   - name: prosumerPassword
-    value: ""
+    value: Lithira123
   - name: prosumerNic
     value: "200309501110"
   - name: prosumerToken

@@ -13,11 +13,13 @@ public class ReservationController : ControllerBase
 {
     private readonly ReservationService _reservationService;
     private readonly ReservationQrService _qr;
+    private readonly StationAccessService _access;
 
-    public ReservationController(ReservationService reservationService, ReservationQrService qr)
+    public ReservationController(ReservationService reservationService, ReservationQrService qr, StationAccessService access)
     {
         _reservationService = reservationService;
         _qr = qr;
+        _access = access;
     }
 
     [HttpGet]
@@ -27,6 +29,8 @@ public class ReservationController : ControllerBase
         var list = User.IsInRole("Prosumer")
             ? await _reservationService.GetByProsumerAsync(User.FindFirstValue(ClaimTypes.NameIdentifier)!)
             : await _reservationService.GetAllAsync();
+        var ids = await _access.StationIdsAsync(User);
+        if (ids != null) list = list.Where(r => ids.Contains(r.StationId)).ToList();
         return Ok(list);
     }
 
@@ -38,6 +42,7 @@ public class ReservationController : ControllerBase
         var reservation = await _reservationService.GetByIdAsync(parsed.ToString());
         if (reservation == null) return NotFound(new { message = "Reservation not found." });
         if (!CanAccess(reservation.ProsumerNIC)) return Forbid();
+        if (!await _access.CanAccessAsync(User, reservation.StationId)) return Forbid();
         if (reservation.Status != "Approved")
             return Conflict(new { message = "Only approved reservations have a transaction QR." });
         return Ok(_qr.Issue(reservation));
@@ -49,6 +54,7 @@ public class ReservationController : ControllerBase
         var res = await _reservationService.GetByIdAsync(id);
         if (res == null) return NotFound(new { message = "Reservation not found." });
         if (!CanAccess(res.ProsumerNIC)) return Forbid();
+        if (!await _access.CanAccessAsync(User, res.StationId)) return Forbid();
         return Ok(res);
     }
 
@@ -57,6 +63,8 @@ public class ReservationController : ControllerBase
     {
         if (!CanAccess(nic)) return Forbid();
         var list = await _reservationService.GetByProsumerAsync(nic);
+        var ids = await _access.StationIdsAsync(User);
+        if (ids != null) list = list.Where(r => ids.Contains(r.StationId)).ToList();
         return Ok(list);
     }
 
@@ -66,6 +74,7 @@ public class ReservationController : ControllerBase
         try
         {
             if (!CanAccess(request.ProsumerNIC)) return Forbid();
+            if (!await _access.CanAccessSlotAsync(User, request.SlotId)) return Forbid();
             var created = await _reservationService.CreateAsync(request);
             return CreatedAtAction(nameof(GetById), new { id = created.Id }, created);
         }
@@ -87,6 +96,8 @@ public class ReservationController : ControllerBase
             var existing = await _reservationService.GetByIdAsync(id);
             if (existing == null) return NotFound();
             if (!CanAccess(existing.ProsumerNIC)) return Forbid();
+            if (!await _access.CanAccessAsync(User, existing.StationId)) return Forbid();
+            if (request.NewSlotId != null && !await _access.CanAccessSlotAsync(User, request.NewSlotId)) return Forbid();
             var updated = await _reservationService.UpdateAsync(id, request);
             return Ok(updated);
         }
@@ -108,6 +119,7 @@ public class ReservationController : ControllerBase
             var existing = await _reservationService.GetByIdAsync(id);
             if (existing == null) return NotFound();
             if (!CanAccess(existing.ProsumerNIC)) return Forbid();
+            if (!await _access.CanAccessAsync(User, existing.StationId)) return Forbid();
             var cancelled = await _reservationService.CancelAsync(id, reason);
             return Ok(cancelled);
         }
@@ -127,6 +139,9 @@ public class ReservationController : ControllerBase
     {
         try
         {
+            var existing = await _reservationService.GetByIdAsync(id);
+            if (existing == null) return NotFound();
+            if (!await _access.CanAccessAsync(User, existing.StationId)) return Forbid();
             var updated = await _reservationService.UpdateStatusAsync(id, request.Status);
             return Ok(updated);
         }

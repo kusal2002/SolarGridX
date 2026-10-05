@@ -2,7 +2,7 @@
 
 Select the **Component 4 Local** environment (`http://localhost:5084`) or add its variables to your existing environment. Fill `backofficeToken` with a Backoffice or Grid Operator token and `prosumerToken` with the reservation owner's token. Do not commit real tokens.
 
-Use an approved reservation and a distinct active seller. Set `reservationId`, `sellerNIC`, `buyerNIC` and `expectedEnergyKWh` from your test records.
+Use one active Prosumer with an approved station/slot reservation and one Grid Operator. Set `reservationId` and `expectedEnergyKWh` from the reservation; no seller account is needed. Verify sends only the QR payload, and the server derives the prosumer, station, slot and expected energy.
 
 For the simplest flow:
 

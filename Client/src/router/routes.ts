@@ -1,6 +1,7 @@
-export type View = "users" | "stations" | "slots" | "reservations" | "transfers"
+export type View = "dashboard" | "users" | "stations" | "slots" | "reservations" | "transfers"
 
 export function viewFromPath(pathname: string): View {
+  if (pathname === "/dashboard") return "dashboard"
   if (pathname === "/transfers") return "transfers"
   if (pathname === "/stations") return "stations"
   if (pathname === "/slots") return "slots"
@@ -9,6 +10,7 @@ export function viewFromPath(pathname: string): View {
 }
 
 function pathForView(view: View): string {
+  if (view === "dashboard") return "/dashboard"
   if (view === "transfers") return "/transfers"
   if (view === "stations") return "/stations"
   if (view === "slots") return "/slots"
@@ -26,6 +28,7 @@ export function navigateToView(view: View, replace = false): View {
 
 export function getBreadcrumbTitle(view: View, userRole?: string): string {
   switch (view) {
+    case "dashboard": return "Dashboard"
     case "transfers":
       return "Transfers & monitoring"
     case "stations":

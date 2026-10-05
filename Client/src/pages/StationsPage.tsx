@@ -19,6 +19,7 @@ import { AddStationDialog } from "@/components/add-station-dialog"
 import { ViewStationDialog } from "@/components/view-station-dialog"
 import { EditStationDialog } from "@/components/edit-station-dialog"
 import { useAuth } from "@/context/AuthContext"
+import { request } from "@/lib/api-client"
 
 export function StationsPage() {
   const [stations, setStations] = useState<Station[]>([])
@@ -34,6 +35,8 @@ export function StationsPage() {
   const [editOpen, setEditOpen] = useState(false)
 
   const [actionError, setActionError] = useState("")
+  const [operators, setOperators] = useState<{ nic: string; name: string }[]>([])
+  const [assigning, setAssigning] = useState("")
 
   const { user } = useAuth()
   const isBackoffice = user?.role === "Backoffice"
@@ -47,6 +50,7 @@ export function StationsPage() {
         setError("")
         const data = await getStations(canViewInactive)
         setStations(data)
+        if (isBackoffice) setOperators(await request<{ nic: string; name: string }[]>("/stations/operators"))
       } catch (error) {
         console.error(error)
         setError("Unable to load stations.")
@@ -56,7 +60,16 @@ export function StationsPage() {
     }
 
     loadStations()
-  }, [canViewInactive])
+  }, [canViewInactive, isBackoffice])
+
+  async function assignOperator(station: Station, operatorNIC: string) {
+    setAssigning(station.id)
+    try {
+      const updated = await request<Station>(`/stations/${station.id}/operator`, { method: "PATCH", body: JSON.stringify({ operatorNIC: operatorNIC || null }) })
+      setStations(previous => previous.map(s => s.id === updated.id ? updated : s))
+    } catch (e) { setActionError(e instanceof Error ? e.message : "Assignment failed") }
+    finally { setAssigning("") }
+  }
 
   const filteredStations = stations
     .filter((station) => {
@@ -209,6 +222,7 @@ export function StationsPage() {
                 {canManageStations && (
                   <th className="px-4 py-3 text-right font-medium">Actions</th>
                 )}
+                <th className="px-4 py-3 font-medium">Grid Operator</th>
               </tr>
             </thead>
 
@@ -261,16 +275,23 @@ export function StationsPage() {
                       </div>
                     </td>
                   )}
+                  <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
+                    {isBackoffice ? <select aria-label={`Operator for ${station.stationName}`} className="rounded-md border bg-background p-2" disabled={assigning === station.id} value={station.operatorNIC ?? ""} onChange={e => void assignOperator(station, e.target.value)}>
+                      <option value="">Unassigned</option>
+                      {station.operatorNIC && !operators.some(o => o.nic === station.operatorNIC) && <option value={station.operatorNIC}>Inactive operator ({station.operatorNIC})</option>}
+                      {operators.map(o => <option key={o.nic} value={o.nic}>{o.name} ({o.nic})</option>)}
+                    </select> : station.operatorNIC ?? "Unassigned"}
+                  </td>
                 </tr>
               ))}
 
               {filteredStations.length === 0 && (
                 <tr>
                   <td
-                    colSpan={canManageStations ? 6 : 5}
+                    colSpan={canManageStations ? 7 : 6}
                     className="px-4 py-8 text-center text-muted-foreground"
                   >
-                    No stations found.
+                    {!isBackoffice && !stations.length ? "No stations assigned. Ask Backoffice to assign your account to a station." : "No stations found."}
                   </td>
                 </tr>
               )}

@@ -61,8 +61,12 @@ await CheckPolicy(typeof(SlotController), "Delete", "Backoffice");
 await CheckPolicy(typeof(ReservationController), "UpdateStatus", "Backoffice", "Grid Operator");
 foreach (var action in new[] { "GetAll", "GetQr", "GetById", "GetByProsumer", "Create", "Update", "Cancel" })
     await CheckPolicy(typeof(ReservationController), action, "Backoffice", "Grid Operator", "Prosumer");
-foreach (var action in new[] { "GetAll", "GetById", "GetHistory", "Create", "Verify", "Start", "Progress", "Complete", "Cancel", "Fail" })
+foreach (var action in new[] { "GetAll", "GetById", "GetHistory" })
+    await CheckPolicy(typeof(EnergyTransfersController), action, "Backoffice", "Grid Operator", "Prosumer");
+foreach (var action in new[] { "Create", "Verify", "Start", "Progress", "Complete", "Cancel", "Fail" })
     await CheckPolicy(typeof(EnergyTransfersController), action, "Backoffice", "Grid Operator");
+foreach (var action in new[] { "Operators", "AssignOperator" })
+    await CheckPolicy(typeof(StationController), action, "Backoffice");
 foreach (var action in new[] { "List", "Summary" })
     await CheckPolicy(typeof(BookingsController), action, "Backoffice", "Grid Operator", "Prosumer");
 await CheckPolicy(typeof(DatabaseTestController), "TestConnection", "Backoffice");
@@ -85,7 +89,7 @@ var auth = new AuthController(null!) { ControllerContext = context };
 Expect(await auth.GetUser("other") is ForbidResult, "Cannot read another account");
 Expect(await auth.UpdateProfile("other", new UpdateProfileDto { Name = "Other", Email = "other@example.com" }) is ForbidResult, "Cannot edit another account");
 Expect(await auth.RequestDeactivation("other") is ForbidResult, "Cannot deactivate another account");
-var reservations = new ReservationController(null!, null!) { ControllerContext = context };
+var reservations = new ReservationController(null!, null!, null!) { ControllerContext = context };
 Expect(await reservations.GetByProsumer("other") is ForbidResult, "Cannot list another prosumer's bookings");
 Expect(await reservations.Create(new CreateReservationRequest { ProsumerNIC = "other" }) is ForbidResult, "Cannot book using another NIC");
 

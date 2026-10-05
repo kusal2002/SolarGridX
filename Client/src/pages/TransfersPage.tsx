@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useState } from "react"
 import { request } from "@/lib/api-client"
 import type { EnergyReservation } from "@/types/reservation"
+import { QrScanner } from "@/components/qr-scanner"
 
 type Transfer = {
   id: string; reservationId: string; status: string; expectedEnergyKWh: number
-  sellerId: string; buyerId: string
+  prosumerNIC: string; stationId: string; slotId: string
   transferredEnergyKWh: number; verifiedBy?: string; verifiedAt?: string
+  completedAt?: string
   history: { action: string; status: string; actorNIC: string; at: string }[]
 }
 type Summary = { pending: number; current: number; approvedFuture: number; completed: number; cancelled: number }
@@ -21,8 +23,8 @@ export function TransfersPage() {
   const [bookings, setBookings] = useState<EnergyReservation[]>([])
   const [selected, setSelected] = useState<EnergyReservation | null>(null)
   const [transfer, setTransfer] = useState<Transfer | null>(null)
-  const [payload, setPayload] = useState("")
-  const [sellerNIC, setSellerNIC] = useState("")
+  const [scanning, setScanning] = useState(false)
+  const [transferLoaded, setTransferLoaded] = useState(false)
   const [energy, setEnergy] = useState("")
   const [reason, setReason] = useState("")
   const [message, setMessage] = useState("")
@@ -41,31 +43,36 @@ export function TransfersPage() {
     return () => { active = false; window.clearTimeout(timer) }
   }, [load])
 
-  async function run(operation: () => Promise<void>) {
+  async function run(operation: () => Promise<void>, refresh = true) {
     setBusy(true); setMessage("")
-    try { await operation(); await load() }
-    catch (e) { setMessage(e instanceof Error ? e.message : "Request failed") }
+    try { await operation(); if (refresh) await load() }
+    catch (e) { setMessage(e instanceof Error && e.message === "Failed to fetch"
+      ? "Cannot reach the API. Check the backend is running and its URL/CORS settings, then refresh."
+      : e instanceof Error ? e.message : "Request failed") }
     finally { setBusy(false) }
   }
 
   async function open(booking: EnergyReservation) {
-    setSelected(booking); setTransfer(null); setPayload("")
+    setSelected(booking); setTransfer(null); setTransferLoaded(false)
     await run(async () => {
       const list = await request<Transfer[]>(`/energy-transfers?reservationId=${booking.id}`)
       setTransfer(list[0] ?? null)
+      setTransferLoaded(true)
       setEnergy(String(list[0]?.transferredEnergyKWh ?? 0))
     })
   }
 
-  async function verify() {
+  async function verify(payload: string) {
+    setScanning(false)
     setTransfer(null)
+    setSelected(null); setTransferLoaded(false)
     await run(async () => {
       const result = await request<Transfer>("/energy-transfers/verify", {
-        method: "POST", body: JSON.stringify({ payload: payload.trim(), sellerNIC: sellerNIC.trim() }),
+        method: "POST", body: JSON.stringify({ payload: payload.trim() }),
       })
       setTransfer(result); setEnergy(String(result.transferredEnergyKWh))
       setSelected(await request<EnergyReservation>(`/Reservation/${result.reservationId}`))
-      setPayload(""); setMessage("QR verified. Transfer is ready to start.")
+      setTransferLoaded(true); setMessage(`QR verified. Prosumer NIC: ${result.prosumerNIC}. Transfer is ready to start.`)
     })
   }
 
@@ -78,22 +85,24 @@ export function TransfersPage() {
         method: "PATCH", ...(action === "start" ? {} : { body: JSON.stringify(body) }),
       })
       setTransfer(result)
+      if (action === "complete") { setView("completed"); setPage(1); setSearch("") }
       setSelected(await request<EnergyReservation>(`/Reservation/${result.reservationId}`))
       setMessage(action === "complete" ? "Transfer completed successfully." : `Transfer ${result.status}.`)
-    })
+    }, action !== "complete")
   }
 
   return <main className="space-y-6 p-6">
     <h1 className="text-2xl font-semibold">Transfers & monitoring</h1>
+    <p className="text-sm text-muted-foreground">Reservation approval accepts the booking. Scan its QR to verify the prosumer before starting energy delivery.</p>
     <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
-      {summary && Object.entries(summary).map(([key, count]) => <div key={key} className="rounded-lg border p-4">
+      {summary && Object.entries(summary).filter(([key]) => ["pending", "current", "approvedFuture", "completed", "cancelled"].includes(key)).map(([key, count]) => <div key={key} className="rounded-lg border p-4">
         <p className="text-sm text-muted-foreground">{key === "approvedFuture" ? "Approved future" : key}</p>
         <p className="text-2xl font-semibold">{count}</p>
       </div>)}
     </div>
     <div className="flex flex-wrap gap-2">
       <select aria-label="Booking view" className={field} value={view} onChange={e => { setView(e.target.value); setPage(1) }}>
-        {[["current", "Current"], ["pending", "Pending"], ["history", "History"], ["search", "All bookings"]].map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+        {[["current", "Current"], ["pending", "Pending"], ["completed", "Completed transfers"], ["history", "Completed & cancelled history"], ["search", "All bookings"]].map(([value, label]) => <option key={value} value={value}>{label}</option>)}
       </select>
       <input aria-label="Search bookings" className={field} placeholder="Reservation ID, NIC or station ID" value={search} onChange={e => { setSearch(e.target.value); setPage(1) }} />
       <button className={button} disabled={busy} onClick={() => void run(load)}>Refresh</button>
@@ -101,7 +110,7 @@ export function TransfersPage() {
     <p role="status" className="text-sm">{message}</p>
     <div className="overflow-x-auto rounded-lg border">
       <table className="w-full text-left text-sm"><thead><tr className="border-b bg-muted">
-        {["Reservation", "Prosumer", "Date", "kWh", "Status", ""].map((title, i) => <th className="p-3" key={i}>{title}</th>)}
+        {["Reservation", "Prosumer", "Date", "kWh", "Booking status", ""].map((title, i) => <th className="p-3" key={i}>{title}</th>)}
       </tr></thead><tbody>{bookings.map(b => <tr key={b.id} className="border-b">
         <td className="p-3">{b.id}</td><td className="p-3">{b.prosumerNIC}</td>
         <td className="p-3">{new Date(b.reservationDate).toLocaleDateString()} {b.startTime}</td>
@@ -117,20 +126,20 @@ export function TransfersPage() {
     </div>
     <section className="space-y-3 rounded-lg border p-4">
       <h2 className="text-lg font-semibold">Verify a transaction</h2>
-      <p className="text-sm text-muted-foreground">Scan using Android, or paste the prosumer's QR payload here. Verification creates or checks the pending transfer.</p>
-      <input aria-label="Seller NIC" className={field} placeholder="Seller NIC" value={sellerNIC} onChange={e => setSellerNIC(e.target.value)} />
-      <textarea aria-label="QR payload" className={`${field} block w-full`} placeholder="QR payload" value={payload} onChange={e => setPayload(e.target.value)} />
-      <button className={button} disabled={busy || !sellerNIC.trim() || !payload.trim()} onClick={() => void verify()}>Verify QR</button>
+      <p className="text-sm text-muted-foreground">Scan the prosumer’s approved booking QR. The server identifies the prosumer, station, slot, and reserved energy automatically.</p>
+      <button className={button} disabled={busy || scanning} onClick={() => setScanning(true)}>Scan QR</button>
+      {scanning && <QrScanner onScan={verify} onClose={() => setScanning(false)} />}
     </section>
     {selected && <section className="space-y-3 rounded-lg border p-4">
       <h2 className="text-lg font-semibold">Booking details</h2>
       <p>{selected.id} · {selected.prosumerNIC} · {selected.status}</p>
       <p>Station: {selected.stationId} · Slot: {selected.slotId}</p>
       <p>{selected.startTime}–{selected.endTime} · {selected.requestedEnergyKwh} kWh</p>
-      {!transfer && <p>No transfer yet. Verify the reservation QR above.</p>}
+      {!transfer && <p>{transferLoaded ? "No transfer yet. Scan the reservation QR above." : "Transfer details unavailable. Retry Details after checking the API connection."}</p>}
       {transfer && <>
         <p>Transfer: {transfer.status} · {transfer.transferredEnergyKWh}/{transfer.expectedEnergyKWh} kWh</p>
-        <p>Seller: {transfer.sellerId} · Buyer: {transfer.buyerId}</p>
+        {transfer.completedAt && <p>Completed: {new Date(transfer.completedAt).toLocaleString()}</p>}
+        <p>Prosumer NIC: {transfer.prosumerNIC || selected.prosumerNIC}</p>
         <p>{transfer.verifiedAt ? `Verified by ${transfer.verifiedBy}` : "Awaiting QR verification"}</p>
         {transfer.status === "Pending" && <button className={button} disabled={busy || !transfer.verifiedAt} onClick={() => void change("start")}>Start transfer</button>}
         {transfer.status === "InProgress" && <div className="flex flex-wrap gap-2">

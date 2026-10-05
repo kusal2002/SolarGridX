@@ -1,0 +1,14 @@
+info:
+  name: 28 Foreign Station Forbidden
+  type: http
+  seq: 28
+http:
+  method: GET
+  url: '{{baseUrl}}/api/dashboard/summary?stationId={{foreignStationId}}'
+  auth:
+    type: bearer
+    token: '{{gridOperatorToken}}'
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true

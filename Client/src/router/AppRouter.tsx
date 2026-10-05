@@ -6,6 +6,7 @@ import { StationsPage } from "@/pages/StationsPage"
 import { SlotsPage } from "@/pages/SlotsPage"
 import { ReservationsPage } from "@/pages/ReservationsPage"
 import { TransfersPage } from "@/pages/TransfersPage"
+import { DashboardPage } from "@/pages/DashboardPage"
 import { AccessDeniedPage } from "@/pages/AccessDeniedPage"
 import { MainLayout } from "@/components/layout/main-layout"
 import { navigateToView, viewFromPath, type View } from "./routes"
@@ -42,13 +43,13 @@ export function AppRouter() {
     return <AuthPage onAuthenticated={login} />
   }
 
-  if (user.role === "Prosumer" && ["stations", "slots", "transfers"].includes(activeView)) {
+  if (user.role === "Prosumer" && ["stations", "slots", "transfers", "dashboard"].includes(activeView)) {
     return <AccessDeniedPage onBack={() => handleNavigate("users", true)} />
   }
 
   return (
     <MainLayout user={user} activeView={activeView} onNavigate={handleNavigate} onLogout={() => { logout(); handleNavigate("users", true) }}>
-      {activeView === "transfers" ? (
+      {activeView === "dashboard" ? <DashboardPage /> : activeView === "transfers" ? (
         <TransfersPage />
       ) : activeView === "stations" ? (
         <StationsPage />

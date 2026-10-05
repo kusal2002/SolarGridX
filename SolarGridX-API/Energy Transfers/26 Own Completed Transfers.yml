@@ -1,0 +1,14 @@
+info:
+  name: 26 Own Completed Transfers
+  type: http
+  seq: 26
+http:
+  method: GET
+  url: '{{baseUrl}}/api/energy-transfers?status=Completed&page=1&pageSize=20'
+  auth:
+    type: bearer
+    token: '{{prosumerToken}}'
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true

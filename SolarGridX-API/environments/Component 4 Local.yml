@@ -3,34 +3,36 @@ variables:
   - name: baseUrl
     value: http://localhost:5084
   - name: backofficeToken
-    value: ""
+    value: ''
   - name: prosumerToken
-    value: ""
+    value: ''
   - name: reservationId
-    value: ""
-  - name: sellerNIC
-    value: ""
-  - name: buyerNIC
-    value: ""
+    value: ''
   - name: expectedEnergyKWh
-    value: "5"
+    value: '5'
   - name: progressEnergyKWh
-    value: "2"
+    value: '2'
   - name: transferId
-    value: ""
+    value: ''
   - name: cancelTransferId
-    value: ""
+    value: ''
   - name: failTransferId
-    value: ""
+    value: ''
   - name: qrPayload
-    value: ""
+    value: ''
   - name: bookingSearch
-    value: ""
+    value: ''
   - name: bookingStatus
-    value: ""
+    value: ''
   - name: stationId
-    value: ""
+    value: ''
   - name: slotId
-    value: ""
+    value: ''
   - name: slotDate
-    value: "2026-10-06"
+    value: '2026-10-06'
+  - name: operatorNIC
+    value: ''
+  - name: gridOperatorToken
+    value: ''
+  - name: foreignStationId
+    value: ''

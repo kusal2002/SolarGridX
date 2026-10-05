@@ -35,24 +35,24 @@ import kotlinx.coroutines.launch
 import org.json.JSONObject
 import retrofit2.HttpException
 import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TransferScreen(session: SessionManager) {
+fun TransferScreen(session: SessionManager, initialView: String = "current") {
     val api = ApiClient.transferService
     val scope = rememberCoroutineScope()
     val operator = session.getUserRole() in listOf("Grid Operator", "Backoffice")
     var summary by remember { mutableStateOf<DashboardSummary?>(null) }
     var bookings by remember { mutableStateOf<List<EnergyReservation>>(emptyList()) }
-    var view by remember { mutableStateOf("current") }
+    var view by remember { mutableStateOf(initialView) }
     var search by remember { mutableStateOf("") }
     var page by remember { mutableIntStateOf(1) }
     var total by remember { mutableIntStateOf(0) }
     var selected by remember { mutableStateOf<EnergyReservation?>(null) }
     var ticket by remember { mutableStateOf<QrTicket?>(null) }
     var transfer by remember { mutableStateOf<EnergyTransfer?>(null) }
-    var seller by remember { mutableStateOf("") }
-    var payload by remember { mutableStateOf("") }
     var reading by remember { mutableStateOf("") }
     var reason by remember { mutableStateOf("") }
     var message by remember { mutableStateOf("") }
@@ -71,7 +71,7 @@ fun TransferScreen(session: SessionManager) {
             catch (e: CancellationException) { throw e }
             catch (e: Exception) {
                 message = if (e is HttpException) runCatching {
-                    JSONObject(e.response()?.errorBody()?.string() ?: "{}").optString("message", "Request failed (${e.code()})")
+                    transferError(e.response()?.errorBody()?.string(), e.code())
                 }.getOrDefault("Request failed (${e.code()})") else e.message ?: "Request failed"
             }
             finally { busy = false }
@@ -91,8 +91,23 @@ fun TransferScreen(session: SessionManager) {
                     else api.progress(current.id, MeterReading(amount))
                 }
             }
-            transfer = result; refresh()
+            transfer = result
+            if (action == "complete") { view = "completed"; page = 1; search = "" }
+            refresh()
+            selected = bookings.firstOrNull { it.id == result.reservationId } ?: selected
             message = if (result.status == "Completed") "Transfer completed successfully." else "Transfer ${result.status}."
+        }
+    }
+
+    fun verify(payload: String) {
+        run {
+            transfer = null; selected = null
+            val result = api.verify(VerifyQr(payload))
+            transfer = result
+            reading = result.transferredEnergyKWh.toString()
+            refresh()
+            selected = bookings.firstOrNull { it.id == result.reservationId }
+            message = "QR verified. Prosumer NIC: ${result.prosumerNIC}. Ready to start."
         }
     }
 
@@ -103,7 +118,7 @@ fun TransferScreen(session: SessionManager) {
         ticket = null; message = "QR expired. Tap Show QR to refresh."
     }
     val scanner = rememberLauncherForActivityResult(ScanContract()) { result ->
-        result.contents?.let { payload = it; transfer = null; message = "QR scanned. Tap Verify QR." }
+        result.contents?.let { verify(it) }
     }
     val bitmap = remember(ticket) { ticket?.let { BarcodeEncoder().encodeBitmap(it.payload, BarcodeFormat.QR_CODE, 800, 800) } }
 
@@ -118,7 +133,7 @@ fun TransferScreen(session: SessionManager) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Default.Bolt, null, tint = GreenPrimary)
                     Column(Modifier.weight(1f).padding(start = 8.dp)) {
-                        Text("Energy Transfers", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                        Text(if (operator) "Operator Transfers" else "My Bookings & QR", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                         Text(if (operator) "Verify QR and monitor energy delivery" else "Your bookings and transaction QR", style = MaterialTheme.typography.bodySmall, color = TextMuted)
                     }
                     IconButton(enabled = !busy, onClick = { run { refresh() } }) {
@@ -131,8 +146,8 @@ fun TransferScreen(session: SessionManager) {
                     TransferCount("Approved", summary?.approvedFuture, Color(0xFFDCFCE7), GreenPrimary, Modifier.weight(1f))
                     TransferCount("Completed", summary?.completed, Color(0xFFF1F5F9), TextPrimary, Modifier.weight(1f))
                 }
-                val views = listOf("current", "pending", "history", "search")
-                SecondaryTabRow(selectedTabIndex = views.indexOf(view), containerColor = Color.White, contentColor = GreenPrimary) {
+                val views = listOf("current", "pending", "completed", "history", "search")
+                SecondaryScrollableTabRow(selectedTabIndex = views.indexOf(view), containerColor = Color.White, contentColor = GreenPrimary, edgePadding = 0.dp) {
                     views.forEach { value ->
                         Tab(selected = view == value, enabled = !busy,
                             onClick = { view = value; page = 1; ticket = null; run { refresh() } },
@@ -148,7 +163,7 @@ fun TransferScreen(session: SessionManager) {
                 Text(message, Modifier.fillMaxWidth().padding(12.dp), style = MaterialTheme.typography.bodyMedium)
             }
         }
-        OutlinedTextField(search, { search = it }, label = { Text("Search ID, NIC or station") }, modifier = Modifier.fillMaxWidth())
+        OutlinedTextField(search, { search = it }, label = { Text(if (operator) "Search ID, NIC or station" else "Search my bookings") }, modifier = Modifier.fillMaxWidth())
         Button(enabled = !busy, onClick = { page = 1; ticket = null; run { refresh() } }) { Text("Search / refresh") }
         if (bookings.isEmpty() && !busy) TransferPanel {
             Text("No bookings found", fontWeight = FontWeight.SemiBold)
@@ -163,15 +178,17 @@ fun TransferScreen(session: SessionManager) {
                         }
                         Text("${booking.requestedEnergyKwh} kWh", fontWeight = FontWeight.Bold)
                     }
-                    Text("${booking.reservationDate.take(10)} · ${booking.startTime}–${booking.endTime}")
-                    Text(booking.id, style = MaterialTheme.typography.bodySmall, color = TextMuted)
+                    Text(booking.stationName?.takeIf { it.isNotBlank() } ?: "Station name unavailable", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                    Text(bookingDate(booking.reservationDate), color = TextMuted)
+                    Text("${booking.startTime.take(5)} – ${booking.endTime.take(5)}", color = TextMuted)
+                    Text("Booking reference: ${booking.id.takeLast(6).uppercase()}", style = MaterialTheme.typography.bodySmall, color = TextMuted)
                     TextButton(enabled = !busy, onClick = {
                         selected = booking; ticket = null; transfer = null
-                        if (operator) run {
+                        if (operator || booking.transferId != null || booking.status == "Completed") run {
                             transfer = api.transfers(reservationId = booking.id).firstOrNull()
                             reading = transfer?.transferredEnergyKWh?.toString() ?: "0"
                         }
-                    }) { Text("Details") }
+                    }) { Text(if (!operator && booking.status == "Approved") "Open booking & QR" else "View booking") }
                 }
             }
         }
@@ -182,46 +199,45 @@ fun TransferScreen(session: SessionManager) {
         }
         selected?.let { booking ->
             TransferPanel {
-            Text("Booking details", style = MaterialTheme.typography.titleMedium)
-            Text("Prosumer: ${booking.prosumerNIC}\nStation: ${booking.stationId}\nSlot: ${booking.slotId}")
+                Text(booking.stationName?.takeIf { it.isNotBlank() } ?: "Your booking", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Text("Booking status: ${booking.status}", color = TextMuted)
+            Text("${bookingDate(booking.reservationDate)} · ${booking.startTime.take(5)} – ${booking.endTime.take(5)}")
+            Text("Reserved energy: ${booking.requestedEnergyKwh} kWh")
+            if (operator) Text("Prosumer NIC: ${booking.prosumerNIC}")
             if (!operator && booking.status == "Approved") {
                 Button(enabled = !busy, onClick = { run { ticket = api.qr(booking.id) } }) { Text("Show QR / refresh") }
                 bitmap?.let { Image(it.asImageBitmap(), "Transaction QR", Modifier.fillMaxWidth().aspectRatio(1f).background(Color.White)) }
-                ticket?.let { Text("Expires: ${it.expiresAt}. Show this QR to the operator.") }
+                ticket?.let { Text("Show this QR to the Grid Operator. Valid until ${localTime(it.expiresAt)}.", color = TextMuted) }
             }
             }
         }
         if (operator) {
             TransferPanel {
             Text("Verify transaction", style = MaterialTheme.typography.titleMedium)
-            OutlinedTextField(seller, { seller = it }, label = { Text("Seller NIC") }, modifier = Modifier.fillMaxWidth())
+            Text("Approved means the booking is accepted. Scan the prosumer QR before starting delivery.", color = TextMuted)
+            Text("The QR identifies the prosumer, station, slot and reserved energy automatically.", style = MaterialTheme.typography.bodySmall, color = TextMuted)
             Button(enabled = !busy, onClick = {
                 scanner.launch(ScanOptions().setDesiredBarcodeFormats(ScanOptions.QR_CODE).setPrompt("Scan the prosumer QR").setBeepEnabled(false).setOrientationLocked(false))
             }) { Text("Scan QR") }
-            OutlinedTextField(payload, { payload = it; transfer = null }, label = { Text("QR payload") }, modifier = Modifier.fillMaxWidth())
-            Button(enabled = !busy && seller.isNotBlank() && payload.isNotBlank(), onClick = {
-                run {
-                    transfer = null
-                    transfer = api.verify(VerifyQr(payload.trim(), seller.trim()))
-                    reading = transfer!!.transferredEnergyKWh.toString()
-                    payload = ""; refresh(); message = "QR verified. Ready to start."
-                }
-            }) { Text("Verify QR") }
             }
+        }
             transfer?.let { current ->
                 TransferPanel {
                 Text("${current.status}: ${current.transferredEnergyKWh}/${current.expectedEnergyKWh} kWh")
-                Text("Reservation: ${current.reservationId}")
-                Text("Seller: ${current.sellerId} · Buyer: ${current.buyerId}")
-                if (current.status == "Pending") Button(enabled = !busy && current.verifiedAt != null, onClick = { change("start") }) { Text("Start transfer") }
-                if (current.status == "InProgress") {
+                Text("Booking reference: ${current.reservationId.takeLast(6).uppercase()}")
+                Text("Prosumer NIC: ${current.prosumerNIC}", fontWeight = FontWeight.SemiBold)
+                Text(selected?.stationName ?: bookings.firstOrNull { it.stationId == current.stationId }?.stationName ?: "Station name unavailable", style = MaterialTheme.typography.bodyMedium)
+                Text(if (current.verifiedAt != null) "QR verified" else "Awaiting QR verification", color = TextMuted)
+                current.completedAt?.let { Text("Completed: ${bookingDate(it)} at ${localTime(it)}") }
+                if (operator && current.status == "Pending") Button(enabled = !busy && current.verifiedAt != null, onClick = { change("start") }) { Text("Start transfer") }
+                if (operator && current.status == "InProgress") {
                     OutlinedTextField(reading, { reading = it }, label = { Text("Cumulative delivered kWh") })
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Button(enabled = !busy && reading.isNotBlank(), onClick = { change("progress") }) { Text("Save reading") }
                         Button(enabled = !busy && reading.isNotBlank(), onClick = { change("complete") }) { Text("Complete") }
                     }
                 }
-                if (current.status in listOf("Pending", "InProgress")) {
+                if (operator && current.status in listOf("Pending", "InProgress")) {
                     OutlinedTextField(reason, { reason = it }, label = { Text("Cancellation / failure reason") })
                     TextButton(enabled = !busy && reason.isNotBlank(), onClick = { change(if (current.status == "Pending") "cancel" else "fail") }) { Text(if (current.status == "Pending") "Cancel transfer" else "Fail transfer") }
                 }
@@ -229,11 +245,29 @@ fun TransferScreen(session: SessionManager) {
                 current.history.forEach { Text("${it.action} · ${it.status} · ${it.actorNIC}") }
                 }
             }
-        }
     }
     }
     }
 }
+
+private fun transferError(raw: String?, status: Int): String {
+    val body = JSONObject(raw ?: "{}")
+    val errors = body.optJSONObject("errors")
+    if (errors?.has("SellerNIC") == true || errors?.has("sellerNIC") == true)
+        return "The running API is outdated and still requires a seller. Republish the updated backend, then generate a fresh QR."
+    body.optString("message").takeIf { it.isNotBlank() }?.let { return it }
+    errors?.keys()?.asSequence()?.mapNotNull { key -> errors.optJSONArray(key)?.optString(0) }
+        ?.joinToString(" ")?.takeIf { it.isNotBlank() }?.let { return it }
+    return body.optString("detail").ifBlank { body.optString("title").ifBlank { "Request failed ($status)" } }
+}
+
+private fun bookingDate(value: String): String = runCatching {
+    Instant.parse(value).atZone(ZoneId.of("Asia/Colombo")).format(DateTimeFormatter.ofPattern("d MMM yyyy"))
+}.getOrDefault(value.take(10))
+
+private fun localTime(value: String): String = runCatching {
+    Instant.parse(value).atZone(ZoneId.of("Asia/Colombo")).format(DateTimeFormatter.ofPattern("HH:mm"))
+}.getOrDefault(value)
 
 @Composable
 private fun TransferCount(label: String, value: Int?, background: Color, foreground: Color, modifier: Modifier) {

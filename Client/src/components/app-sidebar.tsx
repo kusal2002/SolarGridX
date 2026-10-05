@@ -25,6 +25,9 @@ import type { View } from "@/router/routes"
 export function AppSidebar({ currentUser, activeView, onNavigate, onLogout, ...props }: React.ComponentProps<typeof Sidebar> & { currentUser: User; activeView: View; onNavigate: (view: View) => void; onLogout: () => void }) {
   const navMain = [
     ...(currentUser.role === "Backoffice" || currentUser.role === "Grid Operator" ? [{
+      title: "Dashboard", url: "dashboard", icon: <TerminalIcon />, isActive: activeView === "dashboard",
+    }] : []),
+    ...(currentUser.role === "Backoffice" || currentUser.role === "Grid Operator" ? [{
       title: "Transfers & Monitoring", url: "transfers", icon: <CalendarCheck2Icon />,
       isActive: activeView === "transfers",
     }] : []),

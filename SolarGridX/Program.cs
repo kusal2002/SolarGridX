@@ -23,6 +23,7 @@ builder.Services.AddScoped<AuthService>();
 
 //Stations
 builder.Services.AddScoped<StationService>();
+builder.Services.AddScoped<StationAccessService>();
 //Slot
 builder.Services.AddScoped<SlotService>();
 //Reservation (Member 3)

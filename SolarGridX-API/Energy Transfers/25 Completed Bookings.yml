@@ -1,0 +1,14 @@
+info:
+  name: 25 Completed Bookings
+  type: http
+  seq: 25
+http:
+  method: GET
+  url: '{{baseUrl}}/api/bookings/completed?page=1&pageSize=20'
+  auth:
+    type: bearer
+    token: '{{backofficeToken}}'
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true

@@ -21,4 +21,7 @@ Release/
 # VS Code C# Dev Tools - Auto-generated runners
 .vscodecsdt/Runners/
 
-/scratch
+/scratch/iis-backups/
+
+
+/iis-backups

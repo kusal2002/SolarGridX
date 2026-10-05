@@ -6,8 +6,6 @@ public class VerifyTransferRequest
 {
     [Required, StringLength(4096)]
     public string Payload { get; set; } = string.Empty;
-    [Required, StringLength(32)]
-    public string SellerNIC { get; set; } = string.Empty;
 }
 
 public class TransferEnergyRequest
@@ -33,10 +31,10 @@ public class EnergyTransferQuery
     public string? ReservationId { get; set; }
 
     [StringLength(32, MinimumLength = 1)]
-    public string? SellerId { get; set; }
+    public string? ProsumerNIC { get; set; }
 
-    [StringLength(32, MinimumLength = 1)]
-    public string? BuyerId { get; set; }
+    [RegularExpression("^[a-fA-F0-9]{24}$")]
+    public string? StationId { get; set; }
 
     [Range(1, 1000000)]
     public int Page { get; set; } = 1;
