@@ -21,4 +21,27 @@ Release/
 # VS Code C# Dev Tools - Auto-generated runners
 .vscodecsdt/Runners/
 
-/scratch
+/scratch/iis-backups/
+
+
+/iis-backups
+# Android Studio and Gradle temporary files
+*.iml
+.gradle/
+local.properties
+
+**/.idea/
+**/.idea/caches/
+**/.idea/libraries/
+**/.idea/modules.xml
+**/.idea/workspace.xml
+**/.idea/navEditor.xml
+**/.idea/assetWizardSettings.xml
+.DS_Store
+build/
+captures/
+.externalNativeBuild/
+.cxx/
+
+# Kotlin compiler runtime sessions
+**/.kotlin/sessions/

@@ -78,8 +78,9 @@ function NavMainItem({
       render={<SidebarMenuItem />}
     >
       <SidebarMenuButton
+        isActive={item.isActive}
         tooltip={item.title}
-        render={<a href={item.url} onClick={(event) => { if (onNavigate) { event.preventDefault(); onNavigate(item.url) } }} />}
+        render={<a href={`/${item.url}`} onClick={(event) => { if (onNavigate && !event.ctrlKey && !event.metaKey && !event.shiftKey && !event.altKey) { event.preventDefault(); onNavigate(item.url) } }} />}
       >
         {item.icon}
         <span>{item.title}</span>
@@ -98,7 +99,7 @@ function NavMainItem({
             <SidebarMenuSub>
               {item.items?.map((subItem) => (
                 <SidebarMenuSubItem key={subItem.title}>
-                  <SidebarMenuSubButton render={<a href={subItem.url} onClick={(event) => { if (onNavigate) { event.preventDefault(); onNavigate(subItem.url) } }} />}>
+                  <SidebarMenuSubButton render={<a href={`/${subItem.url}`} onClick={(event) => { if (onNavigate && !event.ctrlKey && !event.metaKey && !event.shiftKey && !event.altKey) { event.preventDefault(); onNavigate(subItem.url) } }} />}>
                     <span>{subItem.title}</span>
                   </SidebarMenuSubButton>
                 </SidebarMenuSubItem>

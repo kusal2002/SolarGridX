@@ -13,6 +13,23 @@ public class StationService
         _stations = database.GetCollection<SolarStation>("SolarStationInfo");
     }
 
+    public Task<List<SolarStation>> GetByIdsAsync(IEnumerable<string> ids) =>
+        _stations.Find(Builders<SolarStation>.Filter.In(station => station.Id, ids)).ToListAsync();
+
+    public Task<List<User>> GetOperatorsAsync() => _stations.Database.GetCollection<User>("Users")
+        .Find(u => u.Role == "Grid Operator" && u.AccountStatus == AccountStatus.Active).ToListAsync();
+
+    public async Task<SolarStation?> AssignOperatorAsync(string id, string? nic)
+    {
+        if (!MongoDB.Bson.ObjectId.TryParse(id, out _)) throw new ArgumentException("Invalid station ID.");
+        nic = string.IsNullOrWhiteSpace(nic) ? null : nic.Trim();
+        if (nic != null && !(await GetOperatorsAsync()).Any(u => u.NIC == nic))
+            throw new ArgumentException("Choose an active Grid Operator account.");
+        return await _stations.FindOneAndUpdateAsync(s => s.Id == id,
+            Builders<SolarStation>.Update.Set(s => s.OperatorNIC, nic).Set(s => s.UpdatedAt, DateTime.UtcNow),
+            new FindOneAndUpdateOptions<SolarStation> { ReturnDocument = ReturnDocument.After });
+    }
+
     //Get all stations
     public async Task<List<SolarStation>> GetAllAsync()
     {

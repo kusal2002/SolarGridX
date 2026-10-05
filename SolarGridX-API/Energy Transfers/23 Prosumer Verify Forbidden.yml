@@ -1,0 +1,21 @@
+info:
+  name: 23 Prosumer verification forbidden - expect 403
+  type: http
+  seq: 23
+http:
+  method: POST
+  url: '{{baseUrl}}/api/energy-transfers/verify'
+  body:
+    type: json
+    data: |-
+      {
+        "payload": "{{qrPayload}}"
+      }
+  auth:
+    type: bearer
+    token: '{{prosumerToken}}'
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

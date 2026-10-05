@@ -17,7 +17,8 @@ data class BottomNavItem(
 @Composable
 fun SolarBottomNavigation(
     selectedTab: Int,
-    onTabSelected: (Int) -> Unit
+    onTabSelected: (Int) -> Unit,
+    operator: Boolean = false
 ) {
 
     val navItems = listOf(
@@ -35,13 +36,13 @@ fun SolarBottomNavigation(
         ),
 
         BottomNavItem(
-            "Trade",
+            if (operator) "Bookings" else "Reserve",
             Icons.Filled.SwapHoriz,
             Icons.Outlined.SwapHoriz
         ),
 
         BottomNavItem(
-            "Monitor",
+            "Transfers",
             Icons.Filled.ShowChart,
             Icons.Outlined.ShowChart
         ),

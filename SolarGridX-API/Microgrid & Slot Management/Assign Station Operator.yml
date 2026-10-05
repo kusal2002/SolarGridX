@@ -1,0 +1,20 @@
+info:
+  name: Assign Station Operator
+  type: http
+  seq: 31
+http:
+  method: PATCH
+  url: '{{baseUrl}}/api/stations/{{stationId}}/operator'
+  auth:
+    type: bearer
+    token: '{{backofficeToken}}'
+  body:
+    type: json
+    data: |-
+      {
+        "operatorNIC": "{{operatorNIC}}"
+      }
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true

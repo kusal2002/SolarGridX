@@ -12,10 +12,12 @@ namespace SolarGridX.Controllers;
 public class StationController : ControllerBase
 {
     private readonly StationService _stationService;
+    private readonly StationAccessService _access;
 
-    public StationController(StationService stationService)
+    public StationController(StationService stationService, StationAccessService access)
     {
         _stationService = stationService;
+        _access = access;
     }
 
     //Get all stations
@@ -23,6 +25,8 @@ public class StationController : ControllerBase
     public async Task<IActionResult> GetAll()
     {
         var stations = await _stationService.GetAllAsync();
+        var ids = await _access.StationIdsAsync(User);
+        if (ids != null) stations = stations.Where(s => ids.Contains(s.Id)).ToList();
 
         return Ok(stations);
     }
@@ -34,6 +38,8 @@ public class StationController : ControllerBase
     {
         var stations = await _stationService
             .GetAllIncludingInactiveAsync();
+        var ids = await _access.StationIdsAsync(User);
+        if (ids != null) stations = stations.Where(s => ids.Contains(s.Id)).ToList();
 
         return Ok(stations);
     }
@@ -42,6 +48,7 @@ public class StationController : ControllerBase
     [HttpGet("{id}")]
     public async Task<IActionResult> GetById(string id)
     {
+        if (!await _access.CanAccessAsync(User, id)) return Forbid();
         var station = await _stationService.GetByIdAsync(id);
 
         if (station is null)
@@ -53,6 +60,24 @@ public class StationController : ControllerBase
         }
 
         return Ok(station);
+    }
+
+    [HttpGet("operators")]
+    [Authorize(Roles = "Backoffice")]
+    public async Task<IActionResult> Operators() => Ok((await _stationService.GetOperatorsAsync()).Select(u => new { u.NIC, u.Name }));
+
+    public record Assignment(string? OperatorNIC);
+
+    [HttpPatch("{id}/operator")]
+    [Authorize(Roles = "Backoffice")]
+    public async Task<IActionResult> AssignOperator(string id, Assignment request)
+    {
+        try
+        {
+            var station = await _stationService.AssignOperatorAsync(id, request.OperatorNIC);
+            return station == null ? NotFound(new { message = "Station not found." }) : Ok(station);
+        }
+        catch (ArgumentException ex) { return BadRequest(new { message = ex.Message }); }
     }
 
     //Create station

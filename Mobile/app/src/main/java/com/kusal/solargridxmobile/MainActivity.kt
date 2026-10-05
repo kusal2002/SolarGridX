@@ -37,6 +37,8 @@ import com.kusal.solargridxmobile.ui.reservation.ReservationScreen
 import com.kusal.solargridxmobile.ui.station.StationMapScreen
 import com.kusal.solargridxmobile.ui.reservation.ReservationViewModel
 import com.kusal.solargridxmobile.ui.theme.SolarGridXMobileTheme
+import com.kusal.solargridxmobile.ui.transfer.TransferScreen
+import com.kusal.solargridxmobile.ui.transfer.OperatorHomeScreen
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -142,13 +144,15 @@ fun SolarGridXApp(
     reservationViewModel: ReservationViewModel,
     onLogout: () -> Unit
 ) {
-    var selectedTab by remember { mutableIntStateOf(0) } // Default to Home dashboard
+    val operator = sessionManager.getUserRole() in listOf("Grid Operator", "Backoffice")
+    var selectedTab by remember { mutableIntStateOf(0) }
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         bottomBar = {
             SolarBottomNavigation(
                 selectedTab = selectedTab,
+                operator = operator,
                 onTabSelected = { index ->
                     selectedTab = index
                 }
@@ -161,17 +165,14 @@ fun SolarGridXApp(
                 .padding(innerPadding)
         ) {
             when (selectedTab) {
-                0 -> HomeScreen(
+                0 -> if (operator) OperatorHomeScreen(sessionManager) { selectedTab = 3 } else HomeScreen(
                     sessionManager = sessionManager,
                     viewModel = reservationViewModel,
                     onNavigateToTab = { selectedTab = it }
                 )
                 1 -> StationMapScreen()
-                2 -> ReservationScreen(viewModel = reservationViewModel)
-                3 -> MonitorScreen(
-                    viewModel = reservationViewModel,
-                    onNavigateToTab = { selectedTab = it }
-                )
+                2 -> if (operator) TransferScreen(sessionManager, initialView = "pending") else ReservationScreen(viewModel = reservationViewModel)
+                3 -> TransferScreen(sessionManager)
                 4 -> ProfileScreen(
                     sessionManager = sessionManager,
                     viewModel = reservationViewModel,
@@ -194,6 +195,7 @@ fun HomeScreen(
     val profile = sessionManager.getUserProfile()
     val state by viewModel.uiState.collectAsState()
     val nextRes = state.nextUpcomingReservation
+    LaunchedEffect(Unit) { viewModel.loadAllData() }
     val nextStation = state.stations.find { it.id == nextRes?.stationId }
 
     Column(
@@ -440,7 +442,7 @@ fun HomeScreen(
                     Spacer(modifier = Modifier.height(12.dp))
 
                     OutlinedButton(
-                        onClick = { onNavigateToTab(1) },
+                        onClick = { onNavigateToTab(2) },
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(8.dp)
                     ) {
@@ -471,7 +473,7 @@ fun HomeScreen(
                         )
                         Spacer(modifier = Modifier.height(12.dp))
                         Button(
-                            onClick = { onNavigateToTab(1) },
+                            onClick = { onNavigateToTab(2) },
                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF15803D)),
                             shape = RoundedCornerShape(8.dp)
                         ) {
@@ -501,7 +503,7 @@ fun HomeScreen(
                 modifier = Modifier
                     .weight(1f)
                     .clip(RoundedCornerShape(12.dp))
-                    .clickable { onNavigateToTab(1) },
+                    .clickable { onNavigateToTab(2) },
                 color = Color.White,
                 shadowElevation = 1.dp
             ) {
@@ -528,7 +530,7 @@ fun HomeScreen(
                         color = Color(0xFF0F172A)
                     )
                     Text(
-                        text = "${state.availableActiveSlots.size} available slots",
+                        text = "${state.slots.filter { it.isActive }.size} active slots",
                         fontSize = 11.sp,
                         color = Color(0xFF64748B)
                     )
@@ -539,7 +541,7 @@ fun HomeScreen(
                 modifier = Modifier
                     .weight(1f)
                     .clip(RoundedCornerShape(12.dp))
-                    .clickable { onNavigateToTab(1) },
+                    .clickable { onNavigateToTab(2) },
                 color = Color.White,
                 shadowElevation = 1.dp
             ) {
@@ -991,7 +993,7 @@ fun ProfileScreen(
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Text(
-                    text = "Prosumer Details",
+                    text = "Account details",
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color(0xFF0F172A)
@@ -1020,7 +1022,7 @@ fun ProfileScreen(
                 HorizontalDivider(color = Color(0xFFF1F5F9))
                 Spacer(modifier = Modifier.height(10.dp))
                 Text(
-                    text = "Activity Stats (Member 3)",
+                    text = "Booking summary",
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color(0xFF0F172A)

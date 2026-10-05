@@ -14,6 +14,9 @@ public class SolarStation
 
     public string StationName { get; set; } = string.Empty;
 
+    [BsonElement("operatorNIC")]
+    public string? OperatorNIC { get; set; }
+
     public string Location { get; set; } = string.Empty;
 
     public double Latitude { get; set; }

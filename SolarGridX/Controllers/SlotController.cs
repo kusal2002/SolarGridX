@@ -11,24 +11,12 @@ namespace SolarGridX.Controllers;
 public class SlotController : ControllerBase
 {
     private readonly SlotService _slotService;
+    private readonly StationAccessService _access;
 
-    public SlotController(SlotService slotService)
+    public SlotController(SlotService slotService, StationAccessService access)
     {
         _slotService = slotService;
-    }
-
-    private DateTime GetSriLankaTime()
-    {
-        try
-        {
-            var tz = TimeZoneInfo.FindSystemTimeZoneById("Asia/Colombo");
-            return TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, tz);
-        }
-        catch (TimeZoneNotFoundException)
-        {
-            var tz = TimeZoneInfo.FindSystemTimeZoneById("Sri Lanka Standard Time");
-            return TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, tz);
-        }
+        _access = access;
     }
 
     //Get all active slots
@@ -36,12 +24,8 @@ public class SlotController : ControllerBase
     public async Task<IActionResult> GetAll()
     {
         var slots = await _slotService.GetAllAsync();
-
-        if (User.IsInRole("Prosumer"))
-        {
-            var now = GetSriLankaTime();
-            slots = slots.Where(s => s.SlotDate.Date.Add(s.EndTime) > now && s.AvailableEnergyKwh > 0).ToList();
-        }
+        var ids = await _access.StationIdsAsync(User);
+        if (ids != null) slots = slots.Where(s => ids.Contains(s.StationId)).ToList();
 
         return Ok(slots);
     }
@@ -52,6 +36,8 @@ public class SlotController : ControllerBase
     public async Task<IActionResult> GetAllIncludingInactive()
     {
         var slots = await _slotService.GetAllIncludingInactiveAsync();
+        var ids = await _access.StationIdsAsync(User);
+        if (ids != null) slots = slots.Where(s => ids.Contains(s.StationId)).ToList();
         return Ok(slots);
     }
 
@@ -60,6 +46,7 @@ public class SlotController : ControllerBase
     public async Task<IActionResult> GetById(string id)
     {
         var slot = await _slotService.GetByIdAsync(id);
+        if (slot != null && !await _access.CanAccessAsync(User, slot.StationId)) return Forbid();
 
         if (slot is null)
         {
@@ -76,14 +63,8 @@ public class SlotController : ControllerBase
     public async Task<IActionResult> GetByStationId(
     string stationId)
     {
+        if (!await _access.CanAccessAsync(User, stationId)) return Forbid();
         var slots = await _slotService.GetByStationIdAsync(stationId);
-
-        if (User.IsInRole("Prosumer"))
-        {
-            var now = GetSriLankaTime();
-            slots = slots.Where(s => s.SlotDate.Date.Add(s.EndTime) > now && s.AvailableEnergyKwh > 0).ToList();
-        }
-
         return Ok(slots);
     }
 
@@ -93,6 +74,7 @@ public class SlotController : ControllerBase
     public async Task<IActionResult> GetByStationIdIncludingInactive(
     string stationId)
     {
+        if (!await _access.CanAccessAsync(User, stationId)) return Forbid();
         var slots = await _slotService.GetByStationIdIncludingInactiveAsync(stationId);
         return Ok(slots);
     }
@@ -102,6 +84,7 @@ public class SlotController : ControllerBase
     [Authorize(Roles = "Backoffice,Grid Operator")]
     public async Task<IActionResult> Create(CreateSlotRequest request)
     {
+        if (!await _access.CanAccessAsync(User, request.StationId)) return Forbid();
         try
         {
             var slot = await _slotService.CreateAsync(request);
@@ -144,6 +127,7 @@ public class SlotController : ControllerBase
     string id,
     UpdateSlotRequest request)
     {
+        if (!await _access.CanAccessSlotAsync(User, id)) return Forbid();
         try
         {
             var slot = await _slotService.UpdateAsync(id, request);
@@ -179,6 +163,7 @@ public class SlotController : ControllerBase
     [Authorize(Roles = "Backoffice,Grid Operator")]
     public async Task<IActionResult> Deactivate(string id)
     {
+        if (!await _access.CanAccessSlotAsync(User, id)) return Forbid();
         var slot = await _slotService.DeactivateAsync(id);
 
         if (slot is null)
@@ -201,6 +186,7 @@ public class SlotController : ControllerBase
     [Authorize(Roles = "Backoffice,Grid Operator")]
     public async Task<IActionResult> Reactivate(string id)
     {
+        if (!await _access.CanAccessSlotAsync(User, id)) return Forbid();
         try
         {
             var slot = await _slotService.ReactivateAsync(id);

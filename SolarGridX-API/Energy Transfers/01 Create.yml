@@ -1,24 +1,19 @@
 info:
-  name: "01 Create - expect 201"
+  name: 01 Create - expect 201
   type: http
   seq: 1
-
 http:
   method: POST
-  url: "{{baseUrl}}/api/energy-transfers"
+  url: '{{baseUrl}}/api/energy-transfers'
   body:
     type: json
     data: |-
       {
-        "reservationId": "{{reservationId}}",
-        "sellerId": "{{sellerNIC}}",
-        "buyerId": "{{buyerNIC}}",
-        "expectedEnergyKWh": {{expectedEnergyKWh}}
+        "reservationId": "{{reservationId}}"
       }
   auth:
     type: bearer
-    token: "{{backofficeToken}}"
-
+    token: '{{backofficeToken}}'
 settings:
   encodeUrl: true
   timeout: 0

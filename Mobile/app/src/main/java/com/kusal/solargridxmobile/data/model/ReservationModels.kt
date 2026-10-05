@@ -31,6 +31,7 @@ data class EnergyReservation(
     @SerializedName("stationId") val stationId: String = "",
     @SerializedName("stationName") val stationName: String? = null,
     @SerializedName("slotId") val slotId: String = "",
+    @SerializedName("transferId") val transferId: String? = null,
     @SerializedName("reservationDate") val reservationDate: String = "",
     @SerializedName("startTime") val startTime: String = "",
     @SerializedName("endTime") val endTime: String = "",

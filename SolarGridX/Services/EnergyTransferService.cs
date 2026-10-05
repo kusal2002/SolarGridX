@@ -35,23 +35,28 @@ public class EnergyTransferService
             new CreateIndexOptions { Name = "ix_transfer_created" }));
     }
 
-    public Task<List<EnergyTransfer>> GetAllAsync(EnergyTransferQuery query, CancellationToken ct = default)
+    public async Task<List<EnergyTransfer>> GetAllAsync(EnergyTransferQuery query, CancellationToken ct = default, IEnumerable<string>? allowedReservations = null)
     {
         var f = Builders<EnergyTransfer>.Filter;
         var filter = f.Empty;
+        if (allowedReservations != null) filter &= f.In(t => t.ReservationId, allowedReservations);
         if (query.Status != null) filter &= f.Eq(t => t.Status, query.Status);
         if (query.ReservationId != null) filter &= f.Eq(t => t.ReservationId, NormalizeId(query.ReservationId));
-        if (query.SellerId != null) filter &= f.Eq(t => t.SellerId, query.SellerId);
-        if (query.BuyerId != null) filter &= f.Eq(t => t.BuyerId, query.BuyerId);
-        return _transfers.Find(filter, new FindOptions { Collation = new Collation("en", strength: CollationStrength.Secondary) })
+        if (query.ProsumerNIC != null) filter &= f.Eq(t => t.ProsumerNIC, query.ProsumerNIC);
+        if (query.StationId != null) filter &= f.Eq(t => t.StationId, NormalizeId(query.StationId));
+        var list = await _transfers.Find(filter, new FindOptions { Collation = new Collation("en", strength: CollationStrength.Secondary) })
             .SortByDescending(t => t.CreatedAt).ThenByDescending(t => t.id)
             .Skip((query.Page - 1) * query.PageSize).Limit(query.PageSize).ToListAsync(ct);
+        foreach (var transfer in list) await HydrateLegacyIdentityAsync(transfer, ct);
+        return list;
     }
 
-    public Task<EnergyTransfer?> GetByIdAsync(string id, CancellationToken ct = default)
+    public async Task<EnergyTransfer?> GetByIdAsync(string id, CancellationToken ct = default)
     {
         id = NormalizeId(id);
-        return _transfers.Find(t => t.id == id).FirstOrDefaultAsync(ct)!;
+        var transfer = await _transfers.Find(t => t.id == id).FirstOrDefaultAsync(ct);
+        if (transfer != null) await HydrateLegacyIdentityAsync(transfer, ct);
+        return transfer;
     }
 
     public Task<EnergyReservation?> GetReservationByIdAsync(string reservationId)
@@ -60,12 +65,10 @@ public class EnergyTransferService
         return _reservations.Find(r => r.Id == reservationId).FirstOrDefaultAsync()!;
     }
 
-    public async Task<EnergyTransfer> CreateAsync(CreateEnergyTransferRequest request, string actor, CancellationToken ct = default)
+    public async Task<EnergyTransfer> CreateAsync(CreateEnergyTransferRequest request, string actor, CancellationToken ct = default,
+        ReservationQrService.Ticket? ticket = null)
     {
         var reservationId = NormalizeId(request.ReservationId);
-        if (string.IsNullOrWhiteSpace(request.SellerId) || string.IsNullOrWhiteSpace(request.BuyerId) ||
-            request.SellerId == request.BuyerId || request.ExpectedEnergyKWh < 0.001m || request.ExpectedEnergyKWh > 1000000m)
-            throw new TransferException(400, "Distinct seller and buyer NICs and valid expected energy are required.");
 
         try
         {
@@ -76,29 +79,37 @@ public class EnergyTransferService
                     ?? throw new TransferException(404, "Reservation not found.");
                 if (reservation.Status != "Approved")
                     throw new TransferException(409, "Only approved reservations can create a transfer.");
-                if (reservation.TransferId != null)
+                if (ticket != null && (ticket.ReservationId != reservationId || ticket.Version != reservation.UpdatedAt.Ticks || ticket.ExpiresAt <= DateTime.UtcNow))
+                    throw new TransferException(409, "QR is stale. Ask the prosumer to refresh it.");
+                if (reservation.TransferId != null && ticket == null)
                     throw new TransferException(409, "A transfer already exists for this reservation.");
-                if (reservation.ProsumerNIC != request.BuyerId)
-                    throw new TransferException(400, "Buyer NIC must match the reservation's prosumer NIC.");
                 if (!double.IsFinite(reservation.RequestedEnergyKwh) || reservation.RequestedEnergyKwh < 0.001 ||
-                    reservation.RequestedEnergyKwh > 1000000 || request.ExpectedEnergyKWh != (decimal)reservation.RequestedEnergyKwh)
-                    throw new TransferException(400, "Expected energy must equal the reservation's requested energy.");
-                foreach (var nic in new[] { request.SellerId, request.BuyerId })
-                {
-                    var user = await _users.Find(s, u => u.NIC == nic).FirstOrDefaultAsync(token)
-                        ?? throw new TransferException(404, "Seller or buyer account not found.");
+                    reservation.RequestedEnergyKwh > 1000000)
+                    throw new TransferException(400, "Reservation has invalid requested energy.");
+                    var user = await _users.Find(s, u => u.NIC == reservation.ProsumerNIC).FirstOrDefaultAsync(token)
+                        ?? throw new TransferException(404, "Reservation prosumer account not found.");
                     if (user.Role != "Prosumer" || user.AccountStatus != AccountStatus.Active)
-                        throw new TransferException(409, "Seller and buyer must be active Prosumers.");
-                }
+                        throw new TransferException(409, "Reservation owner must be an active Prosumer.");
                 await RequireActiveSlotAsync(s, reservation, token);
                 var now = DateTime.UtcNow;
+                if (reservation.TransferId != null)
+                {
+                    var existing = await _transfers.Find(s, t => t.id == reservation.TransferId).FirstOrDefaultAsync(token);
+                    if (existing == null || existing.Status != "Pending")
+                        throw new TransferException(409, "Transfer is missing or already started.");
+                    SetReservationIdentity(existing, reservation);
+                    MarkVerified(existing, actor, now);
+                    await _transfers.ReplaceOneAsync(s, t => t.id == existing.id, existing, cancellationToken: token);
+                    return existing;
+                }
                 var transfer = new EnergyTransfer
                 {
                     id = ObjectId.GenerateNewId().ToString(), ReservationId = reservationId,
-                    SellerId = request.SellerId, BuyerId = reservation.ProsumerNIC,
-                    ExpectedEnergyKWh = request.ExpectedEnergyKWh, CreatedAt = now, UpdatedAt = now,
+                    ProsumerNIC = reservation.ProsumerNIC, StationId = reservation.StationId, SlotId = reservation.SlotId,
+                    ExpectedEnergyKWh = (decimal)reservation.RequestedEnergyKwh, CreatedAt = now, UpdatedAt = now,
                     History = [new EnergyTransferEvent { Action = "create", Status = "Pending", ActorNIC = actor, At = now }]
                 };
+                if (ticket != null) MarkVerified(transfer, actor, now);
                 reservation.TransferId = transfer.id;
                 reservation.UpdatedAt = now;
                 await _reservations.ReplaceOneAsync(s, r => r.Id == reservationId, reservation, cancellationToken: token);
@@ -124,9 +135,12 @@ public class EnergyTransferService
             var reservation = await _reservations.Find(s, r => r.Id == reservationId).FirstOrDefaultAsync(token)
                 ?? throw new TransferException(409, "Associated reservation is missing.");
             var expectedStatus = transfer.Status == "Pending" ? "Approved" : "InProgress";
+            SetReservationIdentity(transfer, reservation);
             // Legacy transfers need explicit review before being attached to a reservation.
             if (reservation.TransferId != transfer.id || reservation.Status != expectedStatus)
                 throw new TransferException(409, "Reservation is not linked to this active transfer; review legacy data if applicable.");
+            if (action is "start" or "complete" && transfer.VerifiedAt == null)
+                throw new TransferException(409, "Scan and verify the reservation QR before starting or completing.");
             if (action == "start") await RequireActiveSlotAsync(s, reservation, token);
             EnergyTransferRules.Apply(transfer, action, energy, reason, actor, DateTime.UtcNow);
             reservation.Status = transfer.Status switch
@@ -164,4 +178,27 @@ public class EnergyTransferService
 
     private static string NormalizeId(string id) => ObjectId.TryParse(id, out var parsed)
         ? parsed.ToString() : throw new TransferException(400, "ID must be a 24-character MongoDB ObjectId.");
+
+    private static void MarkVerified(EnergyTransfer transfer, string actor, DateTime now)
+    {
+        transfer.VerifiedBy = actor;
+        transfer.VerifiedAt = now;
+        transfer.UpdatedAt = now;
+        transfer.History.Add(new EnergyTransferEvent { Action = "verify", Status = transfer.Status, ActorNIC = actor, At = now });
+    }
+
+    private static void SetReservationIdentity(EnergyTransfer transfer, EnergyReservation reservation)
+    {
+        transfer.ProsumerNIC = reservation.ProsumerNIC;
+        transfer.StationId = reservation.StationId;
+        transfer.SlotId = reservation.SlotId;
+    }
+
+    private async Task HydrateLegacyIdentityAsync(EnergyTransfer transfer, CancellationToken ct)
+    {
+        if (!string.IsNullOrEmpty(transfer.ProsumerNIC) && !string.IsNullOrEmpty(transfer.StationId)) return;
+        if (!ObjectId.TryParse(transfer.ReservationId, out var id)) return;
+        var reservation = await _reservations.Find(r => r.Id == id.ToString()).FirstOrDefaultAsync(ct);
+        if (reservation != null) SetReservationIdentity(transfer, reservation);
+    }
 }

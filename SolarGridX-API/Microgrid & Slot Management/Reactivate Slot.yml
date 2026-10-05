@@ -2,12 +2,12 @@ info:
   name: Reactivate Slot
   type: http
   seq: 5
-
 http:
   method: PATCH
-  url: http://localhost:5084/api/slots/6ab3b98b6419b28e4d48603b/reactivate
-  auth: inherit
-
+  url: '{{baseUrl}}/api/slots/{{slotId}}/reactivate'
+  auth:
+    type: bearer
+    token: '{{backofficeToken}}'
 settings:
   encodeUrl: true
   timeout: 0

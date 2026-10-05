@@ -1,0 +1,15 @@
+info:
+  name: "Reactivate Station"
+  type: http
+  seq: 24
+http:
+  method: PATCH
+  url: "{{baseUrl}}/api/stations/{{stationId}}/reactivate"
+  auth:
+    type: bearer
+    token: "{{backofficeToken}}"
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

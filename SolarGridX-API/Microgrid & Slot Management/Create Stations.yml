@@ -2,10 +2,9 @@ info:
   name: Create Stations
   type: http
   seq: 3
-
 http:
   method: POST
-  url: http://localhost:5084/api/stations/
+  url: '{{baseUrl}}/api/stations'
   body:
     type: json
     data: |-
@@ -14,17 +13,19 @@ http:
         "location": "Negombo2",
         "latitude": 7.2083,
         "longitude": 79.8358,
-        "totalCapacityKwh": 150
+        "totalCapacityKwh": 150,
+        "operatingStartTime": "08:00:00",
+        "operatingEndTime": "18:00:00"
       }
-  auth: inherit
-
+  auth:
+    type: bearer
+    token: '{{backofficeToken}}'
 settings:
   encodeUrl: true
   timeout: 0
   followRedirects: true
   maxRedirects: 5
   forwardAuthorizationHeader: false
-
 examples:
   - name: Create-station
     request:
@@ -48,4 +49,4 @@ examples:
       statusText: OK
       body:
         type: text
-        data: ""
+        data: ''

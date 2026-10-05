@@ -1,0 +1,15 @@
+info:
+  name: "17 Booking history - expect 200"
+  type: http
+  seq: 17
+http:
+  method: GET
+  url: "{{baseUrl}}/api/bookings/history?page=1&pageSize=20"
+  auth:
+    type: bearer
+    token: "{{backofficeToken}}"
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

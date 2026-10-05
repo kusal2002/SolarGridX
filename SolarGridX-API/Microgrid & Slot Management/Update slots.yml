@@ -2,28 +2,27 @@ info:
   name: Update slots
   type: http
   seq: 1
-
 http:
   method: PUT
-  url: http://localhost:5084/api/slots/6ab3aaf98f1a97aee7545ce5
+  url: '{{baseUrl}}/api/slots/{{slotId}}'
   body:
     type: json
     data: |-
       {
-        "slotDate": "2026-09-26",
+        "slotDate": "{{slotDate}}",
         "startTime": "11:00:00",
         "endTime": "12:00:00",
         "energyCapacityKwh": 100
       }
-  auth: inherit
-
+  auth:
+    type: bearer
+    token: '{{backofficeToken}}'
 settings:
   encodeUrl: true
   timeout: 0
   followRedirects: true
   maxRedirects: 5
   forwardAuthorizationHeader: false
-
 examples:
   - name: Update slots
     request:
@@ -46,4 +45,4 @@ examples:
       statusText: OK
       body:
         type: text
-        data: ""
+        data: ''
