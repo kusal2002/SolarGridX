@@ -47,7 +47,8 @@ export function CreateReservationDialog({
         setStations(stationList)
         setSlots(slotList)
         
-        // Auto-select first station that has active slots, or first active station
+        // Auto-select first station that has active unexpired slots, or first active station
+        const now = new Date()
         const nowMidnight = new Date()
         nowMidnight.setHours(0, 0, 0, 0)
         const sevenDaysLater = new Date(nowMidnight)
@@ -55,9 +56,13 @@ export function CreateReservationDialog({
 
         const stationWithSlots = stationList.find((st: Station) =>
           slotList.some((sl) => {
-            if (!sl.isActive || sl.stationId !== st.id) return false
+            if (!sl.isActive || (sl.availableEnergyKwh ?? 0) <= 0 || sl.stationId !== st.id) return false
             const d = new Date(sl.slotDate)
-            return d >= nowMidnight && d <= sevenDaysLater
+            if (d < nowMidnight || d > sevenDaysLater) return false
+            const [endHours, endMinutes] = (sl.endTime || "00:00").split(":").map(Number)
+            const slotEndDateTime = new Date(sl.slotDate)
+            slotEndDateTime.setHours(endHours || 0, endMinutes || 0, 0, 0)
+            return slotEndDateTime > now
           })
         )
 
@@ -78,16 +83,25 @@ export function CreateReservationDialog({
     }
   }, [open])
 
-  // Filter slots for selected station and within 7-day booking window
+  // Filter slots for selected station and within 7-day booking window (unexpired only)
+  const now = new Date()
   const nowMidnight = new Date()
   nowMidnight.setHours(0, 0, 0, 0)
   const sevenDaysLater = new Date(nowMidnight)
   sevenDaysLater.setDate(sevenDaysLater.getDate() + 7)
 
   const availableStationSlots = slots.filter((slot) => {
-    if (!slot.isActive || slot.stationId !== selectedStationId) return false
+    if (!slot.isActive || (slot.availableEnergyKwh ?? 0) <= 0 || slot.stationId !== selectedStationId) return false
     const slotDate = new Date(slot.slotDate)
-    return slotDate >= nowMidnight && slotDate <= sevenDaysLater
+    if (slotDate < nowMidnight || slotDate > sevenDaysLater) return false
+
+    // Check if slot has expired
+    const [endHours, endMinutes] = (slot.endTime || "00:00").split(":").map(Number)
+    const slotEndDateTime = new Date(slot.slotDate)
+    slotEndDateTime.setHours(endHours || 0, endMinutes || 0, 0, 0)
+    if (slotEndDateTime <= now) return false
+
+    return true
   })
 
   const selectedSlot = slots.find((s) => s.id === selectedSlotId)

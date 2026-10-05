@@ -78,8 +78,9 @@ public class ReservationService
         if (slot == null)
             throw new KeyNotFoundException("The requested energy slot was not found or is inactive.");
 
-        // C. Enforce 7-Day booking window rule
-        var today = GetSriLankaTime().Date;
+        // C. Enforce 7-Day booking window rule and unexpired check
+        var now = GetSriLankaTime();
+        var today = now.Date;
         var slotDate = slot.SlotDate.Date;
         var dayDifference = (slotDate - today).TotalDays;
 
@@ -87,6 +88,10 @@ public class ReservationService
             throw new InvalidOperationException("Cannot book a slot in the past.");
         if (dayDifference > 7)
             throw new InvalidOperationException("Reservations can only be made up to 7 days in advance.");
+
+        var slotEnd = slotDate.Add(slot.EndTime);
+        if (slotEnd <= now)
+            throw new InvalidOperationException("Cannot book a slot that has already expired.");
 
         // D. Check available capacity
         if (request.RequestedEnergyKwh > slot.AvailableEnergyKwh)
@@ -202,10 +207,15 @@ public class ReservationService
             if (newSlot == null)
                 throw new KeyNotFoundException("The new energy slot was not found or is inactive.");
 
-            // 7-day window rule for new slot
-            var dayDifference = (newSlot.SlotDate.Date - GetSriLankaTime().Date).TotalDays;
+            // 7-day window rule for new slot and expiration check
+            var now = GetSriLankaTime();
+            var dayDifference = (newSlot.SlotDate.Date - now.Date).TotalDays;
             if (dayDifference < 0 || dayDifference > 7)
                 throw new InvalidOperationException("New slot must be within the 7-day booking window.");
+
+            var newSlotEnd = newSlot.SlotDate.Date.Add(newSlot.EndTime);
+            if (newSlotEnd <= now)
+                throw new InvalidOperationException("Cannot switch to an expired slot.");
 
             // Check capacity in new slot
             if (targetKwh > newSlot.AvailableEnergyKwh)
