@@ -1,3 +1,10 @@
+// ============================================================================
+// Project: SolarGridX - Smart Solar Microgrid Platform
+// Module: Enterprise Application Development (EAD)
+// File: EnergyTransfersController.cs
+// Description: API controller for energy transfer verification, charging lifecycle management, and meter tracking.
+// ============================================================================
+
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -15,6 +22,7 @@ public class EnergyTransfersController(EnergyTransferService service, Reservatio
     [Authorize(Roles = "Backoffice,Grid Operator")]
     public Task<IActionResult> Verify(VerifyTransferRequest request, CancellationToken ct) => Execute(async () =>
     {
+        // Read scanned QR ticket, validate station access, and create or verify the energy transfer
         var ticket = qr.Read(request.Payload);
         var reservation = await service.GetReservationByIdAsync(ticket.ReservationId)
             ?? throw new TransferException(404, "Reservation not found.");
@@ -31,6 +39,7 @@ public class EnergyTransfersController(EnergyTransferService service, Reservatio
     public Task<IActionResult> GetAll([FromQuery] EnergyTransferQuery query, CancellationToken ct = default) =>
         Execute(async () =>
         {
+            // Retrieve energy transfers scoped to operator assigned stations or prosumer ownership
             IEnumerable<string>? allowed = null;
             if (query.StationId != null && !await access.CanAccessAsync(User, query.StationId)) return Forbid();
             if (!User.IsInRole("Backoffice"))
@@ -54,6 +63,7 @@ public class EnergyTransfersController(EnergyTransferService service, Reservatio
     [HttpGet("{id}")]
     public Task<IActionResult> GetById(string id, CancellationToken ct = default) => Execute(async () =>
     {
+        // Fetch specific energy transfer details after verifying user authorization
         var transfer = await service.GetByIdAsync(id, ct);
         if (transfer != null && !await CanRead(transfer)) return Forbid();
         return transfer == null ? NotFound(new { message = "Energy transfer not found." }) : Ok(transfer);
@@ -62,6 +72,7 @@ public class EnergyTransfersController(EnergyTransferService service, Reservatio
     [HttpGet("{id}/history")]
     public Task<IActionResult> GetHistory(string id, CancellationToken ct = default) => Execute(async () =>
     {
+        // Retrieve audit event log history for the specified energy transfer
         var transfer = await service.GetByIdAsync(id, ct);
         if (transfer != null && !await CanRead(transfer)) return Forbid();
         return transfer == null ? NotFound(new { message = "Energy transfer not found." }) : Ok(transfer.History);
@@ -71,6 +82,7 @@ public class EnergyTransfersController(EnergyTransferService service, Reservatio
     [Authorize(Roles = "Backoffice,Grid Operator")]
     public Task<IActionResult> Create([FromBody] CreateEnergyTransferRequest request, CancellationToken ct = default) => Execute(async () =>
     {
+        // Create an energy transfer record for an approved reservation
         var reservation = await service.GetReservationByIdAsync(request.ReservationId);
         if (reservation != null && !await access.CanAccessAsync(User, reservation.StationId)) return Forbid();
         var transfer = await service.CreateAsync(request, Actor, ct);
@@ -79,33 +91,50 @@ public class EnergyTransfersController(EnergyTransferService service, Reservatio
 
     [HttpPatch("{id}/start")]
     [Authorize(Roles = "Backoffice,Grid Operator")]
-    public Task<IActionResult> Start(string id, CancellationToken ct = default) => Change(id, "start", null, null, ct);
+    public Task<IActionResult> Start(string id, CancellationToken ct = default)
+    {
+        // Start physical energy transfer session
+        return Change(id, "start", null, null, ct);
+    }
 
     [HttpPatch("{id}/progress")]
     [Authorize(Roles = "Backoffice,Grid Operator")]
-    public Task<IActionResult> Progress(string id, [FromBody] TransferEnergyRequest request, CancellationToken ct = default) =>
-        Change(id, "progress", request.TransferredEnergyKWh, null, ct);
+    public Task<IActionResult> Progress(string id, [FromBody] TransferEnergyRequest request, CancellationToken ct = default)
+    {
+        // Update cumulative transferred energy meter reading
+        return Change(id, "progress", request.TransferredEnergyKWh, null, ct);
+    }
 
     [HttpPatch("{id}/complete")]
     [Authorize(Roles = "Backoffice,Grid Operator")]
-    public Task<IActionResult> Complete(string id, [FromBody] TransferEnergyRequest request, CancellationToken ct = default) =>
-        Change(id, "complete", request.TransferredEnergyKWh, null, ct);
+    public Task<IActionResult> Complete(string id, [FromBody] TransferEnergyRequest request, CancellationToken ct = default)
+    {
+        // Mark transfer completed when full requested energy has been delivered
+        return Change(id, "complete", request.TransferredEnergyKWh, null, ct);
+    }
 
     [HttpPatch("{id}/cancel")]
     [Authorize(Roles = "Backoffice,Grid Operator")]
-    public Task<IActionResult> Cancel(string id, [FromBody] EndEnergyTransferRequest request, CancellationToken ct = default) =>
-        Change(id, "cancel", null, request.Reason, ct);
+    public Task<IActionResult> Cancel(string id, [FromBody] EndEnergyTransferRequest request, CancellationToken ct = default)
+    {
+        // Cancel energy transfer before it starts and restore slot capacity
+        return Change(id, "cancel", null, request.Reason, ct);
+    }
 
     [HttpPatch("{id}/fail")]
     [Authorize(Roles = "Backoffice,Grid Operator")]
-    public Task<IActionResult> Fail(string id, [FromBody] EndEnergyTransferRequest request, CancellationToken ct = default) =>
-        Change(id, "fail", null, request.Reason, ct);
+    public Task<IActionResult> Fail(string id, [FromBody] EndEnergyTransferRequest request, CancellationToken ct = default)
+    {
+        // Mark an active transfer as failed and return any unused energy back to the slot
+        return Change(id, "fail", null, request.Reason, ct);
+    }
 
     private string Actor => User.FindFirstValue(ClaimTypes.NameIdentifier)!;
 
     private Task<IActionResult> Change(string id, string action, decimal? energy, string? reason, CancellationToken ct) =>
         Execute(async () =>
         {
+            // Execute state transition on the transfer service with permission validation
             var transfer = await service.GetByIdAsync(id, ct);
             if (transfer != null && !await CanRead(transfer)) return Forbid();
             return Ok(await service.ChangeAsync(id, action, energy, reason, Actor, ct));
@@ -113,6 +142,7 @@ public class EnergyTransfersController(EnergyTransferService service, Reservatio
 
     private async Task<bool> CanRead(Models.EnergyTransfer transfer)
     {
+        // Verify whether the caller has permissions to view this transfer record
         if (User.IsInRole("Backoffice")) return true;
         var reservation = await service.GetReservationByIdAsync(transfer.ReservationId);
         if (reservation == null) return false;
@@ -121,6 +151,7 @@ public class EnergyTransfersController(EnergyTransferService service, Reservatio
 
     private async Task<IActionResult> Execute(Func<Task<IActionResult>> operation)
     {
+        // Wrapper to catch TransferException and return appropriate HTTP status code
         try { return await operation(); }
         catch (TransferException ex) { return StatusCode(ex.StatusCode, new { message = ex.Message }); }
     }

@@ -1,3 +1,10 @@
+// ============================================================================
+// Project: SolarGridX - Smart Solar Microgrid Platform
+// Module: Enterprise Application Development (EAD)
+// File: CreateReservationRequest.cs
+// Description: DTO containing data for creating a new slot reservation by a prosumer.
+// ============================================================================
+
 using System.ComponentModel.DataAnnotations;
 
 namespace SolarGridX.DTOs.Reservations;

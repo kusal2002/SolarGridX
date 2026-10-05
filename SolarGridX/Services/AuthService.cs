@@ -1,3 +1,10 @@
+// ============================================================================
+// Project: SolarGridX - Smart Solar Microgrid Platform
+// Module: Enterprise Application Development (EAD)
+// File: AuthService.cs
+// Description: Service class handling user authentication, registration, password hashing, and JWT tokens.
+// ============================================================================
+
 using BCrypt.Net;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
@@ -12,8 +19,19 @@ namespace SolarGridX.Services
 {
     public class AuthService
     {
+        private readonly IMongoCollection<User> _users;
+        private readonly IConfiguration _configuration;
+
+        public AuthService(IMongoDatabase database, IConfiguration configuration)
+        {
+            // Initialize Mongo database user collection and configuration settings
+            _users = database.GetCollection<User>("Users");
+            _configuration = configuration;
+        }
+
         public async Task<LoginResultDto> LoginUserAsync(LoginUserDto dto)
         {
+            // Authenticate user credentials, verify account status, and generate JWT token
             var email = dto.Email.Trim().ToLowerInvariant();
 
             var user = await _users
@@ -76,18 +94,11 @@ namespace SolarGridX.Services
                 Token = CreateToken(user)
             });
         }
-        private readonly IMongoCollection<User> _users;
-        private readonly IConfiguration _configuration;
-
-        public AuthService(IMongoDatabase database, IConfiguration configuration)
-        {
-            _users = database.GetCollection<User>("Users");
-            _configuration = configuration;
-        }
 
         // Enforce uniqueness at the database boundary, including concurrent requests.
         public async Task EnsureIndexesAsync()
         {
+            // Create case-insensitive unique index for user email to prevent duplicate accounts
             await _users.Indexes.CreateOneAsync(new CreateIndexModel<User>(
                 Builders<User>.IndexKeys.Ascending(x => x.Email),
                 new CreateIndexOptions
@@ -101,6 +112,7 @@ namespace SolarGridX.Services
         // Map racing NIC/email inserts to the controller's conflict response.
         private async Task<bool> TryInsertAsync(User user)
         {
+            // Try inserting user into collection and catch any duplicate key exceptions
             try
             {
                 await _users.InsertOneAsync(user);
@@ -115,6 +127,7 @@ namespace SolarGridX.Services
         public async Task<UserResponseDto?> RegisterUserAsync(
             RegisterUserDto dto)
         {
+            // Register a new prosumer account with hashed password and pending approval status
             var nic = dto.NIC.Trim();
             var email = dto.Email.Trim().ToLowerInvariant();
 
@@ -171,12 +184,14 @@ namespace SolarGridX.Services
 
         public async Task<UserResponseDto?> GetUserByNicAsync(string nic)
         {
+            // Find user by NIC and map to response DTO
             var user = await _users.Find(x => x.NIC == nic).FirstOrDefaultAsync();
             return user == null ? null : MapUser(user);
         }
 
         private string CreateToken(User user)
         {
+            // Build and sign a JWT authentication token containing user claims and security stamp
             var jwt = _configuration.GetSection("Jwt");
             var key = jwt["Key"] ?? throw new InvalidOperationException("JWT key is not configured.");
             var securityKey = new SymmetricSecurityKey(System.Text.Encoding.UTF8.GetBytes(key));
@@ -186,8 +201,8 @@ namespace SolarGridX.Services
                 new Claim(ClaimTypes.NameIdentifier, user.NIC),
                 new Claim(ClaimTypes.Name, user.Name),
                 new Claim(ClaimTypes.Email, user.Email),
-                    new Claim(ClaimTypes.Role, user.Role),
-                    new Claim("security_stamp", user.SecurityStamp)
+                new Claim(ClaimTypes.Role, user.Role),
+                new Claim("security_stamp", user.SecurityStamp)
             };
 
             var token = new JwtSecurityToken(
@@ -202,6 +217,7 @@ namespace SolarGridX.Services
 
         public async Task<UserResponseDto?> CreateStaffUserAsync(CreateStaffUserDto dto)
         {
+            // Create a new staff account (Backoffice or Grid Operator) directly activated
             var nic = dto.NIC.Trim();
             var email = dto.Email.Trim().ToLowerInvariant();
             var duplicate = await _users.Find(x => x.NIC == nic || x.Email == email).AnyAsync();
@@ -229,6 +245,7 @@ namespace SolarGridX.Services
 
         public async Task<bool> IsTokenActiveAsync(string nic, string securityStamp, string? role)
         {
+            // Validate that the user exists, is active, and their security stamp matches the token
             var user = await _users.Find(x => x.NIC == nic).FirstOrDefaultAsync();
             return user != null
                 && user.AccountStatus == AccountStatus.Active
@@ -237,6 +254,7 @@ namespace SolarGridX.Services
 
         public async Task EnsureBootstrapBackofficeAsync(string? nic, string? name, string? email, string? password)
         {
+            // Automatically bootstrap the first Backoffice admin user if no user exists with provided credentials
             if (string.IsNullOrWhiteSpace(nic) || string.IsNullOrWhiteSpace(name)
                 || string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(password))
             {
@@ -269,6 +287,7 @@ namespace SolarGridX.Services
             string sortBy,
             string sortDirection)
         {
+            // Retrieve paginated list of users with dynamic filtering and sorting for admin views
             var filter = Builders<User>.Filter.Empty;
 
             if (!string.IsNullOrWhiteSpace(status))
@@ -337,6 +356,7 @@ namespace SolarGridX.Services
             AccountStatus nextStatus,
             string? actorNic = null)
         {
+            // Transition user account status and invalidate previous tokens by regenerating security stamp
             var currentUser = await _users.Find(x => x.NIC == nic).FirstOrDefaultAsync();
             if (currentUser == null)
             {
@@ -369,6 +389,7 @@ namespace SolarGridX.Services
 
         private static bool CanTransition(AccountStatus currentStatus, AccountStatus nextStatus)
         {
+            // Verify if the requested status change is permitted based on current status
             if (currentStatus == nextStatus)
             {
                 return true;
@@ -386,6 +407,7 @@ namespace SolarGridX.Services
 
         public async Task<UserResponseDto?> UpdateProfileAsync(string nic, string name, string email)
         {
+            // Update profile information (name and email) for an existing account
             var normalizedEmail = email.Trim().ToLowerInvariant();
             var duplicateEmail = await _users.Find(x => x.Email == normalizedEmail && x.NIC != nic).AnyAsync();
 
@@ -414,6 +436,7 @@ namespace SolarGridX.Services
 
         private static UserResponseDto MapUser(User user)
         {
+            // Helper method to convert User MongoDB document to UserResponseDto
             return new UserResponseDto
             {
                 NIC = user.NIC,

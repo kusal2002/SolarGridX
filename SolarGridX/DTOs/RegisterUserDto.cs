@@ -1,3 +1,10 @@
+// ============================================================================
+// Project: SolarGridX - Smart Solar Microgrid Platform
+// Module: Enterprise Application Development (EAD)
+// File: RegisterUserDto.cs
+// Description: DTO for registering a new prosumer account with validation rules.
+// ============================================================================
+
 using System.ComponentModel.DataAnnotations;
 
 namespace SolarGridX.DTOs

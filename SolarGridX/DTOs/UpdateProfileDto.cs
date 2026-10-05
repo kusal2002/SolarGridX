@@ -1,3 +1,10 @@
+// ============================================================================
+// Project: SolarGridX - Smart Solar Microgrid Platform
+// Module: Enterprise Application Development (EAD)
+// File: UpdateProfileDto.cs
+// Description: DTO for updating user profile details (name and email).
+// ============================================================================
+
 using System.ComponentModel.DataAnnotations;
 
 namespace SolarGridX.DTOs

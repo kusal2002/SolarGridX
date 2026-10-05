@@ -1,3 +1,10 @@
+// ============================================================================
+// Project: SolarGridX - Smart Solar Microgrid Platform
+// Module: Enterprise Application Development (EAD)
+// File: CreateSlotRequest.cs
+// Description: DTO containing slot schedule and capacity details for creating a new booking slot.
+// ============================================================================
+
 namespace SolarGridX.DTOs.Slots;
 
 public class CreateSlotRequest

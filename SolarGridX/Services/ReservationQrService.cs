@@ -1,3 +1,10 @@
+// ============================================================================
+// Project: SolarGridX - Smart Solar Microgrid Platform
+// Module: Enterprise Application Development (EAD)
+// File: ReservationQrService.cs
+// Description: Service for generating and decrypting time-limited QR code payloads for energy transfers.
+// ============================================================================
+
 using System.Security.Cryptography;
 using System.Text.Json;
 using Microsoft.AspNetCore.DataProtection;
@@ -12,12 +19,14 @@ public class ReservationQrService(IDataProtectionProvider provider)
 
     public object Issue(Models.EnergyReservation reservation)
     {
+        // Generate encrypted QR payload and expiration timestamp for an approved reservation
         var ticket = new Ticket(reservation.Id, reservation.UpdatedAt.Ticks, DateTime.UtcNow.AddMinutes(15));
         return new { payload = _protector.Protect(JsonSerializer.Serialize(ticket)), ticket.ExpiresAt };
     }
 
     public Ticket Read(string payload)
     {
+        // Decrypt and validate the scanned QR ticket payload and check expiry
         try
         {
             var ticket = JsonSerializer.Deserialize<Ticket>(_protector.Unprotect(payload));

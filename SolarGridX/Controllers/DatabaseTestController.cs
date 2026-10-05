@@ -1,5 +1,12 @@
+// ============================================================================
+// Project: SolarGridX - Smart Solar Microgrid Platform
+// Module: Enterprise Application Development (EAD)
+// File: DatabaseTestController.cs
+// Description: Controller for testing database connectivity and retrieving raw debug collection data.
+// ============================================================================
+
 using Microsoft.AspNetCore.Authorization;
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc;
 using MongoDB.Bson;
 using MongoDB.Driver;
 
@@ -15,12 +22,14 @@ namespace SolarGridX.Controllers
 
         public DatabaseTestController(IMongoDatabase database)
         {
+            // Inject MongoDB database instance
             _database = database;
         }
 
         [HttpGet]
         public async Task<IActionResult> TestConnection()
         {
+            // Ping the MongoDB database to verify successful connection
             try
             {
                 await _database.RunCommandAsync<BsonDocument>(
@@ -46,6 +55,7 @@ namespace SolarGridX.Controllers
         [HttpGet("stations-debug")]
         public async Task<IActionResult> GetStationsDebug()
         {
+            // Fetch raw station documents directly for testing and diagnostics
             try
             {
                 var collection = _database.GetCollection<BsonDocument>("SolarStationInfo");
@@ -65,6 +75,7 @@ namespace SolarGridX.Controllers
         [HttpGet("slots-debug")]
         public async Task<IActionResult> GetSlotsDebug()
         {
+            // Fetch raw booking slot documents directly for testing and diagnostics
             try
             {
                 var collection = _database.GetCollection<BsonDocument>("EnergyBookingSlots");

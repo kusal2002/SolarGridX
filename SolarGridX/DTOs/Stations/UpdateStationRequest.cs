@@ -1,3 +1,10 @@
+// ============================================================================
+// Project: SolarGridX - Smart Solar Microgrid Platform
+// Module: Enterprise Application Development (EAD)
+// File: UpdateStationRequest.cs
+// Description: DTO containing updated station parameters such as capacity, location, and status.
+// ============================================================================
+
 namespace SolarGridX.DTOs.Stations;
 
 public class UpdateStationRequest

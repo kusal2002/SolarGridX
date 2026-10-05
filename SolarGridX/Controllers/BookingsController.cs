@@ -1,3 +1,10 @@
+// ============================================================================
+// Project: SolarGridX - Smart Solar Microgrid Platform
+// Module: Enterprise Application Development (EAD)
+// File: BookingsController.cs
+// Description: API controller for querying scoped bookings, historical records, and dashboard metrics.
+// ============================================================================
+
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -14,6 +21,7 @@ public class BookingsController(ReservationService reservations, StationService 
 {
     private async Task<List<EnergyReservation>> AccessibleBookings()
     {
+        // Filter reservations according to user role and assigned station permissions
         var list = User.IsInRole("Prosumer")
             ? await reservations.GetByProsumerAsync(User.FindFirstValue(ClaimTypes.NameIdentifier)!)
             : await reservations.GetAllAsync();
@@ -25,6 +33,7 @@ public class BookingsController(ReservationService reservations, StationService 
     public async Task<IActionResult> List(string view, string? search = null, string? status = null,
         string? stationId = null, DateTime? from = null, DateTime? to = null, int page = 1, int pageSize = 50)
     {
+        // Query scoped bookings list filtered by view mode, date range, station, and search text
         if (page < 1 || page > 1000000 || pageSize < 1 || pageSize > 100 || from > to)
             return BadRequest(new { message = "Invalid page, page size or date range." });
         if (stationId != null && !await access.CanAccessAsync(User, stationId)) return Forbid();
@@ -56,6 +65,7 @@ public class BookingsController(ReservationService reservations, StationService 
     [HttpGet("/api/dashboard/summary")]
     public async Task<IActionResult> Summary(string? stationId = null)
     {
+        // Calculate dashboard totals for active stations, slots, available energy, and energy transfers
         if (stationId != null && !await access.CanAccessAsync(User, stationId)) return Forbid();
         var list = await AccessibleBookings();
         if (!string.IsNullOrWhiteSpace(stationId)) list = list.Where(r => r.StationId == stationId).ToList();

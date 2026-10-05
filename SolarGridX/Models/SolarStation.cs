@@ -1,6 +1,12 @@
+// ============================================================================
+// Project: SolarGridX - Smart Solar Microgrid Platform
+// Module: Enterprise Application Development (EAD)
+// File: SolarStation.cs
+// Description: MongoDB entity representing a physical solar microgrid charging station.
+// ============================================================================
+
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
-using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace SolarGridX.Models;
 
@@ -9,7 +15,6 @@ public class SolarStation
 {
     [BsonId]
     [BsonRepresentation(BsonType.ObjectId)]
-
     public string Id { get; set; } = string.Empty;
 
     public string StationName { get; set; } = string.Empty;

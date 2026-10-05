@@ -1,3 +1,10 @@
+// ============================================================================
+// Project: SolarGridX - Smart Solar Microgrid Platform
+// Module: Enterprise Application Development (EAD)
+// File: UpdateReservationRequest.cs
+// Description: DTO for modifying an existing energy reservation (e.g. changing slot or requested kWh).
+// ============================================================================
+
 using System.ComponentModel.DataAnnotations;
 
 namespace SolarGridX.DTOs.Reservations;
