@@ -84,7 +84,7 @@ try
     var reservations = new ReservationService(db);
     await service.EnsureIndexesAsync();
     await db.GetCollection<User>("Users").InsertManyAsync(new[] {
-        new User { NIC = "prosumer" },
+        new User { NIC = "prosumer", Name = "Test Prosumer" },
         new User { NIC = "operator", Role = "Grid Operator" },
         new User { NIC = "inactive", AccountStatus = AccountStatus.Inactive } });
     var station = new SolarStation { Id = ObjectId.GenerateNewId().ToString(), StationName = "Test Microgrid Station", OperatorNIC = "operator" };
@@ -184,6 +184,7 @@ try
     Check(await historyApi.GetById(transfer.id!) is OkObjectResult, "assigned operator reads completed transfer");
     dashboard.ControllerContext = Context("operator", "Grid Operator");
     var completedList = JsonSerializer.SerializeToElement(((OkObjectResult)await dashboard.List("completed")).Value);
+    Check(completedList.GetProperty("items")[0].GetProperty("ProsumerName").GetString() == "Test Prosumer", "booking includes scoped prosumer display name");
     Check(completedList.GetProperty("total").GetInt32() == 1, "completed view includes finished booking");
     var stats = JsonSerializer.SerializeToElement(((OkObjectResult)await dashboard.Summary()).Value);
     Check(stats.GetProperty("completedTransfers").GetInt32() == 1 && stats.GetProperty("deliveredEnergyKwh").GetDecimal() == 5, "dashboard totals completed delivery");
