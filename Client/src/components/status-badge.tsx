@@ -1,5 +1,7 @@
 import { Badge } from "@/components/ui/badge"
 import { CheckCircle2, Clock3, CircleOff, Activity, XCircle } from "lucide-react"
+
+// Reusable badge component that displays entity status with appropriate color and icon
 export function StatusBadge({ status }: { status: string }) {
   const success = ["Active", "Approved", "Completed"].includes(status)
   const pending = ["Pending", "DeactivationRequested"].includes(status)

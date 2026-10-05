@@ -19,27 +19,31 @@ import { Pencil, Power } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useAuth } from "@/context/AuthContext"
 
+// Slots management page for viewing, creating, editing, and toggling solar charging slots
 export function SlotsPage() {
+  // Local state for slots, stations, and UI status
   const [slots, setSlots] = useState<Slot[]>([])
   const [stations, setStations] = useState<Station[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
   const [now, setNow] = useState(() => Date.now())
+  // Periodic timer to re-evaluate expired slots every minute
   useEffect(() => { const timer = window.setInterval(() => setNow(Date.now()), 60000); return () => window.clearInterval(timer) }, [])
   
   const [editingSlot, setEditingSlot] = useState<Slot | null>(null)
-  
   const [actionError, setActionError] = useState("")
 
+  // Filter state for station and active status
   const [stationFilter, setStationFilter] = useState<string>("All")
   const [statusFilter, setStatusFilter] = useState<"All" | "Active" | "Inactive">("All")
 
+  // Check user role permissions for managing slots
   const { user } = useAuth()
   const canManageSlots = user?.role === "Backoffice" || user?.role === "Grid Operator"
   const canViewInactive = canManageSlots
-
   const canViewInactiveStations = user?.role === "Backoffice" || user?.role === "Grid Operator"
 
+  // Fetch initial stations and slots data on mount
   useEffect(() => {
     async function loadData() {
       try {
@@ -65,6 +69,7 @@ export function SlotsPage() {
     loadData()
   }, [canViewInactive, canViewInactiveStations])
 
+  // Handle changing the selected station filter
   const handleStationFilterChange = async (event: React.ChangeEvent<HTMLSelectElement>) => {
     const newStationId = event.target.value
     setStationFilter(newStationId)
@@ -87,10 +92,12 @@ export function SlotsPage() {
     }
   }
 
+  // Update local slot list after edit
   const handleSlotUpdated = (updatedSlot: Slot) => {
     setSlots(slots.map(slot => slot.id === updatedSlot.id ? updatedSlot : slot))
   }
 
+  // Toggle slot active or inactive status
   const handleToggleStatus = async (e: React.MouseEvent, slot: Slot) => {
     e.stopPropagation()
     try {
@@ -122,6 +129,7 @@ export function SlotsPage() {
     return map
   }, [stations])
 
+  // Check if slot end time has passed in Sri Lanka time (UTC+5:30)
   const isPastSlot = (slot: Slot) => {
     const parts = new Intl.DateTimeFormat("en", { timeZone: "Asia/Colombo", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date(slot.slotDate))
     const value = (type: string) => Number(parts.find(p => p.type === type)?.value)
@@ -129,6 +137,7 @@ export function SlotsPage() {
     const end = Date.UTC(value("year"), value("month") - 1, value("day"), hour, minute, second) - 330 * 60000
     return end <= now
   }
+  // Mark past slots as inactive for UI display
   const effectiveSlots = slots.map(slot => isPastSlot(slot) ? { ...slot, isActive: false } : slot)
   const filteredSlots = effectiveSlots.filter(slot => statusFilter === "All" || (statusFilter === "Active" ? slot.isActive : !slot.isActive))
     .sort((a, b) => new Date(b.slotDate).getTime() - new Date(a.slotDate).getTime())

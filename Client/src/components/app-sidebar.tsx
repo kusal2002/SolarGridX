@@ -25,8 +25,10 @@ import {
 import type { User } from "@/types/user"
 import type { View } from "@/router/routes"
 
+// Application sidebar component rendering navigation items filtered by user role
 export function AppSidebar({ currentUser, activeView, onNavigate, onLogout, ...props }: React.ComponentProps<typeof Sidebar> & { currentUser: User; activeView: View; onNavigate: (view: View) => void; onLogout: () => void }) {
   const staff = currentUser.role === "Backoffice" || currentUser.role === "Grid Operator"
+  // Build sidebar navigation links based on user permissions (Staff, Backoffice, Prosumer)
   const navMain = [
     ...(staff ? [
       { title: "Dashboard", url: "dashboard", icon: <LayoutDashboardIcon />, isActive: activeView === "dashboard" },

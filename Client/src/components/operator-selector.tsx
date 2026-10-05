@@ -1,6 +1,10 @@
 import { Input } from "@/components/ui/input"
+
 export type StationOperator = { nic: string; name: string }
+
+// Multi-select checkbox list for assigning Grid Operators to a charging station
 export function OperatorSelector({ operators, value, onChange, disabled = false }: { operators: StationOperator[]; value: string[]; onChange: (nics: string[]) => void; disabled?: boolean }) {
+  // Include currently assigned operators even if they are inactive
   const options = [...operators, ...value.filter(nic => !operators.some(o => o.nic === nic)).map(nic => ({ nic, name: "Inactive operator" }))]
   return <div className="space-y-2">
     <p className="text-sm text-muted-foreground">Select one or more operators. Leave empty to assign later.</p>

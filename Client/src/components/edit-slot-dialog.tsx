@@ -22,6 +22,7 @@ interface EditSlotDialogProps {
   onSlotUpdated: (slot: Slot) => void
 }
 
+// Dialog component for editing existing charging slot schedule and capacity
 export function EditSlotDialog({
   slot,
   station,
@@ -39,7 +40,7 @@ export function EditSlotDialog({
     energyCapacityKwh: "",
   })
 
-  // Initialize form when slot changes
+  // Initialize form fields when selected slot changes
   useEffect(() => {
     if (slot) {
       // Parse the slot date to YYYY-MM-DD for the date input
@@ -60,6 +61,7 @@ export function EditSlotDialog({
     }
   }, [slot])
 
+  // Revert form state back to original slot values
   const resetForm = () => {
     if (slot) {
       const dateStr = slot.slotDate.split('T')[0]
@@ -76,16 +78,19 @@ export function EditSlotDialog({
     setError("")
   }
 
+  // Close dialog and discard edits
   const handleCancel = () => {
     resetForm()
     onOpenChange(false)
   }
 
+  // Update form state on field change
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target
     setFormData((prev) => ({ ...prev, [name]: value }))
   }
 
+  // Validate timing against station operating hours and submit updates
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!slot) return

@@ -20,12 +20,16 @@ type Summary = { pending: number; current: number; approvedFuture: number; compl
 const field = "rounded-md border bg-background p-2 text-sm"
 const summaryIcons = { pending: Clock3, current: Activity, approvedFuture: CalendarCheck2, completed: CheckCircle2, cancelled: CircleOff }
 
+// Energy transfers page for QR scanning, tracking charging sessions, meter progress, and completions
 export function TransfersPage() {
+  // State for metrics summary, current view tab, search, and pagination
   const [summary, setSummary] = useState<Summary | null>(null)
   const [view, setView] = useState("current")
   const [search, setSearch] = useState("")
   const [page, setPage] = useState(1)
   const [total, setTotal] = useState(0)
+
+  // Selected booking and associated transfer details
   const [bookings, setBookings] = useState<EnergyReservation[]>([])
   const [selected, setSelected] = useState<EnergyReservation | null>(null)
   const [transfer, setTransfer] = useState<Transfer | null>(null)
@@ -36,6 +40,7 @@ export function TransfersPage() {
   const [message, setMessage] = useState("")
   const [busy, setBusy] = useState(false)
 
+  // Fetch summary metrics and bookings list for current view and search query
   const load = useCallback(async () => {
     const [counts, result] = await Promise.all([
       request<Summary>("/dashboard/summary"),
@@ -44,11 +49,13 @@ export function TransfersPage() {
     setSummary(counts); setBookings(result.items); setTotal(result.total)
   }, [view, page, search])
 
+  // Debounced effect to reload data when filters or pagination change
   useEffect(() => { let active = true
     const timer = window.setTimeout(() => { void load().catch(e => { if (active) setMessage(e.message) }) }, 250)
     return () => { active = false; window.clearTimeout(timer) }
   }, [load])
 
+  // Helper runner to manage busy loading states and error notifications
   async function run(operation: () => Promise<void>, refresh = true) {
     setBusy(true); setMessage("")
     try { await operation(); if (refresh) await load() }
@@ -58,6 +65,7 @@ export function TransfersPage() {
     finally { setBusy(false) }
   }
 
+  // Open the transfer details dialog for a selected booking
   async function open(booking: EnergyReservation) {
     setSelected(booking); setTransfer(null); setTransferLoaded(false); setReason("")
     await run(async () => {
@@ -68,6 +76,7 @@ export function TransfersPage() {
     })
   }
 
+  // Verify scanned QR token payload and load the corresponding transfer
   async function verify(payload: string) {
     setScanning(false)
     setTransfer(null)
@@ -82,6 +91,7 @@ export function TransfersPage() {
     })
   }
 
+  // Execute transfer actions: start, record progress reading, complete, or fail
   async function change(action: string) {
     if (!transfer) return
     await run(async () => {

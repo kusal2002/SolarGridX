@@ -1,12 +1,14 @@
 import { useEffect, useRef, useState } from "react"
 import jsQR from "jsqr"
 
+// Real-time camera scanner that detects QR codes using jsQR library
 export function QrScanner({ onScan, onClose }: { onScan: (payload: string) => void; onClose: () => void }) {
   const video = useRef<HTMLVideoElement>(null)
   const scanHandler = useRef(onScan)
   const [error, setError] = useState("")
   useEffect(() => { scanHandler.current = onScan }, [onScan])
 
+  // Request camera stream, render frames to hidden canvas, and scan for QR code data
   useEffect(() => {
     let stopped = false
     let stream: MediaStream | undefined

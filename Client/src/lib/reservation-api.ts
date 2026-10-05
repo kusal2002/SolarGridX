@@ -7,16 +7,19 @@ import type {
 
 import { request } from "./api-client"
 
+// Fetches all energy reservations across the grid
 export async function getReservations(): Promise<EnergyReservation[]> {
   return request<EnergyReservation[]>("/reservation")
 }
 
+// Fetches a single reservation by unique ID
 export async function getReservationById(
   id: string
 ): Promise<EnergyReservation> {
   return request<EnergyReservation>(`/reservation/${id}`)
 }
 
+// Fetches reservations belonging to a specific prosumer NIC
 export async function getProsumerReservations(
   nic: string
 ): Promise<EnergyReservation[]> {
@@ -25,6 +28,7 @@ export async function getProsumerReservations(
   )
 }
 
+// Submits a new energy slot booking reservation
 export async function createReservation(
   data: CreateReservationPayload
 ): Promise<EnergyReservation> {
@@ -34,6 +38,7 @@ export async function createReservation(
   })
 }
 
+// Updates reservation details such as booked capacity
 export async function updateReservation(
   id: string,
   data: UpdateReservationPayload
@@ -44,6 +49,7 @@ export async function updateReservation(
   })
 }
 
+// Cancels an existing reservation with optional cancellation reason
 export async function cancelReservation(
   id: string,
   reason?: string
@@ -60,6 +66,7 @@ export async function cancelReservation(
   )
 }
 
+// Updates the workflow status of a reservation
 export async function updateReservationStatus(
   id: string,
   status: "Pending" | "Approved" | "Completed" | "Cancelled"
@@ -73,6 +80,7 @@ export async function updateReservationStatus(
   )
 }
 
+// Fetches active energy slots available for reservation
 export async function getActiveSlots(): Promise<EnergySlot[]> {
   return request<EnergySlot[]>("/slots")
 }

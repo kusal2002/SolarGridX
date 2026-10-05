@@ -1,6 +1,6 @@
 // ============================================================================
 // Project: SolarGridX - Smart Solar Microgrid Platform
-// Course: Enterprise Application Development (EAD)
+// Module: Enterprise Application Development (EAD)
 // File: Program.cs (SolarGridX.AuthChecks)
 // Description: Automated regression and integration test runner for authentication and role authorization policies.
 // ============================================================================

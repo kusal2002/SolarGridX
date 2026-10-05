@@ -21,9 +21,13 @@ import { CreateReservationDialog } from "@/components/create-reservation-dialog"
 import { CancelReservationDialog } from "@/components/cancel-reservation-dialog"
 import { ModifyReservationDialog } from "@/components/modify-reservation-dialog"
 
+// Reservations management page for viewing, approving, creating, modifying, and cancelling bookings
 export function ReservationsPage() {
+  // Check user role and permissions
   const { user } = useAuth()
   const canOperate = user?.role === "Backoffice" || user?.role === "Grid Operator"
+
+  // Reservation list state and search/status filters
   const [reservations, setReservations] = useState<EnergyReservation[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
@@ -32,16 +36,18 @@ export function ReservationsPage() {
     "All" | "Pending" | "Approved" | "InProgress" | "Completed" | "Cancelled"
   >("All")
 
-  // Modals
+  // Modal dialog controls for cancellation and modification
   const [cancelReservation, setCancelReservation] = useState<EnergyReservation | null>(null)
   const [cancelOpen, setCancelOpen] = useState(false)
   const [modifyReservation, setModifyReservation] = useState<EnergyReservation | null>(null)
   const [modifyOpen, setModifyOpen] = useState(false)
 
+  // Fetch reservations on component mount
   useEffect(() => {
     loadReservations()
   }, [])
 
+  // Load all accessible reservations from the backend API
   async function loadReservations() {
     try {
       setLoading(true)

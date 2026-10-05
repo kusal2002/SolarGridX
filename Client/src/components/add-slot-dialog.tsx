@@ -21,6 +21,7 @@ interface AddSlotDialogProps {
   onSlotAdded: (slot: Slot) => void
 }
 
+// Dialog component for creating a new charging slot for an active station
 export function AddSlotDialog({ onSlotAdded }: AddSlotDialogProps) {
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -29,6 +30,7 @@ export function AddSlotDialog({ onSlotAdded }: AddSlotDialogProps) {
   const [stations, setStations] = useState<Station[]>([])
   const [loadingStations, setLoadingStations] = useState(false)
 
+  // Form input state for slot creation
   const [formData, setFormData] = useState({
     stationId: "",
     slotDate: "",
@@ -37,6 +39,7 @@ export function AddSlotDialog({ onSlotAdded }: AddSlotDialogProps) {
     energyCapacityKwh: "",
   })
 
+  // Fetch active stations when dialog is opened
   useEffect(() => {
     async function loadStations() {
       try {
@@ -62,6 +65,7 @@ export function AddSlotDialog({ onSlotAdded }: AddSlotDialogProps) {
     }
   }, [open])
 
+  // Reset form inputs and clear errors
   const resetForm = () => {
     setFormData({
       stationId: stations.length > 0 ? stations[0].id : "",
@@ -73,16 +77,19 @@ export function AddSlotDialog({ onSlotAdded }: AddSlotDialogProps) {
     setError("")
   }
 
+  // Handle cancel click and close modal
   const handleCancel = () => {
     resetForm()
     setOpen(false)
   }
 
+  // Update form state on field change
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target
     setFormData((prev) => ({ ...prev, [name]: value }))
   }
 
+  // Validate schedule constraints and submit slot to API
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)

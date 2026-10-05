@@ -5,6 +5,7 @@ import "./index.css"
 import App from "./App.tsx"
 import { ThemeProvider } from "@/components/theme-provider.tsx"
 
+// Application entry point mounting React root into the DOM
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <ThemeProvider>

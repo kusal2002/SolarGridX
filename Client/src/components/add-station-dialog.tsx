@@ -45,6 +45,7 @@ interface AddStationDialogProps {
   onStationAdded: (station: Station) => void
 }
 
+// Captures click events on the Leaflet map to select coordinates
 function MapEvents({
   onLocationSelect,
 }: {
@@ -58,6 +59,7 @@ function MapEvents({
   return null
 }
 
+// Recenters Leaflet map view when coordinates change
 function MapCenter({
   position,
   zoom,
@@ -72,12 +74,14 @@ function MapCenter({
   return null
 }
 
+// Dialog for registering a new solar charging station with map coordinates
 export function AddStationDialog({ onStationAdded, operators = [] }: AddStationDialogProps) {
   const [selectedOperators, setSelectedOperators] = useState<string[]>([])
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
 
+  // Form input values for station attributes
   const [formData, setFormData] = useState({
     stationName: "",
     location: "",
@@ -135,6 +139,7 @@ export function AddStationDialog({ onStationAdded, operators = [] }: AddStationD
     setFormData((prev) => ({ ...prev, [name]: value }))
   }
 
+  // Updates coordinates from map click and performs reverse geocoding to fill location name
   const handleLocationSelect = async (lat: number, lng: number) => {
     setFormData((prev) => ({
       ...prev,
@@ -160,6 +165,7 @@ export function AddStationDialog({ onStationAdded, operators = [] }: AddStationD
     }
   }
 
+  // Searches location name via OpenStreetMap Nominatim API
   const handleSearch = async () => {
     if (!searchQuery) return
     setIsSearching(true)
@@ -187,6 +193,7 @@ export function AddStationDialog({ onStationAdded, operators = [] }: AddStationD
     }
   }
 
+  // Validates operating hours schedule and submits new station to backend
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
