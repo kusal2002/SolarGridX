@@ -38,6 +38,8 @@ This will place the ui components in the `src/components` directory.
 
 To use the components in your app, import them as follows:
 
+Components can be imported through the configured `@` path alias.
+
 ```tsx
 import { Button } from "@/components/ui/button"
 ```
