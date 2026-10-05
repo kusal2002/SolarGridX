@@ -7,6 +7,7 @@ import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
 
 data class BottomNavItem(
     val title: String,
@@ -25,38 +26,38 @@ fun SolarBottomNavigation(
 
         BottomNavItem(
             "Home",
-            Icons.Filled.Home,
-            Icons.Outlined.Home
+            Icons.Filled.Dashboard,
+            Icons.Outlined.Dashboard
         ),
 
         BottomNavItem(
             "Stations",
-            Icons.Filled.LocationOn,
-            Icons.Outlined.LocationOn
+            Icons.Filled.EvStation,
+            Icons.Outlined.EvStation
         ),
 
         BottomNavItem(
             if (operator) "Bookings" else "Reserve",
+            Icons.Filled.CalendarMonth,
+            Icons.Outlined.CalendarMonth
+        ),
+
+        BottomNavItem(
+            "Transfers",
             Icons.Filled.SwapHoriz,
             Icons.Outlined.SwapHoriz
         ),
 
         BottomNavItem(
-            "Transfers",
-            Icons.Filled.ShowChart,
-            Icons.Outlined.ShowChart
-        ),
-
-        BottomNavItem(
             "Profile",
-            Icons.Filled.Person,
-            Icons.Outlined.Person
+            Icons.Filled.AccountCircle,
+            Icons.Outlined.AccountCircle
         )
     )
 
     NavigationBar(
         containerColor = Color.White,
-        tonalElevation = androidx.compose.ui.unit.Dp.Unspecified
+        tonalElevation = 0.dp
     ) {
 
         navItems.forEachIndexed { index, item ->
@@ -84,18 +85,18 @@ fun SolarBottomNavigation(
                 },
 
                 label = {
-                    Text(item.title)
+                    Text(item.title, style = MaterialTheme.typography.labelSmall, maxLines = 1)
                 },
 
                 alwaysShowLabel = true,
 
                 colors = NavigationBarItemDefaults.colors(
 
-                    selectedIconColor = Color(0xFF15803D),
+                    selectedIconColor = Color(0xFF065F46),
 
-                    selectedTextColor = Color(0xFF15803D),
+                    selectedTextColor = Color(0xFF065F46),
 
-                    indicatorColor = Color(0xFFDCFCE7),
+                    indicatorColor = Color(0xFFD1FAE5),
 
                     unselectedIconColor = Color(0xFF64748B),
 

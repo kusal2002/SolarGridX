@@ -21,6 +21,7 @@ interface CreateReservationDialogProps {
   onReservationCreated: (reservation: EnergyReservation) => void
 }
 
+// Dialog for booking an upcoming available charging slot for a prosumer
 export function CreateReservationDialog({
   onReservationCreated,
 }: CreateReservationDialogProps) {
@@ -28,13 +29,16 @@ export function CreateReservationDialog({
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
 
+  // Available station and slot options
   const [stations, setStations] = useState<Station[]>([])
   const [slots, setSlots] = useState<EnergySlot[]>([])
+  // User selection inputs
   const [selectedStationId, setSelectedStationId] = useState("")
   const [selectedSlotId, setSelectedSlotId] = useState("")
   const [prosumerNIC, setProsumerNIC] = useState("")
   const [requestedKwh, setRequestedKwh] = useState<number | "">("")
 
+  // Fetches stations and available slots when modal opens
   useEffect(() => {
     async function loadData() {
       try {
@@ -106,6 +110,7 @@ export function CreateReservationDialog({
 
   const selectedSlot = slots.find((s) => s.id === selectedSlotId)
 
+  // Validates prosumer NIC, requested kWh capacity, and submits booking
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!prosumerNIC.trim()) {
@@ -146,6 +151,7 @@ export function CreateReservationDialog({
     }
   }
 
+  // Resets form inputs to empty values
   function resetForm() {
     setSelectedSlotId("")
     setProsumerNIC("")

@@ -1,3 +1,4 @@
+// Data model representing a booked energy reservation
 export interface EnergyReservation {
   id: string
   prosumerName?: string
@@ -16,17 +17,20 @@ export interface EnergyReservation {
   updatedAt: string
 }
 
+// Request payload for creating a new slot reservation
 export interface CreateReservationPayload {
   prosumerNIC: string
   slotId: string
   requestedEnergyKwh: number
 }
 
+// Request payload for modifying an existing reservation
 export interface UpdateReservationPayload {
   newSlotId?: string
   requestedEnergyKwh?: number
 }
 
+// Data model representing an active energy slot for booking
 export interface EnergySlot {
   id: string
   stationId: string

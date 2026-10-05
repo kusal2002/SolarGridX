@@ -1,3 +1,10 @@
+// ============================================================================
+// Project: SolarGridX - Smart Solar Microgrid Platform
+// Module: Enterprise Application Development (EAD)
+// File: StationController.cs
+// Description: API controller for managing solar charging stations and assigning grid operators.
+// ============================================================================
+
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SolarGridX.DTOs.Stations;
@@ -16,6 +23,7 @@ public class StationController : ControllerBase
 
     public StationController(StationService stationService, StationAccessService access)
     {
+        // Inject station service and access control service
         _stationService = stationService;
         _access = access;
     }
@@ -24,6 +32,7 @@ public class StationController : ControllerBase
     [HttpGet]
     public async Task<IActionResult> GetAll()
     {
+        // Retrieve all active solar stations filtered by operator assignment
         var stations = await _stationService.GetAllAsync();
         var ids = await _access.StationIdsAsync(User);
         if (ids != null) stations = stations.Where(s => ids.Contains(s.Id)).ToList();
@@ -36,6 +45,7 @@ public class StationController : ControllerBase
     [Authorize(Roles = "Backoffice,Grid Operator")]
     public async Task<IActionResult> GetAllIncludingInactive()
     {
+        // Retrieve all stations including inactive ones for authorized staff
         var stations = await _stationService
             .GetAllIncludingInactiveAsync();
         var ids = await _access.StationIdsAsync(User);
@@ -48,6 +58,7 @@ public class StationController : ControllerBase
     [HttpGet("{id}")]
     public async Task<IActionResult> GetById(string id)
     {
+        // Retrieve details of a specific station by ID with access check
         if (!await _access.CanAccessAsync(User, id)) return Forbid();
         var station = await _stationService.GetByIdAsync(id);
 
@@ -64,17 +75,22 @@ public class StationController : ControllerBase
 
     [HttpGet("operators")]
     [Authorize(Roles = "Backoffice")]
-    public async Task<IActionResult> Operators() => Ok((await _stationService.GetOperatorsAsync()).Select(u => new { u.NIC, u.Name }));
+    public async Task<IActionResult> Operators()
+    {
+        // Fetch all active grid operators available for station assignment
+        return Ok((await _stationService.GetOperatorsAsync()).Select(u => new { u.NIC, u.Name }));
+    }
 
-    public record Assignment(string? OperatorNIC);
+    public record Assignment(string? OperatorNIC, List<string>? OperatorNICs = null);
 
     [HttpPatch("{id}/operator")]
     [Authorize(Roles = "Backoffice")]
     public async Task<IActionResult> AssignOperator(string id, Assignment request)
     {
+        // Assign one or more grid operators to a station
         try
         {
-            var station = await _stationService.AssignOperatorAsync(id, request.OperatorNIC);
+            var station = await _stationService.AssignOperatorsAsync(id, request.OperatorNICs ?? (string.IsNullOrWhiteSpace(request.OperatorNIC) ? [] : [request.OperatorNIC]));
             return station == null ? NotFound(new { message = "Station not found." }) : Ok(station);
         }
         catch (ArgumentException ex) { return BadRequest(new { message = ex.Message }); }
@@ -86,13 +102,18 @@ public class StationController : ControllerBase
     public async Task<IActionResult> Create(
         CreateStationRequest request)
     {
-        var station = await _stationService.CreateAsync(request);
+        // Create a new solar charging station with designated operators and capacity
+        try
+        {
+            var station = await _stationService.CreateAsync(request);
 
-        return CreatedAtAction(
-            nameof(GetById),
-            new { id = station.Id },
-            station
-        );
+            return CreatedAtAction(
+                nameof(GetById),
+                new { id = station.Id },
+                station
+            );
+        }
+        catch (ArgumentException ex) { return BadRequest(new { message = ex.Message }); }
     }
 
     //Update station
@@ -102,6 +123,7 @@ public class StationController : ControllerBase
     string id,
     UpdateStationRequest request)
     {
+        // Update station parameters such as name, capacity, location, and operating hours
         var station = await _stationService.UpdateAsync(
             id,
             request
@@ -123,6 +145,7 @@ public class StationController : ControllerBase
     [Authorize(Roles = "Backoffice")]
     public async Task<IActionResult> Delete(string id)
     {
+        // Deactivate station if it has no active reservations
         try
         {
             var deactivated = await _stationService.DeactivateAsync(id);
@@ -154,6 +177,7 @@ public class StationController : ControllerBase
     [Authorize(Roles = "Backoffice")]
     public async Task<IActionResult> Reactivate(string id)
     {
+        // Reactivate a previously deactivated solar station
         var reactivated = await _stationService.ReactivateAsync(id);
 
         if (!reactivated)
@@ -169,6 +193,4 @@ public class StationController : ControllerBase
             message = "Station reactivated successfully."
         });
     }
-
-
 }

@@ -19,14 +19,15 @@ import {
   BatteryChargingIcon,
   ActivityIcon,
   UserRoundCogIcon,
-  TerminalIcon,
   CalendarCheck2Icon,
 } from "lucide-react"
 import type { User } from "@/types/user"
 import type { View } from "@/router/routes"
 
+// Application sidebar component rendering navigation items filtered by user role
 export function AppSidebar({ currentUser, activeView, onNavigate, onLogout, ...props }: React.ComponentProps<typeof Sidebar> & { currentUser: User; activeView: View; onNavigate: (view: View) => void; onLogout: () => void }) {
   const staff = currentUser.role === "Backoffice" || currentUser.role === "Grid Operator"
+  // Build sidebar navigation links based on user permissions (Staff, Backoffice, Prosumer)
   const navMain = [
     ...(staff ? [
       { title: "Dashboard", url: "dashboard", icon: <LayoutDashboardIcon />, isActive: activeView === "dashboard" },
@@ -48,7 +49,7 @@ export function AppSidebar({ currentUser, activeView, onNavigate, onLogout, ...p
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" render={<a href="#" />}>
               <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
-                <TerminalIcon className="size-4" />
+                <img src="/solargridx-mark.svg" alt="SolarGridX logo" className="size-8" />
               </div>
               <div className="grid flex-1 text-left text-sm leading-tight">
                 <span className="truncate font-medium">SolarGridX</span>

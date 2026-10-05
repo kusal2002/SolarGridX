@@ -21,6 +21,7 @@ interface CancelReservationDialogProps {
   onCancelled: (reservation: EnergyReservation) => void
 }
 
+// Confirmation dialog for cancelling a reservation with an optional reason
 export function CancelReservationDialog({
   reservation,
   open,
@@ -41,13 +42,14 @@ export function CancelReservationDialog({
 
   if (!reservation) return null
 
-  // Calculate hours remaining until slot start
+  // Calculate hours remaining until slot start to enforce the 12-hour cancellation policy
   const reservationDateTime = new Date(
     `${reservation.reservationDate.split("T")[0]}T${reservation.startTime}`
   )
   const hoursRemaining = (reservationDateTime.getTime() - now) / (1000 * 60 * 60)
   const isWithin12Hours = hoursRemaining < 12
 
+  // Calls cancellation API with optional reason and updates parent state
   async function handleConfirmCancel() {
     if (!reservation) return
     try {

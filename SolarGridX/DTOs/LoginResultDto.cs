@@ -1,3 +1,10 @@
+// ============================================================================
+// Project: SolarGridX - Smart Solar Microgrid Platform
+// Module: Enterprise Application Development (EAD)
+// File: LoginResultDto.cs
+// Description: Wrapper DTO representing the outcome of a user login attempt.
+// ============================================================================
+
 namespace SolarGridX.DTOs
 {
     public class LoginResultDto
@@ -6,16 +13,24 @@ namespace SolarGridX.DTOs
         public string? ErrorMessage { get; set; }
         public LoginResponseDto? Data { get; set; }
 
-        public static LoginResultDto Succeeded(LoginResponseDto data) => new()
+        public static LoginResultDto Succeeded(LoginResponseDto data)
         {
-            Success = true,
-            Data = data
-        };
+            // Create a successful login result containing user and token data
+            return new LoginResultDto
+            {
+                Success = true,
+                Data = data
+            };
+        }
 
-        public static LoginResultDto Failed(string errorMessage) => new()
+        public static LoginResultDto Failed(string errorMessage)
         {
-            Success = false,
-            ErrorMessage = errorMessage
-        };
+            // Create a failed login result with an explanatory error message
+            return new LoginResultDto
+            {
+                Success = false,
+                ErrorMessage = errorMessage
+            };
+        }
     }
 }

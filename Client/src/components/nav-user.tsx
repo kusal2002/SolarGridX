@@ -22,6 +22,7 @@ import {
   LogOutIcon,
 } from "lucide-react"
 
+// User profile button in sidebar footer with account navigation and logout options
 export function NavUser({
   user,
   onAccount,

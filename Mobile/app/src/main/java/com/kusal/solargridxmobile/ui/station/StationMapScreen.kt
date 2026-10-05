@@ -151,6 +151,7 @@ fun StationMapScreen(
     val fusedClient = remember { LocationServices.getFusedLocationProviderClient(context) }
 
     val userNic = remember { sessionManager.getUserNic() ?: "" }
+    val canReserve = sessionManager.getUserRole() == "Prosumer"
 
     // ── State ──────────────────────────────────────────────────────────────
     var stations            by remember { mutableStateOf<List<SolarStation>>(emptyList()) }
@@ -570,7 +571,7 @@ fun StationMapScreen(
             errorMessage?.let { msg ->
                 Spacer(modifier = Modifier.height(8.dp))
                 Surface(
-                    shape = RoundedCornerShape(12.dp),
+                    shape = RoundedCornerShape(16.dp),
                     color = Color(0xFFFEE2E8),
                     border = BorderStroke(1.dp, Color(0xFFFCA5A5))
                 ) {
@@ -600,7 +601,7 @@ fun StationMapScreen(
         ) {
             // Zoom controls
             Surface(
-                shape = RoundedCornerShape(12.dp),
+                shape = RoundedCornerShape(16.dp),
                 color = Color.White,
                 shadowElevation = 4.dp,
                 border = BorderStroke(1.dp, Color(0xFFE2E8F0))
@@ -682,6 +683,7 @@ fun StationMapScreen(
                         slots = selectedStationSlots,
                         isSlotsLoading = isSlotsLoading,
                         userNic = userNic,
+                        canReserve = canReserve,
                         onDismiss = {
                             showPopupBox = false
                             selectedStation = null
@@ -930,6 +932,7 @@ private fun StationDetailPopup(
     slots: List<EnergySlot>,
     isSlotsLoading: Boolean,
     userNic: String,
+    canReserve: Boolean,
     onDismiss: () -> Unit,
     onReserveSlot: (EnergySlot, Double, (Boolean, String?) -> Unit) -> Unit
 ) {
@@ -973,7 +976,7 @@ private fun StationDetailPopup(
                         Box(
                             modifier = Modifier
                                 .size(44.dp)
-                                .clip(RoundedCornerShape(12.dp))
+                                .clip(RoundedCornerShape(16.dp))
                                 .background(Color.White.copy(alpha = 0.2f)),
                             contentAlignment = Alignment.Center
                         ) {
@@ -1070,7 +1073,7 @@ private fun StationDetailPopup(
                         // Operational Status Badge
                         Box(
                             modifier = Modifier
-                                .clip(RoundedCornerShape(12.dp))
+                                .clip(RoundedCornerShape(16.dp))
                                 .background(Color.White)
                                 .padding(horizontal = 8.dp, vertical = 3.dp)
                         ) {
@@ -1094,7 +1097,7 @@ private fun StationDetailPopup(
                         // Open Now / Closed Badge
                         Box(
                             modifier = Modifier
-                                .clip(RoundedCornerShape(12.dp))
+                                .clip(RoundedCornerShape(16.dp))
                                 .background(if (isOpenNow) Color(0xFFDCFCE7) else Color(0xFFFEE2E2))
                                 .padding(horizontal = 8.dp, vertical = 3.dp)
                         ) {
@@ -1119,7 +1122,7 @@ private fun StationDetailPopup(
                         distanceText?.let { dist ->
                             Box(
                                 modifier = Modifier
-                                    .clip(RoundedCornerShape(12.dp))
+                                    .clip(RoundedCornerShape(16.dp))
                                     .background(Color.White.copy(alpha = 0.2f))
                                     .padding(horizontal = 8.dp, vertical = 3.dp)
                             ) {
@@ -1164,7 +1167,7 @@ private fun StationDetailPopup(
                         modifier = Modifier
                             .weight(1.3f)
                             .height(42.dp),
-                        shape = RoundedCornerShape(12.dp),
+                        shape = RoundedCornerShape(16.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF15803D))
                     ) {
                         Icon(
@@ -1191,7 +1194,7 @@ private fun StationDetailPopup(
                         modifier = Modifier
                             .weight(1f)
                             .height(42.dp),
-                        shape = RoundedCornerShape(12.dp),
+                        shape = RoundedCornerShape(16.dp),
                         border = BorderStroke(1.dp, Color(0xFFCBD5E1))
                     ) {
                         Icon(
@@ -1259,7 +1262,7 @@ private fun StationDetailPopup(
 
                 // ── Station Operational Schedule & Coordinates Info ──
                 Surface(
-                    shape = RoundedCornerShape(12.dp),
+                    shape = RoundedCornerShape(16.dp),
                     color = Color(0xFFF8FAFC),
                     border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
                     modifier = Modifier.fillMaxWidth()
@@ -1363,9 +1366,9 @@ private fun StationDetailPopup(
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clip(RoundedCornerShape(12.dp))
+                                .clip(RoundedCornerShape(16.dp))
                                 .background(Color(0xFFF8FAFC))
-                                .border(1.dp, Color(0xFFE2E8F0), RoundedCornerShape(12.dp))
+                                .border(1.dp, Color(0xFFE2E8F0), RoundedCornerShape(16.dp))
                                 .padding(20.dp),
                             contentAlignment = Alignment.Center
                         ) {
@@ -1398,6 +1401,7 @@ private fun StationDetailPopup(
                             slots.forEach { slot ->
                                 PopupSlotCard(
                                     slot = slot,
+                                    canReserve = canReserve,
                                     onReserveClick = { slotToReserve = slot }
                                 )
                             }
@@ -1423,7 +1427,7 @@ private fun StationDetailPopup(
                     Text("Close", color = Color(0xFF475569), fontWeight = FontWeight.SemiBold)
                 }
 
-                Button(
+                if (canReserve) Button(
                     onClick = {
                         slotToReserve = openSlots.firstOrNull() ?: slots.firstOrNull()
                     },
@@ -1447,7 +1451,7 @@ private fun StationDetailPopup(
     }
 
     // ── Quick Reservation Dialog from Popup ──
-    if (slotToReserve != null) {
+    if (canReserve && slotToReserve != null) {
         SlotReservationDialog(
             slot = slotToReserve!!,
             station = station,
@@ -1478,7 +1482,7 @@ private fun StatCard(
 ) {
     Surface(
         modifier = modifier,
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(16.dp),
         color = bgColor.copy(alpha = 0.5f),
         border = BorderStroke(1.dp, tintColor.copy(alpha = 0.2f))
     ) {
@@ -1501,6 +1505,7 @@ private fun StatCard(
 @Composable
 private fun PopupSlotCard(
     slot: EnergySlot,
+    canReserve: Boolean,
     onReserveClick: () -> Unit
 ) {
     val isAvailable = slot.availableEnergyKwh > 0.0
@@ -1510,7 +1515,7 @@ private fun PopupSlotCard(
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = Color(0xFFF8FAFC)),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
         border = BorderStroke(1.dp, Color(0xFFE2E8F0))
@@ -1601,7 +1606,7 @@ private fun PopupSlotCard(
 
             Spacer(modifier = Modifier.height(10.dp))
 
-            Button(
+            if (canReserve) Button(
                 onClick = onReserveClick,
                 enabled = isAvailable,
                 modifier = Modifier
@@ -1683,7 +1688,7 @@ private fun SlotReservationDialog(
 
                 // Station & Slot Summary Box
                 Surface(
-                    shape = RoundedCornerShape(12.dp),
+                    shape = RoundedCornerShape(16.dp),
                     color = Color(0xFFF8FAFC),
                     border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
                     modifier = Modifier.fillMaxWidth()

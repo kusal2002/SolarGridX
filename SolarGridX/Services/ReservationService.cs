@@ -1,3 +1,10 @@
+// ============================================================================
+// Project: SolarGridX - Smart Solar Microgrid Platform
+// Module: Enterprise Application Development (EAD)
+// File: ReservationService.cs
+// Description: Service class handling reservation business logic, 7-day booking windows, and 12-hour rules.
+// ============================================================================
+
 using MongoDB.Driver;
 using SolarGridX.DTOs.Reservations;
 using SolarGridX.Models;
@@ -14,6 +21,7 @@ public class ReservationService
 
     public ReservationService(IMongoDatabase database)
     {
+        // Initialize MongoDB collections for reservations, slots, stations, and users
         _database = database;
         _reservations = database.GetCollection<EnergyReservation>("EnergyReservations");
         _slots = database.GetCollection<EnergyBookingSlot>("EnergyBookingSlots");
@@ -23,6 +31,7 @@ public class ReservationService
 
     private DateTime GetSriLankaTime()
     {
+        // Get current date and time converted to Sri Lanka Standard Time
         try
         {
             var tz = TimeZoneInfo.FindSystemTimeZoneById("Asia/Colombo");
@@ -36,21 +45,40 @@ public class ReservationService
         }
     }
 
+    public async Task PopulateDisplayNamesAsync(List<EnergyReservation> list)
+    {
+        // Look up prosumer and station names to display on reservation cards and tables
+        var users = await _users.Find(Builders<User>.Filter.In(u => u.NIC, list.Select(r => r.ProsumerNIC).Distinct()))
+            .Project(u => new { u.NIC, u.Name }).ToListAsync();
+        var stations = await _stations.Find(Builders<SolarStation>.Filter.In(s => s.Id, list.Select(r => r.StationId).Distinct()))
+            .Project(s => new { s.Id, s.StationName }).ToListAsync();
+        var names = users.ToDictionary(u => u.NIC, u => u.Name);
+        var stationNames = stations.ToDictionary(s => s.Id, s => s.StationName);
+        foreach (var reservation in list)
+        {
+            reservation.ProsumerName = names.GetValueOrDefault(reservation.ProsumerNIC);
+            reservation.StationName = stationNames.GetValueOrDefault(reservation.StationId);
+        }
+    }
+
     // 1. Get All Reservations (Admin / Operator)
     public async Task<List<EnergyReservation>> GetAllAsync()
     {
+        // Retrieve all energy reservations from the database
         return await _reservations.Find(_ => true).ToListAsync();
     }
 
     // 2. Get By ID
     public async Task<EnergyReservation?> GetByIdAsync(string id)
     {
+        // Find a specific energy reservation by its unique identifier
         return await _reservations.Find(r => r.Id == id).FirstOrDefaultAsync();
     }
 
     // 3. Get Reservations by Prosumer NIC
     public async Task<List<EnergyReservation>> GetByProsumerAsync(string prosumerNIC)
     {
+        // Fetch all reservations belonging to a specific prosumer NIC ordered newest first
         return await _reservations
             .Find(r => r.ProsumerNIC == prosumerNIC)
             .SortByDescending(r => r.CreatedAt)
@@ -60,12 +88,14 @@ public class ReservationService
     // 4. Create Reservation
     public async Task<EnergyReservation> CreateAsync(CreateReservationRequest request)
     {
+        // Start a database transaction session to create a new reservation safely
         using var session = await _database.Client.StartSessionAsync();
         return await session.WithTransactionAsync((s, ct) => CreateCoreAsync(s, request));
     }
 
     private async Task<EnergyReservation> CreateCoreAsync(IClientSessionHandle session, CreateReservationRequest request)
     {
+        // Core reservation logic: validate user, slot, 7-day booking window, and deduct slot energy
         // A. Validate user exists
         var user = await _users.Find(session, u => u.NIC == request.ProsumerNIC).FirstOrDefaultAsync();
         if (user == null)
@@ -138,12 +168,14 @@ public class ReservationService
     // 5. Cancel Reservation (12-hour rule)
     public async Task<EnergyReservation> CancelAsync(string id, string? reason)
     {
+        // Start transaction session to safely cancel a reservation and restore slot capacity
         using var session = await _database.Client.StartSessionAsync();
         return await session.WithTransactionAsync((s, ct) => CancelCoreAsync(s, id, reason));
     }
 
     private async Task<EnergyReservation> CancelCoreAsync(IClientSessionHandle session, string id, string? reason)
     {
+        // Core cancellation logic: enforce 12-hour rule before slot start, restore slot capacity, and cancel
         var reservation = await _reservations.Find(session, r => r.Id == id).FirstOrDefaultAsync();
         if (reservation == null)
             throw new KeyNotFoundException("Reservation not found.");
@@ -177,12 +209,14 @@ public class ReservationService
     // 6. Modify Reservation (12-hour rule)
     public async Task<EnergyReservation> UpdateAsync(string id, UpdateReservationRequest request)
     {
+        // Start transaction session to update an existing reservation
         using var session = await _database.Client.StartSessionAsync();
         return await session.WithTransactionAsync((s, ct) => UpdateCoreAsync(s, id, request));
     }
 
     private async Task<EnergyReservation> UpdateCoreAsync(IClientSessionHandle session, string id, UpdateReservationRequest request)
     {
+        // Core update logic: enforce 12-hour modification rule, handle slot switches, and balance capacities
         var reservation = await _reservations.Find(session, r => r.Id == id).FirstOrDefaultAsync();
         if (reservation == null)
             throw new KeyNotFoundException("Reservation not found.");
@@ -270,12 +304,14 @@ public class ReservationService
     // 7. Approve a pending reservation; transfers own the delivery lifecycle.
     public async Task<EnergyReservation> UpdateStatusAsync(string id, string newStatus)
     {
+        // Start transaction session to approve a pending reservation
         using var session = await _database.Client.StartSessionAsync();
         return await session.WithTransactionAsync((s, ct) => UpdateStatusCoreAsync(s, id, newStatus));
     }
 
     private async Task<EnergyReservation> UpdateStatusCoreAsync(IClientSessionHandle session, string id, string newStatus)
     {
+        // Approve a pending reservation after ensuring no transfer already exists
         var reservation = await _reservations.Find(session, r => r.Id == id).FirstOrDefaultAsync();
         if (reservation == null)
             throw new KeyNotFoundException("Reservation not found.");
@@ -291,7 +327,7 @@ public class ReservationService
     }
     private async Task EnsureNoTransferAsync(IClientSessionHandle session, EnergyReservation reservation)
     {
-        // Include old transfers that predate the reservation link.
+        // Verify no energy transfer is already linked so reservation edits do not conflict with delivery
         var linked = await _database.GetCollection<EnergyTransfer>("EnergyTransfers")
             .Find(session, t => t.ReservationId == reservation.Id,
                 new FindOptions { Collation = new Collation("en", strength: CollationStrength.Secondary) })

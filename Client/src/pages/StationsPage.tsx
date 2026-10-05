@@ -1,3 +1,4 @@
+import { OperatorSelector } from "@/components/operator-selector"
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table"
 import { StatusBadge } from "@/components/status-badge"
 import { useEffect, useState } from "react"
@@ -23,7 +24,9 @@ import { EditStationDialog } from "@/components/edit-station-dialog"
 import { useAuth } from "@/context/AuthContext"
 import { request } from "@/lib/api-client"
 
+// Solar stations management page for viewing, creating, editing, and assigning operators to stations
 export function StationsPage() {
+  // Local state for stations, search filters, and dialogs
   const [stations, setStations] = useState<Station[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
@@ -38,13 +41,18 @@ export function StationsPage() {
 
   const [actionError, setActionError] = useState("")
   const [operators, setOperators] = useState<{ nic: string; name: string }[]>([])
+  const [assignmentStation, setAssignmentStation] = useState<Station | null>(null)
+  const [selectedOperators, setSelectedOperators] = useState<string[]>([])
+  const operatorIds = (station: Station) => station.operatorNICs?.length ? station.operatorNICs : station.operatorNIC ? [station.operatorNIC] : []
   const [assigning, setAssigning] = useState("")
 
+  // Role check: Backoffice has full administrative controls
   const { user } = useAuth()
   const isBackoffice = user?.role === "Backoffice"
   const canManageStations = isBackoffice
   const canViewInactive = isBackoffice || user?.role === "Grid Operator"
 
+  // Fetch stations and operators on component mount
   useEffect(() => {
     async function loadStations() {
       try {
@@ -64,15 +72,18 @@ export function StationsPage() {
     loadStations()
   }, [canViewInactive, isBackoffice])
 
-  async function assignOperator(station: Station, operatorNIC: string) {
+  // Assign one or more grid operators to a station
+  async function assignOperator(station: Station, operatorNICs: string[]) {
     setAssigning(station.id)
     try {
-      const updated = await request<Station>(`/stations/${station.id}/operator`, { method: "PATCH", body: JSON.stringify({ operatorNIC: operatorNIC || null }) })
+      const updated = await request<Station>(`/stations/${station.id}/operator`, { method: "PATCH", body: JSON.stringify({ operatorNICs }) })
       setStations(previous => previous.map(s => s.id === updated.id ? updated : s))
+      setAssignmentStation(null)
     } catch (e) { setActionError(e instanceof Error ? e.message : "Assignment failed") }
     finally { setAssigning("") }
   }
 
+  // Filter stations by name/location search text and active status
   const filteredStations = stations
     .filter((station) => {
       const search = searchTerm.toLowerCase()
@@ -93,22 +104,26 @@ export function StationsPage() {
   const totalStations = stations.length
   const activeStations = stations.filter((station) => station.isActive).length
 
+  // Open station details dialog on row click
   const handleRowClick = (station: Station) => {
     setViewStation(station)
     setViewOpen(true)
   }
 
+  // Open edit modal for the selected station
   const handleEditClick = (e: React.MouseEvent, station: Station) => {
     e.stopPropagation() // stop the row click from also triggering the view dialog
     setEditStation(station)
     setEditOpen(true)
   }
 
+  // Update single station in state after edit
   const handleStationUpdated = (updated: Station) => {
     // replace only the edited station in the list without re-fetching
     setStations((prev) => prev.map((s) => (s.id === updated.id ? updated : s)))
   }
 
+  // Handle station deactivation or reactivation
   const handleToggleStatus = async (e: React.MouseEvent, station: Station) => {
     e.stopPropagation()
     try {
@@ -147,7 +162,7 @@ export function StationsPage() {
         </div>
 
         {canManageStations && (
-          <AddStationDialog
+          <AddStationDialog operators={operators}
             onStationAdded={(newStation) =>
               setStations([newStation, ...stations])
             }
@@ -216,7 +231,6 @@ export function StationsPage() {
           <Table className="w-full text-left text-sm">
             <TableHeader className="bg-muted/50">
               <TableRow className="border-b">
-                <TableHead className="px-4 py-3 font-medium">Station ID</TableHead>
                 <TableHead className="px-4 py-3 font-medium">Station Name</TableHead>
                 <TableHead className="px-4 py-3 font-medium">Location</TableHead>
                 <TableHead className="px-4 py-3 font-medium">Capacity (kWh)</TableHead>
@@ -224,7 +238,7 @@ export function StationsPage() {
                 {canManageStations && (
                   <TableHead className="px-4 py-3 text-right font-medium">Actions</TableHead>
                 )}
-                <TableHead className="px-4 py-3 font-medium">Grid Operator</TableHead>
+                <TableHead className="px-4 py-3 font-medium">Grid Operators</TableHead>
               </TableRow>
             </TableHeader>
 
@@ -235,7 +249,6 @@ export function StationsPage() {
                   className="cursor-pointer border-b transition-colors last:border-0 hover:bg-muted/30"
                   onClick={() => handleRowClick(station)}
                 >
-                  <TableCell className="px-4 py-3 font-medium">{station.id}</TableCell>
                   <TableCell className="px-4 py-3">{station.stationName}</TableCell>
                   <TableCell className="px-4 py-3">{station.location}</TableCell>
                   <TableCell className="px-4 py-3">{station.totalCapacityKwh}</TableCell>
@@ -270,11 +283,10 @@ export function StationsPage() {
                     </TableCell>
                   )}
                   <TableCell className="px-4 py-3" onClick={e => e.stopPropagation()}>
-                    {isBackoffice ? <select aria-label={`Operator for ${station.stationName}`} className="rounded-md border bg-background p-2" disabled={assigning === station.id} value={station.operatorNIC ?? ""} onChange={e => void assignOperator(station, e.target.value)}>
-                      <option value="">Unassigned</option>
-                      {station.operatorNIC && !operators.some(o => o.nic === station.operatorNIC) && <option value={station.operatorNIC}>Inactive operator ({station.operatorNIC})</option>}
-                      {operators.map(o => <option key={o.nic} value={o.nic}>{o.name} ({o.nic})</option>)}
-                    </select> : station.operatorNIC ?? "Unassigned"}
+                    <div className="space-y-2">
+                      <p className="text-sm text-muted-foreground">{operatorIds(station).map(nic => operators.find(o => o.nic === nic)?.name ?? nic).join(", ") || "Unassigned"}</p>
+                      {isBackoffice && <Button variant="outline" size="sm" disabled={assigning === station.id} onClick={() => { setAssignmentStation(station); setSelectedOperators(operatorIds(station)); setActionError("") }}>Assign operators</Button>}
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
@@ -282,7 +294,7 @@ export function StationsPage() {
               {filteredStations.length === 0 && (
                 <TableRow>
                   <TableCell
-                    colSpan={canManageStations ? 7 : 6}
+                    colSpan={canManageStations ? 6 : 5}
                     className="px-4 py-8 text-center text-muted-foreground"
                   >
                     {!isBackoffice && !stations.length ? "No stations assigned. Ask Backoffice to assign your account to a station." : "No stations found."}
@@ -294,6 +306,11 @@ export function StationsPage() {
         </div>
       )}
 
+      <Dialog open={assignmentStation !== null} onOpenChange={open => !open && setAssignmentStation(null)}><DialogContent><DialogHeader><DialogTitle>Assign Grid Operators</DialogTitle><DialogDescription>{assignmentStation?.stationName}</DialogDescription></DialogHeader>
+        <OperatorSelector operators={operators} value={selectedOperators} onChange={setSelectedOperators} disabled={!!assigning} />
+        {actionError && <p role="alert" className="text-sm text-destructive">{actionError}</p>}
+        <DialogFooter><Button variant="outline" disabled={!!assigning} onClick={() => setAssignmentStation(null)}>Cancel</Button><Button disabled={!!assigning} onClick={() => { if (assignmentStation) void assignOperator(assignmentStation, selectedOperators) }}>{assigning ? "Saving…" : "Save assignments"}</Button></DialogFooter>
+      </DialogContent></Dialog>
       <ViewStationDialog
         station={viewStation}
         open={viewOpen}
@@ -307,10 +324,10 @@ export function StationsPage() {
         onStationUpdated={handleStationUpdated}
       />
 
-      <Dialog open={!!actionError} onOpenChange={(open) => !open && setActionError("")}>
+      <Dialog open={!!actionError && !assignmentStation} onOpenChange={(open) => !open && setActionError("")}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
-            <DialogTitle>Unable to Deactivate Station</DialogTitle>
+            <DialogTitle>Unable to update station</DialogTitle>
             <DialogDescription className="text-red-600 mt-2">
               {actionError}
             </DialogDescription>

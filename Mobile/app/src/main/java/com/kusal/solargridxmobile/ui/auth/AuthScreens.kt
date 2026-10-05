@@ -1,5 +1,12 @@
 package com.kusal.solargridxmobile.ui.auth
 
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.res.painterResource
+import com.kusal.solargridxmobile.R
+import androidx.compose.material.icons.outlined.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -30,8 +37,8 @@ import com.kusal.solargridxmobile.data.repository.AccountInactiveException
 import com.kusal.solargridxmobile.data.repository.AccountPendingApprovalException
 import com.kusal.solargridxmobile.data.repository.AuthRepository
 
-val SolarGreen = Color(0xFF15803D)
-val SolarGreenLight = Color(0xFFDCFCE7)
+val SolarGreen = Color(0xFF065F46)
+val SolarGreenLight = Color(0xFFD1FAE5)
 val AuthTextPrimary = Color(0xFF0F172A)
 val AuthTextSecondary = Color(0xFF475569)
 val AuthInputBackground = Color(0xFFFFFFFF)
@@ -44,9 +51,9 @@ fun LoginScreen(
     onAccountPending: (email: String, password: String) -> Unit = { _, _ -> },
     onAccountInactive: (email: String, reason: String) -> Unit = { _, _ -> }
 ) {
-    var email by remember { mutableStateOf("") }
-    var password by remember { mutableStateOf("") }
-    var passwordVisible by remember { mutableStateOf(false) }
+    var email by rememberSaveable { mutableStateOf("") }
+    var password by rememberSaveable { mutableStateOf("") }
+    var passwordVisible by rememberSaveable { mutableStateOf(false) }
     var isLoading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
@@ -65,39 +72,9 @@ fun LoginScreen(
         unfocusedLeadingIconColor = AuthTextSecondary
     )
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color(0xFFF8FAFC))
-            .padding(24.dp)
-            .verticalScroll(scrollState),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        Icon(
-            imageVector = Icons.Default.WbSunny,
-            contentDescription = "SolarGridX",
-            tint = SolarGreen,
-            modifier = Modifier.size(64.dp)
-        )
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        Text(
-            text = "SolarGridX",
-            fontSize = 28.sp,
-            fontWeight = FontWeight.Bold,
-            color = SolarGreen
-        )
-
-        Text(
-            text = "Prosumer Energy Management",
-            fontSize = 14.sp,
-            color = AuthTextSecondary
-        )
-
-        Spacer(modifier = Modifier.height(32.dp))
-
+    AuthScaffold(scrollState = scrollState) {
+        AuthHeading("Welcome back", "Sign in to manage your solar energy,\nbookings, and grid connections.")
+        Spacer(Modifier.height(28.dp))
         errorMessage?.let {
             Card(
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
@@ -117,9 +94,10 @@ fun LoginScreen(
             value = email,
             onValueChange = { email = it; errorMessage = null },
             label = { Text("Email Address") },
-            leadingIcon = { Icon(Icons.Default.Email, contentDescription = null) },
+            leadingIcon = { Icon(Icons.Outlined.AlternateEmail, contentDescription = null) },
             singleLine = true,
             modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(14.dp),
             colors = textFieldColors,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email)
         )
@@ -130,9 +108,9 @@ fun LoginScreen(
             value = password,
             onValueChange = { password = it; errorMessage = null },
             label = { Text("Password") },
-            leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null) },
+            leadingIcon = { Icon(Icons.Outlined.Lock, contentDescription = null) },
             trailingIcon = {
-                val image = if (passwordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff
+                val image = if (passwordVisible) Icons.Outlined.Visibility else Icons.Outlined.VisibilityOff
                 val description = if (passwordVisible) "Hide password" else "Show password"
                 IconButton(onClick = { passwordVisible = !passwordVisible }) {
                     Icon(imageVector = image, contentDescription = description, tint = AuthTextSecondary)
@@ -141,6 +119,7 @@ fun LoginScreen(
             singleLine = true,
             visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
             modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(14.dp),
             colors = textFieldColors,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password)
         )
@@ -156,7 +135,7 @@ fun LoginScreen(
                 isLoading = true
                 errorMessage = null
                 scope.launch {
-                    val result = authRepository.login(email, password)
+                    val result = authRepository.login(email.trim(), password)
                     isLoading = false
                     result.onSuccess {
                         onLoginSuccess()
@@ -179,7 +158,8 @@ fun LoginScreen(
             enabled = !isLoading,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(50.dp),
+                .height(56.dp),
+            shape = RoundedCornerShape(14.dp),
             colors = ButtonDefaults.buttonColors(
                 containerColor = SolarGreen,
                 disabledContainerColor = SolarGreen.copy(alpha = 0.85f),
@@ -206,14 +186,14 @@ fun LoginScreen(
                     )
                 }
             } else {
-                Text("Log In", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                Text("Sign in", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White)
             }
         }
 
         Spacer(modifier = Modifier.height(16.dp))
 
         TextButton(onClick = onNavigateToRegister) {
-            Text("Don't have an account? Register as Prosumer", color = SolarGreen, fontWeight = FontWeight.SemiBold)
+            Text("New to SolarGridX? Create an account", color = SolarGreen, fontWeight = FontWeight.SemiBold)
         }
     }
 }
@@ -224,11 +204,11 @@ fun RegisterScreen(
     onRegisterSuccess: (email: String, password: String, nic: String, name: String) -> Unit,
     onNavigateToLogin: () -> Unit
 ) {
-    var nic by remember { mutableStateOf("") }
-    var name by remember { mutableStateOf("") }
-    var email by remember { mutableStateOf("") }
-    var password by remember { mutableStateOf("") }
-    var passwordVisible by remember { mutableStateOf(false) }
+    var nic by rememberSaveable { mutableStateOf("") }
+    var name by rememberSaveable { mutableStateOf("") }
+    var email by rememberSaveable { mutableStateOf("") }
+    var password by rememberSaveable { mutableStateOf("") }
+    var passwordVisible by rememberSaveable { mutableStateOf(false) }
     var isLoading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
@@ -247,76 +227,16 @@ fun RegisterScreen(
         unfocusedLeadingIconColor = AuthTextSecondary
     )
 
-    var showSuccessDialog by remember { mutableStateOf(false) }
-
-    if (showSuccessDialog) {
-        AlertDialog(
-            onDismissRequest = {
-                showSuccessDialog = false
-                onRegisterSuccess(email, password, nic, name)
-            },
-            title = {
-                Text(
-                    text = "Registration Submitted",
-                    fontWeight = FontWeight.Bold,
-                    color = SolarGreen
-                )
-            },
-            text = {
-                Text(
-                    text = "Your account has been created successfully!\n\nAs per system policy, your account is in 'Pending' status and requires Backoffice administrator approval before you can log in.",
-                    fontSize = 14.sp,
-                    color = AuthTextPrimary
-                )
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        showSuccessDialog = false
-                        onRegisterSuccess(email, password, nic, name)
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = SolarGreen)
-                ) {
-                    Text("View Approval Status", color = Color.White)
-                }
-            },
-            dismissButton = {
-                TextButton(
-                    onClick = {
-                        showSuccessDialog = false
-                        onNavigateToLogin()
-                    }
-                ) {
-                    Text("Go to Login", color = AuthTextSecondary)
-                }
+    AuthScaffold(scrollState = scrollState) {
+        AuthHeading("Join the energy community", "Create your prosumer account and\nmake more of your solar energy.")
+        Spacer(Modifier.height(24.dp))
+        Surface(color = SolarGreenLight, shape = RoundedCornerShape(12.dp)) {
+            Row(Modifier.padding(12.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Icon(Icons.Outlined.VerifiedUser, null, tint = SolarGreen)
+                Text("Your account will be reviewed before you can sign in.", fontSize = 13.sp, color = SolarGreen)
             }
-        )
-    }
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color(0xFFF8FAFC))
-            .padding(24.dp)
-            .verticalScroll(scrollState),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        Text(
-            text = "Create Prosumer Account",
-            fontSize = 24.sp,
-            fontWeight = FontWeight.Bold,
-            color = SolarGreen
-        )
-
-        Text(
-            text = "Register to book and reserve solar energy slots",
-            fontSize = 13.sp,
-            color = AuthTextSecondary
-        )
-
-        Spacer(modifier = Modifier.height(24.dp))
-
+        }
+        Spacer(Modifier.height(18.dp))
         errorMessage?.let {
             Card(
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
@@ -336,9 +256,10 @@ fun RegisterScreen(
             value = nic,
             onValueChange = { nic = it; errorMessage = null },
             label = { Text("NIC Number") },
-            leadingIcon = { Icon(Icons.Default.Person, contentDescription = null) },
+            leadingIcon = { Icon(Icons.Outlined.Badge, contentDescription = null) },
             singleLine = true,
             modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(14.dp),
             colors = textFieldColors
         )
 
@@ -348,9 +269,10 @@ fun RegisterScreen(
             value = name,
             onValueChange = { name = it; errorMessage = null },
             label = { Text("Full Name") },
-            leadingIcon = { Icon(Icons.Default.Person, contentDescription = null) },
+            leadingIcon = { Icon(Icons.Outlined.PersonOutline, contentDescription = null) },
             singleLine = true,
             modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(14.dp),
             colors = textFieldColors
         )
 
@@ -360,9 +282,10 @@ fun RegisterScreen(
             value = email,
             onValueChange = { email = it; errorMessage = null },
             label = { Text("Email Address") },
-            leadingIcon = { Icon(Icons.Default.Email, contentDescription = null) },
+            leadingIcon = { Icon(Icons.Outlined.AlternateEmail, contentDescription = null) },
             singleLine = true,
             modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(14.dp),
             colors = textFieldColors,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email)
         )
@@ -373,9 +296,9 @@ fun RegisterScreen(
             value = password,
             onValueChange = { password = it; errorMessage = null },
             label = { Text("Password (min 8 chars)") },
-            leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null) },
+            leadingIcon = { Icon(Icons.Outlined.Lock, contentDescription = null) },
             trailingIcon = {
-                val image = if (passwordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff
+                val image = if (passwordVisible) Icons.Outlined.Visibility else Icons.Outlined.VisibilityOff
                 val description = if (passwordVisible) "Hide password" else "Show password"
                 IconButton(onClick = { passwordVisible = !passwordVisible }) {
                     Icon(imageVector = image, contentDescription = description, tint = AuthTextSecondary)
@@ -384,6 +307,7 @@ fun RegisterScreen(
             singleLine = true,
             visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
             modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(14.dp),
             colors = textFieldColors,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password)
         )
@@ -399,10 +323,10 @@ fun RegisterScreen(
                 isLoading = true
                 errorMessage = null
                 scope.launch {
-                    val result = authRepository.register(nic, name, email, password)
+                    val result = authRepository.register(nic.trim(), name.trim(), email.trim(), password)
                     isLoading = false
                     result.onSuccess {
-                        showSuccessDialog = true
+                        onRegisterSuccess(email.trim(), password, nic.trim(), name.trim())
                     }.onFailure {
                         errorMessage = it.message ?: "Registration failed."
                     }
@@ -411,7 +335,8 @@ fun RegisterScreen(
             enabled = !isLoading,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(50.dp),
+                .height(56.dp),
+            shape = RoundedCornerShape(14.dp),
             colors = ButtonDefaults.buttonColors(
                 containerColor = SolarGreen,
                 disabledContainerColor = SolarGreen.copy(alpha = 0.85f),
@@ -438,7 +363,7 @@ fun RegisterScreen(
                     )
                 }
             } else {
-                Text("Register", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                Text("Create account", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White)
             }
         }
 
@@ -447,6 +372,39 @@ fun RegisterScreen(
         TextButton(onClick = onNavigateToLogin) {
             Text("Already registered? Log In", color = SolarGreen, fontWeight = FontWeight.SemiBold)
         }
+    }
+}
+
+@Composable
+private fun AuthScaffold(scrollState: androidx.compose.foundation.ScrollState, content: @Composable ColumnScope.() -> Unit) {
+    Column(
+        Modifier.fillMaxSize()
+            .background(Brush.verticalGradient(listOf(Color(0xFFECFDF5), Color(0xFFF8FAFC))))
+            .safeDrawingPadding().imePadding().verticalScroll(scrollState)
+            .padding(horizontal = 20.dp, vertical = 28.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Image(painterResource(R.drawable.solargridx_mark), "SolarGridX logo", Modifier.size(52.dp))
+            Column {
+                Text("SolarGridX", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = SolarGreen)
+                Text("SOLAR ENERGY. CONNECTED.", fontSize = 10.sp, letterSpacing = 1.sp, color = AuthTextSecondary)
+            }
+        }
+        Spacer(Modifier.height(28.dp))
+        Surface(Modifier.widthIn(max = 480.dp).fillMaxWidth(), shape = RoundedCornerShape(28.dp), color = Color.White, shadowElevation = 3.dp) {
+            Column(Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally, content = content)
+        }
+        Spacer(Modifier.height(24.dp))
+        Text("A brighter future starts with your energy.", color = AuthTextSecondary, fontSize = 12.sp)
+    }
+}
+
+@Composable
+private fun AuthHeading(title: String, subtitle: String) {
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(title, fontSize = 26.sp, fontWeight = FontWeight.Bold, color = AuthTextPrimary)
+        Text(subtitle, fontSize = 14.sp, color = AuthTextSecondary, lineHeight = 21.sp)
     }
 }
 
@@ -465,15 +423,7 @@ fun PendingApprovalScreen(
     val scope = rememberCoroutineScope()
     val scrollState = rememberScrollState()
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color(0xFFF8FAFC))
-            .padding(24.dp)
-            .verticalScroll(scrollState),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
+    AuthScaffold(scrollState = scrollState) {
         Box(
             modifier = Modifier
                 .size(80.dp)
@@ -481,7 +431,7 @@ fun PendingApprovalScreen(
             contentAlignment = Alignment.Center
         ) {
             Icon(
-                imageVector = Icons.Default.Info,
+                imageVector = Icons.Outlined.HourglassTop,
                 contentDescription = "Pending Approval",
                 tint = Color(0xFFD97706),
                 modifier = Modifier.size(44.dp)
@@ -491,7 +441,7 @@ fun PendingApprovalScreen(
         Spacer(modifier = Modifier.height(16.dp))
 
         Text(
-            text = "Awaiting Activation",
+            text = "Pending admin approval",
             fontSize = 24.sp,
             fontWeight = FontWeight.Bold,
             color = AuthTextPrimary
@@ -500,7 +450,7 @@ fun PendingApprovalScreen(
         Spacer(modifier = Modifier.height(6.dp))
 
         Text(
-            text = "Your Prosumer account is pending or inactive",
+            text = "Registration received. Your account is awaiting review.",
             fontSize = 14.sp,
             color = AuthTextSecondary
         )
@@ -524,7 +474,7 @@ fun PendingApprovalScreen(
                         shape = androidx.compose.foundation.shape.RoundedCornerShape(6.dp)
                     ) {
                         Text(
-                            text = "AWAITING ACTIVATION",
+                            text = "PENDING APPROVAL",
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
                             color = Color(0xFFB45309),
@@ -582,7 +532,7 @@ fun PendingApprovalScreen(
                 )
                 Spacer(modifier = Modifier.height(6.dp))
                 Text(
-                    text = "1. An administrator reviews your prosumer registration.\n2. Once approved, your account will be activated.\n3. Click 'Check Status Now' below to log in once activated.",
+                    text = "1. An administrator reviews your prosumer registration.\n2. Once approved, your account will be activated.\n3. Tap 'Check approval status' below to sign in after approval.",
                     fontSize = 12.sp,
                     color = AuthTextSecondary,
                     lineHeight = 18.sp
@@ -629,7 +579,7 @@ fun PendingApprovalScreen(
                             error.message?.contains("inactive", ignoreCase = true) == true ||
                             error.message?.contains("deactivat", ignoreCase = true) == true) {
                             isError = false
-                            statusMessage = "Account is not active yet (Status: Pending or Inactive). Once activated in database, click again to enter."
+                            statusMessage = "Your account is awaiting activation. An administrator must approve and activate it before you can sign in."
                         } else {
                             isError = true
                             statusMessage = error.message ?: "Authentication failed."
@@ -669,7 +619,7 @@ fun PendingApprovalScreen(
             } else {
                 Icon(Icons.Default.Refresh, contentDescription = null, tint = Color.White)
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("Check Status Now", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                Text("Check approval status", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Color.White)
             }
         }
 

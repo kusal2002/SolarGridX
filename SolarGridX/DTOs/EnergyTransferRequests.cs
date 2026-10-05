@@ -1,3 +1,10 @@
+// ============================================================================
+// Project: SolarGridX - Smart Solar Microgrid Platform
+// Module: Enterprise Application Development (EAD)
+// File: EnergyTransferRequests.cs
+// Description: Request DTOs and query filters for energy transfer actions (verify, meter progress, complete, fail, cancel).
+// ============================================================================
+
 using System.ComponentModel.DataAnnotations;
 
 namespace SolarGridX.DTOs;

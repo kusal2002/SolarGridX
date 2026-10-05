@@ -3,6 +3,7 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from "
 import { getMyProfile } from "@/lib/auth-api"
 import type { LoginResponse, User } from "@/types/user"
 
+// Authentication context interface defining session state and auth actions
 interface AuthContextType {
   user: User | null
   checkingSession: boolean
@@ -13,10 +14,12 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
+// Context provider component managing authentication state and token persistence
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [checkingSession, setCheckingSession] = useState(() => Boolean(localStorage.getItem("solargridx-token")))
 
+  // Validates stored JWT token on startup and fetches current user profile
   useEffect(() => {
     const handleLogoutEvent = () => {
       setUser(null)
@@ -50,18 +53,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
+  // Persists authentication token and user data on successful login
   const login = (data: LoginResponse) => {
     localStorage.setItem("solargridx-token", data.token)
     localStorage.setItem("solargridx-user", JSON.stringify(data))
     setUser(data)
   }
 
+  // Clears stored credentials and resets user state on logout
   const logout = () => {
     localStorage.removeItem("solargridx-token")
     localStorage.removeItem("solargridx-user")
     setUser(null)
   }
 
+  // Updates local user state when profile is edited
   const updateUser = (updatedUser: User) => {
     localStorage.setItem("solargridx-user", JSON.stringify(updatedUser))
     setUser(updatedUser)
@@ -74,6 +80,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   )
 }
 
+// Custom hook to consume authentication context
 export function useAuth() {
   const context = useContext(AuthContext)
   if (!context) {

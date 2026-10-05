@@ -5,21 +5,29 @@ import { request } from "@/lib/api-client"
 import { useAuth } from "@/context/AuthContext"
 import type { Station } from "@/types/station"
 
+// Type definition for dashboard KPI metrics
 type Stats = { pending: number; current: number; completedTransfers: number; deliveredEnergyKwh: number; stationCount: number; activeStations: number; activeSlots: number; availableEnergyKwh: number; activeTransfers: number }
+// Type definition for recently completed energy transfer records
 type Completed = { id: string; stationId: string; prosumerNIC: string; transferredEnergyKWh: number; completedAt?: string }
 
+// Dashboard overview page displaying station metrics and recent activity
 export function DashboardPage() {
   const { user } = useAuth()
+  // Station list and active filter state
   const [stations, setStations] = useState<Station[]>([])
   const [stationId, setStationId] = useState("")
+  // Metrics summary and recent transfers state
   const [stats, setStats] = useState<Stats | null>(null)
   const [completed, setCompleted] = useState<Completed[]>([])
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
+
+  // Fetch dashboard summary, stations, and recent completed transfers
   const load = useCallback(async () => {
     setLoading(true); setError("")
     try {
       const suffix = stationId ? `&stationId=${encodeURIComponent(stationId)}` : ""
+      // Parallel API calls for stations, KPI stats, and completed transfers
       const [list, summary, history] = await Promise.all([
         request<Station[]>("/stations/all"),
         request<Stats>(`/dashboard/summary?${suffix.slice(1)}`),
@@ -29,10 +37,14 @@ export function DashboardPage() {
     } catch (e) { setError(e instanceof Error ? e.message : "Could not load dashboard"); setStats(null); setCompleted([]) }
     finally { setLoading(false) }
   }, [stationId])
+
+  // Reload data whenever the selected station filter changes
   useEffect(() => {
     const timer = window.setTimeout(() => { void load() }, 0)
     return () => window.clearTimeout(timer)
   }, [load])
+
+  // Icon mapping and KPI card configurations
   const icons = [Building2, ShieldCheck, BatteryCharging, Zap, Clock3, CalendarCheck2, Activity, CheckCircle2, Gauge]
   const cards = stats ? [
     ["Stations", stats.stationCount], ["Active stations", stats.activeStations],

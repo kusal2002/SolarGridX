@@ -10,6 +10,7 @@ http:
     data: |-
       {
         "stationName": "2 nd West Coast Solar Station",
+        "operatorNICs": ["{{operatorNIC}}"],
         "location": "Negombo2",
         "latitude": 7.2083,
         "longitude": 79.8358,

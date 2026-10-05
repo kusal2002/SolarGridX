@@ -1,3 +1,10 @@
+// ============================================================================
+// Project: SolarGridX - Smart Solar Microgrid Platform
+// Module: Enterprise Application Development (EAD)
+// File: SlotService.cs
+// Description: Service class handling business logic for energy booking slots, schedules, and capacity limits.
+// ============================================================================
+
 using MongoDB.Driver;
 using SolarGridX.DTOs.Slots;
 using SolarGridX.Models;
@@ -11,6 +18,7 @@ public class SlotService
 
     public SlotService(IMongoDatabase database)
     {
+        // Initialize Mongo collections for slots and stations
         _slots = database.GetCollection<EnergyBookingSlot>(
             "EnergyBookingSlots"
         );
@@ -20,9 +28,30 @@ public class SlotService
         );
     }
 
+    public static bool IsPast(EnergyBookingSlot slot, DateTime utcNow)
+    {
+        // Check if a given slot date and end time has already passed in Sri Lanka time zone
+        var zone = TimeZoneInfo.FindSystemTimeZoneById(OperatingSystem.IsWindows() ? "Sri Lanka Standard Time" : "Asia/Colombo");
+        var now = TimeZoneInfo.ConvertTimeFromUtc(utcNow, zone);
+        var day = TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(slot.SlotDate, DateTimeKind.Utc), zone).Date;
+        return day.Add(slot.EndTime) <= now;
+    }
+
+    private async Task ExpirePastSlotsAsync()
+    {
+        // Find active slots that have expired and automatically mark them as inactive
+        var now = DateTime.UtcNow;
+        var active = await _slots.Find(s => s.IsActive).ToListAsync();
+        foreach (var slot in active.Where(s => IsPast(s, now)))
+            await _slots.UpdateOneAsync(s => s.Id == slot.Id && s.IsActive && s.SlotDate == slot.SlotDate && s.EndTime == slot.EndTime,
+                Builders<EnergyBookingSlot>.Update.Set(s => s.IsActive, false).Set(s => s.UpdatedAt, now));
+    }
+
     // Get all active slots
     public async Task<List<EnergyBookingSlot>> GetAllAsync()
     {
+        // Retrieve all active booking slots after updating expired ones
+        await ExpirePastSlotsAsync();
         return await _slots
             .Find(slot => slot.IsActive == true)
             .ToListAsync();
@@ -31,6 +60,8 @@ public class SlotService
     // Get all slots including inactive
     public async Task<List<EnergyBookingSlot>> GetAllIncludingInactiveAsync()
     {
+        // Retrieve all booking slots from database including inactive ones
+        await ExpirePastSlotsAsync();
         return await _slots
             .Find(_ => true)
             .ToListAsync();
@@ -39,6 +70,8 @@ public class SlotService
     // Get slot by Id
     public async Task<EnergyBookingSlot?> GetByIdAsync(string id)
     {
+        // Fetch an active slot by its unique MongoDB identifier
+        await ExpirePastSlotsAsync();
         return await _slots
             .Find(slot =>
                 slot.Id == id &&
@@ -50,6 +83,8 @@ public class SlotService
     public async Task<List<EnergyBookingSlot>> GetByStationIdAsync(
         string stationId)
     {
+        // Fetch all active slots belonging to a specific solar station
+        await ExpirePastSlotsAsync();
         return await _slots
             .Find(slot =>
                 slot.StationId == stationId &&
@@ -61,6 +96,8 @@ public class SlotService
     public async Task<List<EnergyBookingSlot>> GetByStationIdIncludingInactiveAsync(
         string stationId)
     {
+        // Fetch all slots (active and inactive) for a specific station
+        await ExpirePastSlotsAsync();
         return await _slots
             .Find(slot => slot.StationId == stationId)
             .ToListAsync();
@@ -70,6 +107,7 @@ public class SlotService
     public async Task<EnergyBookingSlot?> CreateAsync(
         CreateSlotRequest request)
     {
+        // Validate date, times, capacity limits, and overlap before creating a new slot
         var requestedDate = request.SlotDate.Date;
         var currentDate = DateTime.Now.Date;
 
@@ -193,6 +231,8 @@ public class SlotService
     string id,
     UpdateSlotRequest request)
     {
+        // Validate updated slot timing, capacity constraints, and existing reservations
+        await ExpirePastSlotsAsync();
         if (request.StartTime >= request.EndTime)
         {
             throw new ArgumentException(
@@ -310,6 +350,7 @@ public class SlotService
     //Deactivate Slot
     public async Task<EnergyBookingSlot?> DeactivateAsync(string id)
     {
+        // Deactivate an existing active slot by setting IsActive to false
         var slot = await _slots
             .Find(item =>
                 item.Id == id &&
@@ -335,6 +376,8 @@ public class SlotService
     // Reactivate Slot
     public async Task<EnergyBookingSlot?> ReactivateAsync(string id)
     {
+        // Reactivate a deactivated slot after validating it has not expired and does not overlap
+        await ExpirePastSlotsAsync();
         var slot = await _slots
             .Find(item =>
                 item.Id == id &&
@@ -345,6 +388,9 @@ public class SlotService
         {
             return null;
         }
+
+        if (IsPast(slot, DateTime.UtcNow))
+            throw new InvalidOperationException("Past slots cannot be reactivated. Create a new slot instead.");
 
         var requestedDate = slot.SlotDate.Date;
         var nextDate = requestedDate.AddDays(1);
@@ -384,6 +430,7 @@ public class SlotService
     // Delete Slot
     public async Task<bool> DeleteAsync(string id)
     {
+        // Permanently remove a slot from the database by its ID
         var slot = await _slots.Find(item =>
             item.Id == id).FirstOrDefaultAsync();
 

@@ -1,3 +1,4 @@
+import { OperatorSelector, type StationOperator } from "@/components/operator-selector"
 import { useState, useEffect } from "react"
 import { Plus, Search, MapPin } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -40,9 +41,11 @@ const defaultIcon = L.icon({
 L.Marker.prototype.options.icon = defaultIcon
 
 interface AddStationDialogProps {
+  operators?: StationOperator[]
   onStationAdded: (station: Station) => void
 }
 
+// Captures click events on the Leaflet map to select coordinates
 function MapEvents({
   onLocationSelect,
 }: {
@@ -56,6 +59,7 @@ function MapEvents({
   return null
 }
 
+// Recenters Leaflet map view when coordinates change
 function MapCenter({
   position,
   zoom,
@@ -70,11 +74,14 @@ function MapCenter({
   return null
 }
 
-export function AddStationDialog({ onStationAdded }: AddStationDialogProps) {
+// Dialog for registering a new solar charging station with map coordinates
+export function AddStationDialog({ onStationAdded, operators = [] }: AddStationDialogProps) {
+  const [selectedOperators, setSelectedOperators] = useState<string[]>([])
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
 
+  // Form input values for station attributes
   const [formData, setFormData] = useState({
     stationName: "",
     location: "",
@@ -108,6 +115,7 @@ export function AddStationDialog({ onStationAdded }: AddStationDialogProps) {
   }, [gpsLocation])
 
   const resetForm = () => {
+    setSelectedOperators([])
     setFormData({
       stationName: "",
       location: "",
@@ -131,6 +139,7 @@ export function AddStationDialog({ onStationAdded }: AddStationDialogProps) {
     setFormData((prev) => ({ ...prev, [name]: value }))
   }
 
+  // Updates coordinates from map click and performs reverse geocoding to fill location name
   const handleLocationSelect = async (lat: number, lng: number) => {
     setFormData((prev) => ({
       ...prev,
@@ -156,6 +165,7 @@ export function AddStationDialog({ onStationAdded }: AddStationDialogProps) {
     }
   }
 
+  // Searches location name via OpenStreetMap Nominatim API
   const handleSearch = async () => {
     if (!searchQuery) return
     setIsSearching(true)
@@ -183,6 +193,7 @@ export function AddStationDialog({ onStationAdded }: AddStationDialogProps) {
     }
   }
 
+  // Validates operating hours schedule and submits new station to backend
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
@@ -203,6 +214,7 @@ export function AddStationDialog({ onStationAdded }: AddStationDialogProps) {
     try {
       const newStation = await createStation({
         stationName: formData.stationName,
+        operatorNICs: selectedOperators,
         location: formData.location,
         latitude: parseFloat(formData.latitude),
         longitude: parseFloat(formData.longitude),
@@ -216,7 +228,7 @@ export function AddStationDialog({ onStationAdded }: AddStationDialogProps) {
       setOpen(false)
     } catch (err) {
       console.error(err)
-      setError("Failed to create station. Please try again.")
+      setError(err instanceof Error ? err.message : "Failed to create station. Please try again.")
     } finally {
       setLoading(false)
     }
@@ -426,6 +438,7 @@ export function AddStationDialog({ onStationAdded }: AddStationDialogProps) {
             </div>
           </div>
 
+          <div className="mb-6 space-y-2"><Label>Grid Operators</Label><OperatorSelector operators={operators} value={selectedOperators} onChange={setSelectedOperators} disabled={loading} /></div>
           <DialogFooter>
             <Button
               type="button"

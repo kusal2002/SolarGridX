@@ -1,3 +1,10 @@
+// ============================================================================
+// Project: SolarGridX - Smart Solar Microgrid Platform
+// Module: Enterprise Application Development (EAD)
+// File: ReservationController.cs
+// Description: API controller for managing energy reservations, cancellations, QR code generation, and approvals.
+// ============================================================================
+
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -17,6 +24,7 @@ public class ReservationController : ControllerBase
 
     public ReservationController(ReservationService reservationService, ReservationQrService qr, StationAccessService access)
     {
+        // Inject reservation, QR, and station access services
         _reservationService = reservationService;
         _qr = qr;
         _access = access;
@@ -26,17 +34,20 @@ public class ReservationController : ControllerBase
     [Authorize(Roles = "Backoffice,Grid Operator,Prosumer")]
     public async Task<IActionResult> GetAll()
     {
+        // Retrieve all reservations scoped to the caller's role and assigned stations
         var list = User.IsInRole("Prosumer")
             ? await _reservationService.GetByProsumerAsync(User.FindFirstValue(ClaimTypes.NameIdentifier)!)
             : await _reservationService.GetAllAsync();
         var ids = await _access.StationIdsAsync(User);
         if (ids != null) list = list.Where(r => ids.Contains(r.StationId)).ToList();
+        await _reservationService.PopulateDisplayNamesAsync(list);
         return Ok(list);
     }
 
     [HttpGet("{id}/qr")]
     public async Task<IActionResult> GetQr(string id)
     {
+        // Generate a time-limited QR payload for an approved energy reservation
         if (!MongoDB.Bson.ObjectId.TryParse(id, out var parsed))
             return BadRequest(new { message = "Invalid reservation ID." });
         var reservation = await _reservationService.GetByIdAsync(parsed.ToString());
@@ -51,31 +62,37 @@ public class ReservationController : ControllerBase
     [HttpGet("{id}")]
     public async Task<IActionResult> GetById(string id)
     {
+        // Fetch single reservation by ID after verifying access rights
         var res = await _reservationService.GetByIdAsync(id);
         if (res == null) return NotFound(new { message = "Reservation not found." });
         if (!CanAccess(res.ProsumerNIC)) return Forbid();
         if (!await _access.CanAccessAsync(User, res.StationId)) return Forbid();
+        await _reservationService.PopulateDisplayNamesAsync([res]);
         return Ok(res);
     }
 
     [HttpGet("prosumer/{nic}")]
     public async Task<IActionResult> GetByProsumer(string nic)
     {
+        // Fetch all reservations belonging to a specific prosumer NIC
         if (!CanAccess(nic)) return Forbid();
         var list = await _reservationService.GetByProsumerAsync(nic);
         var ids = await _access.StationIdsAsync(User);
         if (ids != null) list = list.Where(r => ids.Contains(r.StationId)).ToList();
+        await _reservationService.PopulateDisplayNamesAsync(list);
         return Ok(list);
     }
 
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] CreateReservationRequest request)
     {
+        // Create a new reservation for an active prosumer on an available slot
         try
         {
             if (!CanAccess(request.ProsumerNIC)) return Forbid();
             if (!await _access.CanAccessSlotAsync(User, request.SlotId)) return Forbid();
             var created = await _reservationService.CreateAsync(request);
+            await _reservationService.PopulateDisplayNamesAsync([created]);
             return CreatedAtAction(nameof(GetById), new { id = created.Id }, created);
         }
         catch (KeyNotFoundException ex)
@@ -91,6 +108,7 @@ public class ReservationController : ControllerBase
     [HttpPut("{id}")]
     public async Task<IActionResult> Update(string id, [FromBody] UpdateReservationRequest request)
     {
+        // Update reservation slot or energy amount subject to the 12-hour modification rule
         try
         {
             var existing = await _reservationService.GetByIdAsync(id);
@@ -99,6 +117,7 @@ public class ReservationController : ControllerBase
             if (!await _access.CanAccessAsync(User, existing.StationId)) return Forbid();
             if (request.NewSlotId != null && !await _access.CanAccessSlotAsync(User, request.NewSlotId)) return Forbid();
             var updated = await _reservationService.UpdateAsync(id, request);
+            await _reservationService.PopulateDisplayNamesAsync([updated]);
             return Ok(updated);
         }
         catch (KeyNotFoundException ex)
@@ -114,6 +133,7 @@ public class ReservationController : ControllerBase
     [HttpPatch("{id}/cancel")]
     public async Task<IActionResult> Cancel(string id, [FromQuery] string? reason)
     {
+        // Cancel reservation at least 12 hours before slot start time and restore slot energy
         try
         {
             var existing = await _reservationService.GetByIdAsync(id);
@@ -121,6 +141,7 @@ public class ReservationController : ControllerBase
             if (!CanAccess(existing.ProsumerNIC)) return Forbid();
             if (!await _access.CanAccessAsync(User, existing.StationId)) return Forbid();
             var cancelled = await _reservationService.CancelAsync(id, reason);
+            await _reservationService.PopulateDisplayNamesAsync([cancelled]);
             return Ok(cancelled);
         }
         catch (KeyNotFoundException ex)
@@ -137,12 +158,14 @@ public class ReservationController : ControllerBase
     [Authorize(Roles = "Backoffice,Grid Operator")]
     public async Task<IActionResult> UpdateStatus(string id, [FromBody] UpdateReservationStatusRequest request)
     {
+        // Approve a pending reservation by staff
         try
         {
             var existing = await _reservationService.GetByIdAsync(id);
             if (existing == null) return NotFound();
             if (!await _access.CanAccessAsync(User, existing.StationId)) return Forbid();
             var updated = await _reservationService.UpdateStatusAsync(id, request.Status);
+            await _reservationService.PopulateDisplayNamesAsync([updated]);
             return Ok(updated);
         }
         catch (KeyNotFoundException ex)
@@ -154,8 +177,12 @@ public class ReservationController : ControllerBase
             return Conflict(new { message = ex.Message });
         }
     }
+
     // Staff may assist any prosumer; prosumers may only access their own bookings.
-    private bool CanAccess(string nic) =>
-        User.IsInRole("Backoffice") || User.IsInRole("Grid Operator") ||
-        (User.IsInRole("Prosumer") && string.Equals(User.FindFirstValue(ClaimTypes.NameIdentifier)?.Trim(), nic?.Trim(), StringComparison.OrdinalIgnoreCase));
+    private bool CanAccess(string nic)
+    {
+        // Verify caller permissions: staff can access any prosumer, prosumers only access their own
+        return User.IsInRole("Backoffice") || User.IsInRole("Grid Operator") ||
+            (User.IsInRole("Prosumer") && string.Equals(User.FindFirstValue(ClaimTypes.NameIdentifier)?.Trim(), nic?.Trim(), StringComparison.OrdinalIgnoreCase));
+    }
 }

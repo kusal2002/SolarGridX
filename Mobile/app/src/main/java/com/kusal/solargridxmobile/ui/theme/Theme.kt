@@ -1,58 +1,26 @@
 package com.kusal.solargridxmobile.ui.theme
-
-import android.app.Activity
-import android.os.Build
-import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.dynamicDarkColorScheme
-import androidx.compose.material3.dynamicLightColorScheme
-import androidx.compose.material3.lightColorScheme
+import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.graphics.Color
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.unit.dp
 
-private val DarkColorScheme = darkColorScheme(
-    primary = Purple80,
-    secondary = PurpleGrey80,
-    tertiary = Pink80
+// Every screen currently uses light surfaces. Keep all menus and dialogs on the same palette.
+private val SolarColors = lightColorScheme(
+    primary = Color(0xFF15803D), onPrimary = Color.White,
+    primaryContainer = Color(0xFFDCFCE7), onPrimaryContainer = Color(0xFF14532D),
+    secondary = Color(0xFF475569), onSecondary = Color.White,
+    secondaryContainer = Color(0xFFF1F5F9), onSecondaryContainer = Color(0xFF334155),
+    tertiary = Color(0xFF0F766E), background = Color(0xFFF8FAFC), onBackground = Color(0xFF0F172A),
+    surface = Color.White, onSurface = Color(0xFF0F172A), onSurfaceVariant = Color(0xFF64748B),
+    surfaceVariant = Color(0xFFF1F5F9), surfaceContainer = Color.White,
+    surfaceContainerLow = Color.White, surfaceContainerHigh = Color.White,
+    surfaceContainerHighest = Color(0xFFF1F5F9), surfaceContainerLowest = Color.White,
+    outline = Color(0xFFCBD5E1), outlineVariant = Color(0xFFE2E8F0),
+    error = Color(0xFFB91C1C), onError = Color.White, errorContainer = Color(0xFFFEE2E2), onErrorContainer = Color(0xFF991B1B)
 )
-
-private val LightColorScheme = lightColorScheme(
-    primary = Purple40,
-    secondary = PurpleGrey40,
-    tertiary = Pink40
-
-    /* Other default colors to override
-    background = Color(0xFFFFFBFE),
-    surface = Color(0xFFFFFBFE),
-    onPrimary = Color.White,
-    onSecondary = Color.White,
-    onTertiary = Color.White,
-    onBackground = Color(0xFF1C1B1F),
-    onSurface = Color(0xFF1C1B1F),
-    */
-)
-
 @Composable
-fun SolarGridXMobileTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
-    // Dynamic color is available on Android 12+
-    dynamicColor: Boolean = true,
-    content: @Composable () -> Unit
-) {
-    val colorScheme = when {
-        dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
-            val context = LocalContext.current
-            if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
-        }
-
-        darkTheme -> DarkColorScheme
-        else -> LightColorScheme
-    }
-
-    MaterialTheme(
-        colorScheme = colorScheme,
-        typography = Typography,
-        content = content
-    )
+fun SolarGridXMobileTheme(content: @Composable () -> Unit) {
+    MaterialTheme(colorScheme = SolarColors, typography = Typography,
+        shapes = Shapes(small = RoundedCornerShape(12.dp), medium = RoundedCornerShape(16.dp), large = RoundedCornerShape(24.dp)), content = content)
 }

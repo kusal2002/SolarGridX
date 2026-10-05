@@ -1,23 +1,25 @@
 package com.kusal.solargridxmobile.ui.transfer
-
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.kusal.solargridxmobile.data.api.*
 import com.kusal.solargridxmobile.data.local.SessionManager
 import com.kusal.solargridxmobile.data.model.SolarStation
-import com.kusal.solargridxmobile.ui.reservation.GreenPrimary
-import com.kusal.solargridxmobile.ui.reservation.TextPrimary
+import com.kusal.solargridxmobile.ui.theme.MobileMetric
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
+import java.util.Locale
 
 @Composable
 fun OperatorHomeScreen(session: SessionManager, onTransfers: () -> Unit) {
@@ -28,64 +30,76 @@ fun OperatorHomeScreen(session: SessionManager, onTransfers: () -> Unit) {
     var expanded by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
+    var requestId by remember { mutableIntStateOf(0) }
     val scope = rememberCoroutineScope()
     fun refresh() {
+        val request = ++requestId
+        val filter = stationId
         scope.launch {
             busy = true; error = ""
             try {
-                stations = ApiClient.transferService.dashboardStations()
-                stats = ApiClient.transferService.summary(stationId)
-                completed = ApiClient.transferService.transfers(status = "Completed", stationId = stationId, pageSize = 5)
+                val stationList = ApiClient.transferService.dashboardStations()
+                val counts = ApiClient.transferService.summary(filter)
+                val history = ApiClient.transferService.transfers(status = "Completed", stationId = filter, pageSize = 5)
+                if (request == requestId) { stations = stationList; stats = counts; completed = history }
             } catch (e: CancellationException) { throw e }
-            catch (e: Exception) { error = e.message ?: "Could not load station statistics"; stats = null; completed = emptyList() }
-            finally { busy = false }
+            catch (e: Exception) { if (request == requestId) { error = "Unable to load station overview. Check your connection and retry."; stats = null; completed = emptyList() } }
+            finally { if (request == requestId) busy = false }
         }
     }
     LaunchedEffect(stationId) { refresh() }
-    MaterialTheme(colorScheme = MaterialTheme.colorScheme.copy(primary = GreenPrimary, onPrimary = Color.White, surface = Color.White, onSurface = TextPrimary)) {
-    Column(Modifier.fillMaxSize().background(Color(0xFFF8FAFC)).verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text("Welcome, ${session.getUserProfile()?.name ?: "Operator"}", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = TextPrimary)
-        Text(if (session.getUserRole() == "Backoffice") "System operations" else "Your assigned station operations", color = TextPrimary)
-        Box {
-            OutlinedButton(enabled = !busy, onClick = { expanded = true }) { Text(stations.find { it.id == stationId }?.stationName ?: "All assigned stations") }
-            DropdownMenu(expanded, onDismissRequest = { expanded = false }) {
-                DropdownMenuItem(text = { Text("All accessible stations") }, onClick = { stationId = null; expanded = false })
-                stations.forEach { station -> DropdownMenuItem(text = { Text(station.stationName) }, onClick = { stationId = station.id; expanded = false }) }
-            }
-        }
-        TextButton(enabled = !busy, onClick = { refresh() }) { Text("Refresh statistics") }
-        if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
-        if (error.isNotBlank()) Text(error, color = MaterialTheme.colorScheme.error)
-        if (!busy && error.isBlank() && stations.isEmpty()) Text("Ask Backoffice to assign you to a station in Station Management.", color = TextPrimary)
-        stats?.let { counts ->
-            val cards = listOf("Stations" to counts.stationCount.toString(), "Upcoming active slots" to counts.activeSlots.toString(),
-                "Pending bookings" to counts.pending.toString(), "Current bookings" to counts.current.toString(),
-                "Transfers in progress" to counts.activeTransfers.toString(), "Completed transfers" to counts.completedTransfers.toString(),
-                "Available energy" to "${counts.availableEnergyKwh} kWh", "Completed energy" to "${counts.deliveredEnergyKwh} kWh")
-            cards.chunked(2).forEach { row ->
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    row.forEach { (label, value) ->
-                        Card(Modifier.weight(1f), shape = RoundedCornerShape(14.dp), colors = CardDefaults.cardColors(containerColor = Color.White)) {
-                            Column(Modifier.padding(14.dp)) {
-                                Text(label, style = MaterialTheme.typography.bodySmall, color = TextPrimary)
-                                Text(value, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = GreenPrimary)
-                            }
+    LazyColumn(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background), contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        item {
+            Surface(color = MaterialTheme.colorScheme.primaryContainer, shape = RoundedCornerShape(24.dp)) {
+                Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text(if (session.getUserRole() == "Backoffice") "System overview" else "Station overview", style = MaterialTheme.typography.titleLarge)
+                            Text(session.getUserProfile()?.name ?: "Grid Operator", maxLines = 1, overflow = TextOverflow.Ellipsis, color = MaterialTheme.colorScheme.onPrimaryContainer)
                         }
+                        IconButton(enabled = !busy, onClick = { refresh() }) { Icon(Icons.Default.Refresh, "Refresh overview") }
                     }
+                    Text("Bookings, energy and delivery in one place", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onPrimaryContainer)
                 }
             }
         }
-        Button(onClick = onTransfers, colors = ButtonDefaults.buttonColors(containerColor = GreenPrimary)) { Text("Open transfers & history") }
-        Text("Recently completed", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = TextPrimary)
-        if (!busy && completed.isEmpty()) Text("No completed transfers yet.", color = TextPrimary)
-        completed.forEach { transfer ->
-            Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = Color.White)) {
-                Column(Modifier.padding(14.dp)) {
-                    Text(stations.find { it.id == transfer.stationId }?.stationName ?: "Station unavailable", fontWeight = FontWeight.SemiBold, color = TextPrimary)
-                    Text("${transfer.prosumerNIC} · ${transfer.transferredEnergyKWh} kWh · Completed", color = TextPrimary)
+        item {
+            Box {
+                OutlinedButton(modifier = Modifier.fillMaxWidth(), enabled = !busy, onClick = { expanded = true }) {
+                    Icon(Icons.Default.LocationOn, null); Spacer(Modifier.width(8.dp))
+                    Text(stations.find { it.id == stationId }?.stationName ?: "All accessible stations", Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Icon(Icons.Default.ExpandMore, null)
+                }
+                DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }, containerColor = MaterialTheme.colorScheme.surface) {
+                    DropdownMenuItem(text = { Text("All accessible stations", color = MaterialTheme.colorScheme.onSurface) }, onClick = { stationId = null; expanded = false })
+                    stations.forEach { station -> DropdownMenuItem(text = { Text(station.stationName, color = MaterialTheme.colorScheme.onSurface) }, onClick = { stationId = station.id; expanded = false }) }
                 }
             }
         }
-    }
+        if (busy) item { LinearProgressIndicator(Modifier.fillMaxWidth()) }
+        if (error.isNotBlank()) item { OutlinedCard { Column(Modifier.padding(16.dp)) { Text(error, color = MaterialTheme.colorScheme.error); TextButton(onClick = { refresh() }) { Text("Retry") } } } }
+        if (!busy && error.isBlank() && stations.isEmpty()) item { Text("Ask Backoffice to assign your account to a station.", color = MaterialTheme.colorScheme.onSurfaceVariant) }
+        item { Button(modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp), onClick = onTransfers) { Icon(Icons.Default.QrCodeScanner, null); Spacer(Modifier.width(8.dp)); Text("Scan QR & manage transfers") } }
+        stats?.let { counts ->
+            val metrics = listOf(Triple("Assigned stations", counts.stationCount.toString(), Icons.Default.LocationOn), Triple("Upcoming slots", counts.activeSlots.toString(), Icons.Default.CalendarMonth),
+                Triple("Pending bookings", counts.pending.toString(), Icons.Default.Schedule), Triple("Current bookings", counts.current.toString(), Icons.Default.EventAvailable),
+                Triple("In progress", counts.activeTransfers.toString(), Icons.Default.Sync), Triple("Completed", counts.completedTransfers.toString(), Icons.Default.CheckCircle),
+                Triple("Available energy", String.format(Locale.US, "%.1f kWh", counts.availableEnergyKwh), Icons.Default.Bolt), Triple("Delivered energy", String.format(Locale.US, "%.1f kWh", counts.deliveredEnergyKwh), Icons.Default.BatteryChargingFull))
+            items(metrics.chunked(2)) { row -> Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) { row.forEach { (label, value, icon) -> MobileMetric(label, value, icon, Modifier.weight(1f)) } } }
+        }
+        item { Text("Recent deliveries", style = MaterialTheme.typography.titleMedium) }
+        if (!busy && completed.isEmpty()) item { Text("Completed transfers will appear here.", color = MaterialTheme.colorScheme.onSurfaceVariant) }
+        items(completed, key = { it.id }) { transfer ->
+            OutlinedCard(modifier = Modifier.fillMaxWidth(), onClick = onTransfers, shape = RoundedCornerShape(20.dp)) {
+                Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Icon(Icons.Default.CheckCircle, null, tint = MaterialTheme.colorScheme.primary)
+                    Column(Modifier.weight(1f)) {
+                        Text(stations.find { it.id == transfer.stationId }?.stationName ?: "Station unavailable", fontWeight = FontWeight.SemiBold)
+                        Text(transfer.prosumerNIC, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    Text(String.format(Locale.US, "%.1f kWh", transfer.transferredEnergyKWh), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+                }
+            }
+        }
     }
 }

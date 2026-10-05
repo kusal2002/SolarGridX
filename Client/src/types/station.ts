@@ -1,7 +1,9 @@
+// Data model representing a solar charging station and its operating schedule
 export interface Station {
   id: string
   stationName: string
   operatorNIC?: string | null
+  operatorNICs?: string[]
   location: string
   latitude: number
   longitude: number

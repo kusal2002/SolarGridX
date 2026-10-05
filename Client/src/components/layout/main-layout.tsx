@@ -13,6 +13,7 @@ interface MainLayoutProps {
   children: ReactNode
 }
 
+// Main application layout shell containing the sidebar, header, and content area
 export function MainLayout({ user, activeView, onNavigate, onLogout, children }: MainLayoutProps) {
   return (
     <SidebarProvider>

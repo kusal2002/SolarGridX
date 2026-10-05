@@ -1,3 +1,10 @@
+// ============================================================================
+// Project: SolarGridX - Smart Solar Microgrid Platform
+// Module: Enterprise Application Development (EAD)
+// File: AuthController.cs
+// Description: API controller for user registration, authentication, profile management, and account status updates.
+// ============================================================================
+
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using System.Security.Claims;
@@ -15,6 +22,7 @@ namespace SolarGridX.Controllers
 
         public AuthController(AuthService authService)
         {
+            // Inject authentication service dependency
             _authService = authService;
         }
 
@@ -23,6 +31,7 @@ namespace SolarGridX.Controllers
         public async Task<IActionResult> Register(
             [FromBody] RegisterUserDto dto)
         {
+            // Validate model state and register new prosumer user account
             if (!ModelState.IsValid)
             {
                 return BadRequest(ModelState);
@@ -46,6 +55,7 @@ namespace SolarGridX.Controllers
         public async Task<IActionResult> Login(
     [FromBody] LoginUserDto dto)
         {
+            // Verify user credentials and return JWT token upon success
             if (!ModelState.IsValid)
             {
                 return BadRequest(ModelState);
@@ -75,6 +85,7 @@ namespace SolarGridX.Controllers
             [FromQuery] string sortBy = "createdAt",
             [FromQuery] string sortDirection = "desc")
         {
+            // Get paginated list of users with optional filtering by role, status, or search term
             if (page < 1 || pageSize is < 1 or > 100)
             {
                 return BadRequest(new { message = "Page must be positive and pageSize must be between 1 and 100." });
@@ -95,6 +106,7 @@ namespace SolarGridX.Controllers
         [Authorize]
         public async Task<IActionResult> GetUser(string nic)
         {
+            // Retrieve single user details by NIC with owner or backoffice authorization check
             if (User.FindFirstValue(ClaimTypes.NameIdentifier) != nic && !User.IsInRole("Backoffice"))
                 return Forbid();
             var result = await _authService.GetUserByNicAsync(nic);
@@ -105,6 +117,7 @@ namespace SolarGridX.Controllers
         [Authorize(Roles = "Backoffice")]
         public async Task<IActionResult> UpdateStatus(string nic, [FromBody] string status)
         {
+            // Update user account status (e.g. approve pending, deactivate) by Backoffice admin
             if (!Enum.TryParse<AccountStatus>(status, true, out var requestedStatus)
                 || !Enum.IsDefined(requestedStatus))
             {
@@ -127,6 +140,7 @@ namespace SolarGridX.Controllers
         [Authorize(Roles = "Backoffice")]
         public async Task<IActionResult> CreateStaffUser([FromBody] CreateStaffUserDto dto)
         {
+            // Create an active staff user (Backoffice or Grid Operator) by an administrator
             if (!ModelState.IsValid)
             {
                 return BadRequest(ModelState);
@@ -142,6 +156,7 @@ namespace SolarGridX.Controllers
         [Authorize]
         public async Task<IActionResult> UpdateProfile(string nic, [FromBody] UpdateProfileDto dto)
         {
+            // Update user profile information (name and email) for the authenticated user
             var authenticatedNic = User.FindFirstValue(ClaimTypes.NameIdentifier);
             if (authenticatedNic != nic && !User.IsInRole("Backoffice"))
             {
@@ -163,6 +178,7 @@ namespace SolarGridX.Controllers
         [Authorize(Roles = "Prosumer")]
         public async Task<IActionResult> RequestDeactivation(string nic)
         {
+            // Allow prosumer user to request deactivation of their own account
             if (User.FindFirstValue(ClaimTypes.NameIdentifier) != nic)
             {
                 return Forbid();
@@ -183,6 +199,7 @@ namespace SolarGridX.Controllers
         [Authorize]
         public async Task<IActionResult> GetMyProfile()
         {
+            // Fetch profile information of the currently authenticated user from token claims
             var nic = User.FindFirstValue(ClaimTypes.NameIdentifier);
             var result = await _authService.GetUserByNicAsync(nic ?? string.Empty);
             return result == null ? NotFound() : Ok(result);
