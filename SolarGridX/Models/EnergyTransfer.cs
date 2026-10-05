@@ -4,6 +4,7 @@ using MongoDB.Bson;
 
 namespace SolarGridX.Models
 {
+    [BsonIgnoreExtraElements]
     public class EnergyTransfer
     {
         [BsonId]
@@ -13,11 +14,16 @@ namespace SolarGridX.Models
         [BsonElement("reservationId")]
         public string ReservationId { get; set; } = string.Empty;
 
-        [BsonElement("sellerId")]
-        public string SellerId { get; set; } = string.Empty;
+        [BsonElement("prosumerNIC")]
+        public string ProsumerNIC { get; set; } = string.Empty;
 
-        [BsonElement("buyerId")]
-        public string BuyerId { get; set; } = string.Empty;
+        [BsonElement("stationId")]
+        [BsonRepresentation(BsonType.ObjectId)]
+        public string StationId { get; set; } = string.Empty;
+
+        [BsonElement("slotId")]
+        [BsonRepresentation(BsonType.ObjectId)]
+        public string SlotId { get; set; } = string.Empty;
 
         [BsonElement("expectedEnergyKWh")]
         public decimal ExpectedEnergyKWh { get; set; }
@@ -45,6 +51,12 @@ namespace SolarGridX.Models
 
         [BsonElement("reason")]
         public string? Reason { get; set; }
+
+        [BsonElement("verifiedBy")]
+        public string? VerifiedBy { get; set; }
+
+        [BsonElement("verifiedAt")]
+        public DateTime? VerifiedAt { get; set; }
 
         [BsonElement("history")]
         public List<EnergyTransferEvent> History { get; set; } = [];

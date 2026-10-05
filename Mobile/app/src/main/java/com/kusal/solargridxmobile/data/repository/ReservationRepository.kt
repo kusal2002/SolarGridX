@@ -19,7 +19,7 @@ class ReservationRepository(
             if (response.isSuccessful && response.body() != null) {
                 Result.success(response.body()!!)
             } else {
-                Result.failure(Exception("Failed to fetch stations"))
+                Result.failure(Exception(fetchError("stations", response.code())))
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -32,11 +32,19 @@ class ReservationRepository(
             if (response.isSuccessful && response.body() != null) {
                 Result.success(response.body()!!)
             } else {
-                Result.failure(Exception("Failed to fetch slots"))
+                Result.failure(Exception(fetchError("slots", response.code())))
             }
         } catch (e: Exception) {
             Result.failure(e)
         }
+    }
+
+    private fun fetchError(resource: String, status: Int): String = when (status) {
+        401 -> "Your login has expired. Log out and sign in again to load $resource."
+        403 -> "Your account cannot access $resource (HTTP 403)."
+        404 -> "$resource endpoint was not found (HTTP 404). Check the API address and deployed backend."
+        in 500..599 -> "The server could not load $resource (HTTP $status). Check the backend logs."
+        else -> "Could not load $resource (HTTP $status). Try refreshing."
     }
 
     suspend fun getProsumerReservations(nic: String): Result<List<EnergyReservation>> {

@@ -1,0 +1,38 @@
+name: Component 4 Local
+variables:
+  - name: baseUrl
+    value: http://localhost:5084
+  - name: backofficeToken
+    value: ''
+  - name: prosumerToken
+    value: ''
+  - name: reservationId
+    value: ''
+  - name: expectedEnergyKWh
+    value: '5'
+  - name: progressEnergyKWh
+    value: '2'
+  - name: transferId
+    value: ''
+  - name: cancelTransferId
+    value: ''
+  - name: failTransferId
+    value: ''
+  - name: qrPayload
+    value: ''
+  - name: bookingSearch
+    value: ''
+  - name: bookingStatus
+    value: ''
+  - name: stationId
+    value: ''
+  - name: slotId
+    value: ''
+  - name: slotDate
+    value: '2026-10-06'
+  - name: operatorNIC
+    value: ''
+  - name: gridOperatorToken
+    value: ''
+  - name: foreignStationId
+    value: ''

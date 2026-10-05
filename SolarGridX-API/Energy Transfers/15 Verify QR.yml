@@ -1,0 +1,21 @@
+info:
+  name: 15 Verify QR - run before Start
+  type: http
+  seq: 15
+http:
+  method: POST
+  url: '{{baseUrl}}/api/energy-transfers/verify'
+  body:
+    type: json
+    data: |-
+      {
+        "payload": "{{qrPayload}}"
+      }
+  auth:
+    type: bearer
+    token: '{{backofficeToken}}'
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

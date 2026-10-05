@@ -2,12 +2,12 @@ info:
   name: Get All Reservations
   type: http
   seq: 8
-
 http:
   method: GET
-  url: http://localhost:5084/api/Reservation
-  auth: inherit
-
+  url: '{{baseUrl}}/api/Reservation'
+  auth:
+    type: bearer
+    token: '{{backofficeToken}}'
 settings:
   encodeUrl: true
   timeout: 0

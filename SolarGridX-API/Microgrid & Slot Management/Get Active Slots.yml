@@ -1,0 +1,15 @@
+info:
+  name: "Get Active Slots"
+  type: http
+  seq: 25
+http:
+  method: GET
+  url: "{{baseUrl}}/api/slots"
+  auth:
+    type: bearer
+    token: "{{backofficeToken}}"
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

@@ -8,16 +8,18 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb"
-import { ModuleSwitcher } from "./module-switcher"
+import { Moon, Sun } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { useTheme } from "@/components/theme-provider"
 import { getBreadcrumbTitle, type View } from "@/router/routes"
 
 interface AppHeaderProps {
   activeView: View
   userRole?: string
-  onNavigate: (view: View) => void
 }
 
-export function AppHeader({ activeView, userRole, onNavigate }: AppHeaderProps) {
+export function AppHeader({ activeView, userRole }: AppHeaderProps) {
+  const { theme, setTheme } = useTheme()
   return (
     <header className="flex h-16 shrink-0 items-center justify-between gap-2 border-b px-4">
       <div className="flex items-center gap-2">
@@ -39,7 +41,10 @@ export function AppHeader({ activeView, userRole, onNavigate }: AppHeaderProps) 
         </Breadcrumb>
       </div>
 
-      <ModuleSwitcher activeView={activeView} onNavigate={onNavigate} />
+      <Button variant="outline" size="icon" aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+        onClick={() => setTheme(theme === "dark" ? "light" : "dark")}>
+        {theme === "dark" ? <Sun /> : <Moon />}
+      </Button>
     </header>
   )
 }

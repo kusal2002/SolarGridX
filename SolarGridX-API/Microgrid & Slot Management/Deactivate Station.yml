@@ -1,0 +1,15 @@
+info:
+  name: "Deactivate Station"
+  type: http
+  seq: 23
+http:
+  method: DELETE
+  url: "{{baseUrl}}/api/stations/{{stationId}}"
+  auth:
+    type: bearer
+    token: "{{backofficeToken}}"
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

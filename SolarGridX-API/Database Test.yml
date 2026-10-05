@@ -5,7 +5,10 @@ info:
 
 http:
   method: GET
-  url: http://192.168.0.122:5000/api/database-test
+  url: "{{baseUrl}}/api/database-test"
+  auth:
+    type: bearer
+    token: "{{backofficeToken}}"
 
 settings:
   encodeUrl: true

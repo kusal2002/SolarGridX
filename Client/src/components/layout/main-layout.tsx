@@ -18,7 +18,7 @@ export function MainLayout({ user, activeView, onNavigate, onLogout, children }:
     <SidebarProvider>
       <AppSidebar currentUser={user} activeView={activeView} onNavigate={onNavigate} onLogout={onLogout} />
       <SidebarInset>
-        <AppHeader activeView={activeView} userRole={user.role} onNavigate={onNavigate} />
+        <AppHeader activeView={activeView} userRole={user.role} />
         {children}
       </SidebarInset>
     </SidebarProvider>

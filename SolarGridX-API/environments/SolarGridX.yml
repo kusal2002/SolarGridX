@@ -1,7 +1,7 @@
 name: SolarGridX
 variables:
   - name: baseUrl
-    value: https://localhost:7172
+    value: http://solargridx.runasp.net/
   - name: operatorEmail
     value: operator@solargridx.com
   - name: operatorPassword

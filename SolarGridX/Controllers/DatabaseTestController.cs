@@ -5,7 +5,7 @@ using MongoDB.Driver;
 
 namespace SolarGridX.Controllers
 {
-    [AllowAnonymous]
+    [Authorize(Roles = "Backoffice")]
     [ApiController]
     [Route("/api/database-test")]
 

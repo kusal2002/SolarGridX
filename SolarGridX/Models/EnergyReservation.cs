@@ -19,6 +19,10 @@ public class EnergyReservation
     [BsonElement("stationId")]
     public string StationId { get; set; } = string.Empty;
 
+    // Display value joined from the station collection; never stored on a reservation.
+    [BsonIgnore]
+    public string? StationName { get; set; }
+
     [BsonRepresentation(BsonType.ObjectId)]
     [BsonElement("slotId")]
     public string SlotId { get; set; } = string.Empty;
