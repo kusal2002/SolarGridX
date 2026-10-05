@@ -41,6 +41,7 @@ import androidx.core.content.ContextCompat
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
 import com.google.android.gms.tasks.CancellationTokenSource
+import com.kusal.solargridxmobile.data.location.LocationHelper
 import com.kusal.solargridxmobile.data.model.EnergySlot
 import com.kusal.solargridxmobile.data.model.SolarStation
 import com.kusal.solargridxmobile.data.repository.StationRepository
@@ -138,6 +139,7 @@ fun StationMapScreen() {
     var isSlotsLoading      by remember { mutableStateOf(false) }
     var showPopupBox        by remember { mutableStateOf(false) }
     var showAllStations     by remember { mutableStateOf(false) }
+    var detailedStation     by remember { mutableStateOf<SolarStation?>(null) }
 
     // State references for MapLibre callbacks
     val currentStations = rememberUpdatedState(stations)
@@ -207,7 +209,7 @@ fun StationMapScreen() {
     // ── Update markers and 30 km circle whenever stations, userLocation, filter, or style change ─
     LaunchedEffect(stations, userLocation, showAllStations, mapStyle) {
         val style = mapStyle ?: return@LaunchedEffect
-        val loc = userLocation
+        val loc = userLocation?.takeIf { LocationHelper.isInSriLanka(it.latitude, it.longitude) }
 
         if (loc != null) {
             // Update 30 km search radius boundary
@@ -216,13 +218,13 @@ fun StationMapScreen() {
             updateUserMarker(style, loc)
         }
 
-        // Filter and update station markers
-        updateStationMarkers(style, stations, loc, NEARBY_RADIUS_KM, showAllStations)
+        // Filter and update station markers (showAll if userLoc is outside Sri Lanka or not ready)
+        updateStationMarkers(style, stations, loc, NEARBY_RADIUS_KM, showAllStations || loc == null)
     }
 
-    // Auto-center on user location when first retrieved
+    // Auto-center on user location when first retrieved (only if within Sri Lanka)
     LaunchedEffect(userLocation) {
-        val loc = userLocation ?: return@LaunchedEffect
+        val loc = userLocation?.takeIf { LocationHelper.isInSriLanka(it.latitude, it.longitude) } ?: return@LaunchedEffect
         mapView?.getMapAsync { map ->
             map.animateCamera(
                 CameraUpdateFactory.newLatLngZoom(LatLng(loc.latitude, loc.longitude), RADIUS_ZOOM),
@@ -249,7 +251,7 @@ fun StationMapScreen() {
 
     // ── Stations within 30 km calculation for UI ──────────────────────────
     val nearbyStations: List<Pair<SolarStation, Double>> = remember(stations, userLocation) {
-        val loc = userLocation ?: return@remember emptyList()
+        val loc = userLocation?.takeIf { LocationHelper.isInSriLanka(it.latitude, it.longitude) } ?: return@remember emptyList()
         val valid = stations.filter { isValidCoordinate(it.latitude, it.longitude) }
         valid.mapNotNull { st ->
             val dist = distanceKm(loc.latitude, loc.longitude, st.latitude, st.longitude)
@@ -627,8 +629,9 @@ fun StationMapScreen() {
         // ── Station Details POPUP BOX Dialog ──────────────────────────────
         if (showPopupBox && selectedStation != null) {
             val station = selectedStation!!
-            val distToStation = userLocation?.let { loc ->
-                distanceKm(loc.latitude, loc.longitude, station.latitude, station.longitude)
+            val distToStation = userLocation?.takeIf { LocationHelper.isInSriLanka(it.latitude, it.longitude) }?.let { loc ->
+                val d = distanceKm(loc.latitude, loc.longitude, station.latitude, station.longitude)
+                if (d <= 500.0) d else null
             }
 
             Dialog(
@@ -656,10 +659,34 @@ fun StationMapScreen() {
                         onDismiss = {
                             showPopupBox = false
                             selectedStation = null
+                        },
+                        onStationClick = { st ->
+                            showPopupBox = false
+                            detailedStation = st
                         }
                     )
                 }
             }
+        }
+
+        // ── Full Screen Station Details View ──────────────────────────────
+        if (detailedStation != null) {
+            StationDetailsScreen(
+                station = detailedStation!!,
+                userLocation = userLocation,
+                onBack = { detailedStation = null },
+                onViewOnMap = { st ->
+                    detailedStation = null
+                    selectedStation = st
+                    showPopupBox = true
+                    mapView?.getMapAsync { map ->
+                        map.animateCamera(
+                            CameraUpdateFactory.newLatLng(LatLng(st.latitude, st.longitude)),
+                            500
+                        )
+                    }
+                }
+            )
         }
     }
 
@@ -683,17 +710,29 @@ private fun fetchLocation(
         val cts = CancellationTokenSource()
         client.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, cts.token)
             .addOnSuccessListener { loc ->
-                if (loc != null) {
+                if (loc != null && LocationHelper.isInSriLanka(loc.latitude, loc.longitude)) {
                     onResult(loc)
                 } else {
                     client.lastLocation
-                        .addOnSuccessListener { lastLoc -> onResult(lastLoc) }
+                        .addOnSuccessListener { lastLoc ->
+                            if (lastLoc != null && LocationHelper.isInSriLanka(lastLoc.latitude, lastLoc.longitude)) {
+                                onResult(lastLoc)
+                            } else {
+                                onResult(null)
+                            }
+                        }
                         .addOnFailureListener { onResult(null) }
                 }
             }
             .addOnFailureListener {
                 client.lastLocation
-                    .addOnSuccessListener { lastLoc -> onResult(lastLoc) }
+                    .addOnSuccessListener { lastLoc ->
+                        if (lastLoc != null && LocationHelper.isInSriLanka(lastLoc.latitude, lastLoc.longitude)) {
+                            onResult(lastLoc)
+                        } else {
+                            onResult(null)
+                        }
+                    }
                     .addOnFailureListener { onResult(null) }
             }
     } catch (e: Exception) {
@@ -725,14 +764,15 @@ private fun updateStationMarkers(
 
     // 2. Filter stations within radiusKm if showAll is false and user location is available
     val stationsToDisplay: List<Pair<SolarStation, Double?>> = validStations.mapNotNull { st ->
-        val dist = userLoc?.let {
-            distanceKm(it.latitude, it.longitude, st.latitude, st.longitude)
+        val dist = userLoc?.takeIf { LocationHelper.isInSriLanka(it.latitude, it.longitude) }?.let {
+            val d = distanceKm(it.latitude, it.longitude, st.latitude, st.longitude)
+            if (d <= 500.0) d else null
         }
         if (dist != null) {
             Log.d(TAG, "Calculated distance for station '${st.stationName}' (${st.id}): %.2f km (lat=%.6f, lng=%.6f)".format(dist, st.latitude, st.longitude))
         }
 
-        if (showAll) {
+        if (showAll || userLoc == null || !LocationHelper.isInSriLanka(userLoc.latitude, userLoc.longitude)) {
             st to dist
         } else if (dist != null && dist <= radiusKm) {
             st to dist
@@ -772,7 +812,8 @@ private fun StationDetailPopup(
     distanceText: String?,
     slots: List<EnergySlot>,
     isSlotsLoading: Boolean,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    onStationClick: (SolarStation) -> Unit
 ) {
     Card(
         modifier = Modifier
@@ -801,12 +842,13 @@ private fun StationDetailPopup(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // Bolt icon badge
+                        // Bolt icon badge (Clickable to open Station Details)
                         Box(
                             modifier = Modifier
                                 .size(44.dp)
                                 .clip(RoundedCornerShape(12.dp))
-                                .background(Color.White.copy(alpha = 0.2f)),
+                                .background(Color.White.copy(alpha = 0.2f))
+                                .clickable { onStationClick(station) },
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
@@ -819,16 +861,35 @@ private fun StationDetailPopup(
 
                         Spacer(modifier = Modifier.width(12.dp))
 
-                        // Title & address
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = station.stationName,
-                                fontSize = 17.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color.White,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
+                        // Title & address (Clickable to open Station Details Screen)
+                        Column(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(8.dp))
+                                .clickable { onStationClick(station) }
+                                .padding(vertical = 2.dp)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text(
+                                    text = station.stationName,
+                                    fontSize = 17.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.weight(1f, fill = false)
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Icon(
+                                    Icons.Default.ChevronRight,
+                                    contentDescription = "View station details",
+                                    tint = Color.White.copy(alpha = 0.95f),
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
                                 modifier = Modifier.padding(top = 2.dp)
@@ -848,6 +909,13 @@ private fun StationDetailPopup(
                                     overflow = TextOverflow.Ellipsis
                                 )
                             }
+                            Text(
+                                text = "Tap to view operational details →",
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = Color.White.copy(alpha = 0.85f),
+                                modifier = Modifier.padding(top = 2.dp)
+                            )
                         }
 
                         // Close Button
@@ -1105,7 +1173,7 @@ private fun StationDetailPopup(
                 }
 
                 Button(
-                    onClick = onDismiss,
+                    onClick = { onStationClick(station) },
                     modifier = Modifier.weight(1.3f),
                     shape = RoundedCornerShape(10.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF15803D))
