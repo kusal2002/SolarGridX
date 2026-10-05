@@ -1,3 +1,5 @@
+import { Button } from "@/components/ui/button"
+import { Building2, ShieldCheck, BatteryCharging, Zap, Clock3, CalendarCheck2, Activity, CheckCircle2, Gauge, RefreshCw } from "lucide-react"
 import { useCallback, useEffect, useState } from "react"
 import { request } from "@/lib/api-client"
 import { useAuth } from "@/context/AuthContext"
@@ -31,6 +33,7 @@ export function DashboardPage() {
     const timer = window.setTimeout(() => { void load() }, 0)
     return () => window.clearTimeout(timer)
   }, [load])
+  const icons = [Building2, ShieldCheck, BatteryCharging, Zap, Clock3, CalendarCheck2, Activity, CheckCircle2, Gauge]
   const cards = stats ? [
     ["Stations", stats.stationCount], ["Active stations", stats.activeStations],
     ["Upcoming active slots", stats.activeSlots], ["Available energy (kWh)", stats.availableEnergyKwh],
@@ -46,12 +49,12 @@ export function DashboardPage() {
         <option value="">All accessible stations</option>
         {stations.map(s => <option key={s.id} value={s.id}>{s.stationName}</option>)}
       </select>
-      <button disabled={loading} onClick={() => void load()} className="rounded-md border px-3 py-2">{loading ? "Loading…" : "Refresh"}</button>
+      <Button variant="outline" disabled={loading} onClick={() => void load()}><RefreshCw />{loading ? "Loading…" : "Refresh"}</Button>
     </div>
     {error && <p role="alert">{error}</p>}
     {!loading && !error && user?.role === "Grid Operator" && !stations.length && <p>Ask Backoffice to assign your account to a station in Station Management.</p>}
-    <div className="grid gap-3 sm:grid-cols-3">{cards.map(([label, value]) => <div key={label} className="rounded-xl border bg-card p-4">
-      <p className="text-sm text-muted-foreground">{label}</p><p className="text-2xl font-semibold">{typeof value === "number" ? Number(value.toFixed(3)) : value}</p>
+    <div className="grid gap-3 sm:grid-cols-3">{cards.map(([label, value], index) => <div key={label} className="rounded-xl border bg-card p-4">
+      <div className="mb-3 flex items-center justify-between gap-2"><p className="text-sm text-muted-foreground">{label}</p><span className="rounded-lg bg-muted p-2 text-muted-foreground">{(() => { const Icon = icons[index]; return <Icon className="size-4" /> })()}</span></div><p className="text-2xl font-semibold">{typeof value === "number" ? Number(value.toFixed(3)) : value}</p>
     </div>)}</div>
     <h2 className="text-lg font-semibold">Recently completed transfers</h2>
     {!completed.length && <p>No completed transfers yet.</p>}

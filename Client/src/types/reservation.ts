@@ -1,5 +1,6 @@
 export interface EnergyReservation {
   id: string
+  prosumerName?: string
   prosumerNIC: string
   stationId: string
   stationName?: string
