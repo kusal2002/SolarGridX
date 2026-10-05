@@ -1,3 +1,10 @@
+// ============================================================================
+// Project: SolarGridX - Smart Solar Microgrid Platform
+// Module: Enterprise Application Development (EAD)
+// File: EnergyTransferService.cs
+// Description: Service class handling energy transfer transactions, QR verification, meter progress, and completions.
+// ============================================================================
+
 using MongoDB.Bson;
 using MongoDB.Driver;
 using SolarGridX.DTOs;
@@ -15,6 +22,7 @@ public class EnergyTransferService
 
     public EnergyTransferService(IMongoDatabase database)
     {
+        // Initialize Mongo database and collections for transfers, reservations, users, and slots
         _database = database;
         _transfers = database.GetCollection<EnergyTransfer>("EnergyTransfers");
         _reservations = database.GetCollection<EnergyReservation>("EnergyReservations");
@@ -24,6 +32,7 @@ public class EnergyTransferService
 
     public async Task EnsureIndexesAsync()
     {
+        // Set up unique indexes for transfer reservation lookups and creation timestamps
         // Case-insensitive comparison also covers legacy uppercase ObjectId strings.
         // Existing duplicates deliberately fail startup; never silently delete business records.
         await _transfers.Indexes.CreateOneAsync(new CreateIndexModel<EnergyTransfer>(
@@ -37,6 +46,7 @@ public class EnergyTransferService
 
     public async Task<List<EnergyTransfer>> GetAllAsync(EnergyTransferQuery query, CancellationToken ct = default, IEnumerable<string>? allowedReservations = null)
     {
+        // Query energy transfers with filters, sorting, and backfill prosumer/station IDs for legacy records
         var f = Builders<EnergyTransfer>.Filter;
         var filter = f.Empty;
         if (allowedReservations != null) filter &= f.In(t => t.ReservationId, allowedReservations);
@@ -53,6 +63,7 @@ public class EnergyTransferService
 
     public async Task<EnergyTransfer?> GetByIdAsync(string id, CancellationToken ct = default)
     {
+        // Fetch an energy transfer by ID and populate any legacy reservation data
         id = NormalizeId(id);
         var transfer = await _transfers.Find(t => t.id == id).FirstOrDefaultAsync(ct);
         if (transfer != null) await HydrateLegacyIdentityAsync(transfer, ct);
@@ -61,6 +72,7 @@ public class EnergyTransferService
 
     public Task<EnergyReservation?> GetReservationByIdAsync(string reservationId)
     {
+        // Look up a reservation linked to a transfer by its ID
         reservationId = NormalizeId(reservationId);
         return _reservations.Find(r => r.Id == reservationId).FirstOrDefaultAsync()!;
     }
@@ -68,6 +80,7 @@ public class EnergyTransferService
     public async Task<EnergyTransfer> CreateAsync(CreateEnergyTransferRequest request, string actor, CancellationToken ct = default,
         ReservationQrService.Ticket? ticket = null)
     {
+        // Create or verify an energy transfer record from an approved reservation within a transaction
         var reservationId = NormalizeId(request.ReservationId);
 
         try
@@ -125,6 +138,7 @@ public class EnergyTransferService
 
     public async Task<EnergyTransfer> ChangeAsync(string id, string action, decimal? energy, string? reason, string actor, CancellationToken ct = default)
     {
+        // Execute transfer status change, update meter readings, and adjust slot capacity on cancellation/failure
         id = NormalizeId(id);
         using var session = await _database.Client.StartSessionAsync(cancellationToken: ct);
         return await session.WithTransactionAsync(async (s, token) =>
@@ -168,6 +182,7 @@ public class EnergyTransferService
 
     private async Task RequireActiveSlotAsync(IClientSessionHandle session, EnergyReservation reservation, CancellationToken ct)
     {
+        // Check that both the station and slot exist and are currently active
         var slot = await _slots.Find(session, s => s.Id == reservation.SlotId && s.StationId == reservation.StationId && s.IsActive)
             .FirstOrDefaultAsync(ct);
         var station = await _database.GetCollection<SolarStation>("SolarStationInfo")
@@ -176,11 +191,16 @@ public class EnergyTransferService
             throw new TransferException(409, "Reservation station and slot must exist and be active.");
     }
 
-    private static string NormalizeId(string id) => ObjectId.TryParse(id, out var parsed)
-        ? parsed.ToString() : throw new TransferException(400, "ID must be a 24-character MongoDB ObjectId.");
+    private static string NormalizeId(string id)
+    {
+        // Parse and validate string as a valid 24-character hexadecimal MongoDB ObjectId
+        return ObjectId.TryParse(id, out var parsed)
+            ? parsed.ToString() : throw new TransferException(400, "ID must be a 24-character MongoDB ObjectId.");
+    }
 
     private static void MarkVerified(EnergyTransfer transfer, string actor, DateTime now)
     {
+        // Record the operator NIC and verification timestamp on the transfer entity
         transfer.VerifiedBy = actor;
         transfer.VerifiedAt = now;
         transfer.UpdatedAt = now;
@@ -189,6 +209,7 @@ public class EnergyTransferService
 
     private static void SetReservationIdentity(EnergyTransfer transfer, EnergyReservation reservation)
     {
+        // Map reservation details (prosumer, station, slot) onto the transfer model
         transfer.ProsumerNIC = reservation.ProsumerNIC;
         transfer.StationId = reservation.StationId;
         transfer.SlotId = reservation.SlotId;
@@ -196,6 +217,7 @@ public class EnergyTransferService
 
     private async Task HydrateLegacyIdentityAsync(EnergyTransfer transfer, CancellationToken ct)
     {
+        // Backfill station, slot, and prosumer info from the reservation for legacy transfer documents
         if (!string.IsNullOrEmpty(transfer.ProsumerNIC) && !string.IsNullOrEmpty(transfer.StationId)) return;
         if (!ObjectId.TryParse(transfer.ReservationId, out var id)) return;
         var reservation = await _reservations.Find(r => r.Id == id.ToString()).FirstOrDefaultAsync(ct);

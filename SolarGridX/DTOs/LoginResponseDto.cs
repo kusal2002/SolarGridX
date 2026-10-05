@@ -1,3 +1,10 @@
+// ============================================================================
+// Project: SolarGridX - Smart Solar Microgrid Platform
+// Module: Enterprise Application Development (EAD)
+// File: LoginResponseDto.cs
+// Description: DTO returned upon successful login, including user info and JWT token.
+// ============================================================================
+
 namespace SolarGridX.DTOs
 {
     public class LoginResponseDto

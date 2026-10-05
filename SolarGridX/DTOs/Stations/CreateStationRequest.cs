@@ -1,3 +1,10 @@
+// ============================================================================
+// Project: SolarGridX - Smart Solar Microgrid Platform
+// Module: Enterprise Application Development (EAD)
+// File: CreateStationRequest.cs
+// Description: DTO containing information needed to create a new solar charging station.
+// ============================================================================
+
 namespace SolarGridX.DTOs.Stations;
 
 public class CreateStationRequest

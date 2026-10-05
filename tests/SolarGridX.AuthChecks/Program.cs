@@ -1,4 +1,10 @@
-// Authorization regression checks; uses ASP.NET's policy evaluator without a database.
+// ============================================================================
+// Project: SolarGridX - Smart Solar Microgrid Platform
+// Course: Enterprise Application Development (EAD)
+// File: Program.cs (SolarGridX.AuthChecks)
+// Description: Automated regression and integration test runner for authentication and role authorization policies.
+// ============================================================================
+
 using System.Reflection;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
@@ -22,6 +28,7 @@ var checks = 0;
 // Evaluate combined controller/action policies exactly as ASP.NET combines role requirements.
 async Task CheckPolicy(Type controller, string action, params string[] allowedRoles)
 {
+    // Verify that the action method enforces the expected role authorization policy
     var method = controller.GetMethod(action)!;
     var metadata = controller.GetCustomAttributes<AuthorizeAttribute>()
         .Concat(method.GetCustomAttributes<AuthorizeAttribute>()).ToArray();
@@ -36,13 +43,18 @@ async Task CheckPolicy(Type controller, string action, params string[] allowedRo
 }
 
 // Build an authenticated identity only when a role is supplied.
-ClaimsPrincipal Principal(string role) => new(new ClaimsIdentity(
-    new[] { new Claim(ClaimTypes.NameIdentifier, "owner"), new Claim(ClaimTypes.Role, role) },
-    role.Length == 0 ? null : "RegressionTest"));
+ClaimsPrincipal Principal(string role)
+{
+    // Construct a ClaimsPrincipal identity with given role for test assertions
+    return new ClaimsPrincipal(new ClaimsIdentity(
+        new[] { new Claim(ClaimTypes.NameIdentifier, "owner"), new Claim(ClaimTypes.Role, role) },
+        role.Length == 0 ? null : "RegressionTest"));
+}
 
 // Fail fast so the process exit code can be used by CI.
 void Expect(bool condition, string description)
 {
+    // Assert expected condition and track successful check count
     if (!condition) throw new Exception($"FAILED: {description}");
     checks++;
 }
@@ -121,6 +133,7 @@ try
 
     async Task Seed(User user, string password = "Password123!")
     {
+        // Seed test user with hashed credentials and security stamp
         user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(password);
         if (string.IsNullOrWhiteSpace(user.SecurityStamp))
             user.SecurityStamp = Guid.NewGuid().ToString("N");

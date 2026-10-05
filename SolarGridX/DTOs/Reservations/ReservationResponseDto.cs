@@ -1,3 +1,10 @@
+// ============================================================================
+// Project: SolarGridX - Smart Solar Microgrid Platform
+// Module: Enterprise Application Development (EAD)
+// File: ReservationResponseDto.cs
+// Description: DTO representing reservation details returned in API responses.
+// ============================================================================
+
 namespace SolarGridX.DTOs.Reservations;
 
 public class ReservationResponseDto

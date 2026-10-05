@@ -1,6 +1,12 @@
-﻿using MongoDB.Bson.Serialization.Attributes;
-using MongoDB.Bson;
+// ============================================================================
+// Project: SolarGridX - Smart Solar Microgrid Platform
+// Module: Enterprise Application Development (EAD)
+// File: EnergyTransfer.cs
+// Description: MongoDB entity representing an energy transfer session, meter readings, and audit event history.
+// ============================================================================
 
+using MongoDB.Bson.Serialization.Attributes;
+using MongoDB.Bson;
 
 namespace SolarGridX.Models
 {

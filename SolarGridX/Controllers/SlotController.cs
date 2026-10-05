@@ -1,3 +1,10 @@
+// ============================================================================
+// Project: SolarGridX - Smart Solar Microgrid Platform
+// Module: Enterprise Application Development (EAD)
+// File: SlotController.cs
+// Description: API controller for managing energy booking slots, capacities, and station schedules.
+// ============================================================================
+
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SolarGridX.DTOs.Slots;
@@ -15,6 +22,7 @@ public class SlotController : ControllerBase
 
     public SlotController(SlotService slotService, StationAccessService access)
     {
+        // Inject slot service and station access service
         _slotService = slotService;
         _access = access;
     }
@@ -23,6 +31,7 @@ public class SlotController : ControllerBase
     [HttpGet]
     public async Task<IActionResult> GetAll()
     {
+        // Fetch all active booking slots filtered by operator station access
         var slots = await _slotService.GetAllAsync();
         var ids = await _access.StationIdsAsync(User);
         if (ids != null) slots = slots.Where(s => ids.Contains(s.StationId)).ToList();
@@ -35,6 +44,7 @@ public class SlotController : ControllerBase
     [Authorize(Roles = "Backoffice,Grid Operator")]
     public async Task<IActionResult> GetAllIncludingInactive()
     {
+        // Fetch all slots including inactive ones for authorized staff members
         var slots = await _slotService.GetAllIncludingInactiveAsync();
         var ids = await _access.StationIdsAsync(User);
         if (ids != null) slots = slots.Where(s => ids.Contains(s.StationId)).ToList();
@@ -45,6 +55,7 @@ public class SlotController : ControllerBase
     [HttpGet("{id}")]
     public async Task<IActionResult> GetById(string id)
     {
+        // Fetch single booking slot by ID with station authorization check
         var slot = await _slotService.GetByIdAsync(id);
         if (slot != null && !await _access.CanAccessAsync(User, slot.StationId)) return Forbid();
 
@@ -63,6 +74,7 @@ public class SlotController : ControllerBase
     public async Task<IActionResult> GetByStationId(
     string stationId)
     {
+        // Retrieve all active slots for a specific charging station
         if (!await _access.CanAccessAsync(User, stationId)) return Forbid();
         var slots = await _slotService.GetByStationIdAsync(stationId);
         return Ok(slots);
@@ -74,6 +86,7 @@ public class SlotController : ControllerBase
     public async Task<IActionResult> GetByStationIdIncludingInactive(
     string stationId)
     {
+        // Retrieve all slots (both active and inactive) for a specific station
         if (!await _access.CanAccessAsync(User, stationId)) return Forbid();
         var slots = await _slotService.GetByStationIdIncludingInactiveAsync(stationId);
         return Ok(slots);
@@ -84,6 +97,7 @@ public class SlotController : ControllerBase
     [Authorize(Roles = "Backoffice,Grid Operator")]
     public async Task<IActionResult> Create(CreateSlotRequest request)
     {
+        // Create a new slot for a station and validate schedule boundaries
         if (!await _access.CanAccessAsync(User, request.StationId)) return Forbid();
         try
         {
@@ -120,13 +134,13 @@ public class SlotController : ControllerBase
     }
 
     //Update slots
-
     [HttpPut("{id}")]
     [Authorize(Roles = "Backoffice,Grid Operator")]
     public async Task<IActionResult> Update(
     string id,
     UpdateSlotRequest request)
     {
+        // Update slot timing, date, or energy capacity
         if (!await _access.CanAccessSlotAsync(User, id)) return Forbid();
         try
         {
@@ -163,6 +177,7 @@ public class SlotController : ControllerBase
     [Authorize(Roles = "Backoffice,Grid Operator")]
     public async Task<IActionResult> Deactivate(string id)
     {
+        // Mark an active slot as inactive to stop further bookings
         if (!await _access.CanAccessSlotAsync(User, id)) return Forbid();
         var slot = await _slotService.DeactivateAsync(id);
 
@@ -186,6 +201,7 @@ public class SlotController : ControllerBase
     [Authorize(Roles = "Backoffice,Grid Operator")]
     public async Task<IActionResult> Reactivate(string id)
     {
+        // Reactivate a previously deactivated slot if valid and unexpired
         if (!await _access.CanAccessSlotAsync(User, id)) return Forbid();
         try
         {
@@ -219,6 +235,7 @@ public class SlotController : ControllerBase
     [Authorize(Roles = "Backoffice")]
     public async Task<IActionResult> Delete(string id)
     {
+        // Permanently delete a slot record by its ID
         var deleted = await _slotService.DeleteAsync(id);
 
         if (!deleted)
@@ -234,7 +251,4 @@ public class SlotController : ControllerBase
             message = "Slot deleted successfully."
         });
     }
-
-
-
 }

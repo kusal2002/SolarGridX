@@ -1,3 +1,10 @@
+// ============================================================================
+// Project: SolarGridX - Smart Solar Microgrid Platform
+// Course: Enterprise Application Development (EAD)
+// File: Program.cs
+// Description: Main entry point, dependency injection container setup, JWT configuration, and database initialization.
+// ============================================================================
+
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.DataProtection;
@@ -16,19 +23,21 @@ builder.Services.Configure<MongoDbSettings>(
     builder.Configuration.GetSection("MongoDbSettings")
 );
 
+// Register application domain services
 builder.Services.AddScoped<EnergyTransferService>();
 builder.Services.AddDataProtection().SetApplicationName("SolarGridX");
 builder.Services.AddScoped<ReservationQrService>();
 builder.Services.AddScoped<AuthService>();
 
-//Stations
+// Stations service registration
 builder.Services.AddScoped<StationService>();
 builder.Services.AddScoped<StationAccessService>();
-//Slot
+// Slot service registration
 builder.Services.AddScoped<SlotService>();
-//Reservation (Member 3)
+// Reservation service registration (Member 3)
 builder.Services.AddScoped<ReservationService>();
 
+// Configure JWT Authentication
 var jwtSettings = builder.Configuration.GetSection("Jwt");
 var jwtKey = jwtSettings["Key"]
     ?? Environment.GetEnvironmentVariable("Jwt__Key")
@@ -45,6 +54,7 @@ if (jwtKeyBytes.Length < 32)
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
+        // Set up JWT token validation parameters
         options.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuerSigningKey = true,
@@ -61,6 +71,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         {
             OnTokenValidated = async context =>
             {
+                // Verify security stamp on each request to invalidate revoked tokens
                 var nic = context.Principal?.FindFirstValue(ClaimTypes.NameIdentifier);
                 var securityStamp = context.Principal?.FindFirstValue("security_stamp");
 
@@ -81,8 +92,10 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     });
 
 
+// Register MongoDB client singleton
 builder.Services.AddSingleton<IMongoClient>(sp =>
 {
+    // Retrieve connection string from configuration or environment variables
     var settings = sp.GetRequiredService<IOptions<MongoDbSettings>>().Value;
     var conn = settings.ConnectionString;
     if (string.IsNullOrWhiteSpace(conn))
@@ -95,8 +108,10 @@ builder.Services.AddSingleton<IMongoClient>(sp =>
     return new MongoClient(conn);
 });
 
+// Register MongoDB database singleton
 builder.Services.AddSingleton<IMongoDatabase>(sp =>
 {
+    // Connect to the configured MongoDB database
     var settings = sp.GetRequiredService<IOptions<MongoDbSettings>>().Value;
     var client = sp.GetRequiredService<IMongoClient>();
     return client.GetDatabase(settings.DatabaseName);
@@ -106,12 +121,14 @@ builder.Services.AddControllers();
 // Require authentication by default; only registration and login opt out.
 builder.Services.AddAuthorization(options =>
 {
+    // Fallback policy requires all endpoints to be authenticated unless AllowAnonymous is specified
     options.FallbackPolicy = new AuthorizationPolicyBuilder()
         .RequireAuthenticatedUser().Build();
 });
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
 
+// Configure CORS for local web client
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("ClientPolicy", policy =>
@@ -141,6 +158,7 @@ app.UseAuthorization();
 
 app.MapControllers();
 
+// Initialize database indexes and bootstrap default backoffice admin
 using (var scope = app.Services.CreateScope())
 {
     var configuration = scope.ServiceProvider.GetRequiredService<IConfiguration>();

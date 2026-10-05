@@ -1,3 +1,10 @@
+// ============================================================================
+// Project: SolarGridX - Smart Solar Microgrid Platform
+// Module: Enterprise Application Development (EAD)
+// File: EnergyTransferRules.cs
+// Description: Business rules and state transition validation for energy transfer sessions.
+// ============================================================================
+
 using SolarGridX.Models;
 
 namespace SolarGridX.Services;
@@ -11,6 +18,7 @@ public static class EnergyTransferRules
 {
     public static void Apply(EnergyTransfer transfer, string action, decimal? energy, string? reason, string actor, DateTime now)
     {
+        // Enforce state transition rules, meter readings, and record audit history
         var allowed = action switch
         {
             "start" or "cancel" => transfer.Status == "Pending",

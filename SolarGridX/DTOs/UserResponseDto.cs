@@ -1,3 +1,10 @@
+// ============================================================================
+// Project: SolarGridX - Smart Solar Microgrid Platform
+// Module: Enterprise Application Development (EAD)
+// File: UserResponseDto.cs
+// Description: DTO representing user account information returned to clients.
+// ============================================================================
+
 namespace SolarGridX.DTOs
 {
     public class UserResponseDto

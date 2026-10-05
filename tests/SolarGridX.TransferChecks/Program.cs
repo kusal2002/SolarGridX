@@ -1,3 +1,10 @@
+// ============================================================================
+// Project: SolarGridX - Smart Solar Microgrid Platform
+// Course: Enterprise Application Development (EAD)
+// File: Program.cs (SolarGridX.TransferChecks)
+// Description: Automated test runner for energy transfer validation, QR codes, meter reading rules, and concurrency.
+// ============================================================================
+
 using System.ComponentModel.DataAnnotations;
 using System.Text.Json;
 using Microsoft.AspNetCore.DataProtection;
@@ -14,18 +21,33 @@ using SolarGridX.Models;
 using SolarGridX.Services;
 
 var checks = 0;
-void Check(bool ok, string description) { if (!ok) throw new Exception("FAILED: " + description); checks++; }
+void Check(bool ok, string description)
+{
+    // Assert condition and increment passed check counter
+    if (!ok) throw new Exception("FAILED: " + description);
+    checks++;
+}
+
 async Task Reject(Func<Task> call, int status)
 {
+    // Verify that the call is rejected with the expected TransferException status code
     try { await call(); throw new Exception("Expected rejection " + status); }
     catch (TransferException e) { Check(e.StatusCode == status, e.Message); }
 }
+
 async Task RejectReservation(Func<Task> call)
 {
+    // Verify that reservation operation is rejected with an InvalidOperationException
     try { await call(); throw new Exception("Expected reservation guard"); }
     catch (InvalidOperationException) { checks++; }
 }
-bool Valid(object value) => Validator.TryValidateObject(value, new ValidationContext(value), [], true);
+
+bool Valid(object value)
+{
+    // Validate object using DataAnnotations validation attributes
+    return Validator.TryValidateObject(value, new ValidationContext(value), [], true);
+}
+
 Check(!Valid(new CreateEnergyTransferRequest()), "empty create");
 Check(!Valid(new CreateEnergyTransferRequest { ReservationId = "RES001" }), "invalid ObjectId");
 Check(Valid(new CreateEnergyTransferRequest { ReservationId = ObjectId.GenerateNewId().ToString() }), "reservation alone creates transfer request");
@@ -37,7 +59,13 @@ Check(!Valid(new VerifyTransferRequest()), "QR payload required");
 Check(Valid(new VerifyTransferRequest { Payload = "protected-qr" }), "verification requires no second account");
 var protection = new EphemeralDataProtectionProvider();
 var qr = new ReservationQrService(protection);
-string Payload(EnergyReservation r) => JsonSerializer.SerializeToElement(qr.Issue(r)).GetProperty("payload").GetString()!;
+
+string Payload(EnergyReservation r)
+{
+    // Extract protected QR payload string from reservation
+    return JsonSerializer.SerializeToElement(qr.Issue(r)).GetProperty("payload").GetString()!;
+}
+
 var sample = new EnergyReservation { Id = ObjectId.GenerateNewId().ToString(), UpdatedAt = DateTime.UtcNow };
 var payload = Payload(sample);
 Check(qr.Read(payload).ReservationId == sample.Id, "QR round trip");
@@ -99,6 +127,7 @@ try
         SlotDate = DateTime.UtcNow.Date.AddDays(2), EnergyCapacityKwh = 100, AvailableEnergyKwh = 100 };
     var slots = db.GetCollection<EnergyBookingSlot>("EnergyBookingSlots");
     await slots.InsertOneAsync(slot);
+
     async Task<EnergyReservation> Booking(bool approve = true)
     {
         // Unique slots avoid the application's one active booking per prosumer/slot constraint.
@@ -109,13 +138,30 @@ try
         if (approve) r = await reservations.UpdateStatusAsync(r.Id, "Approved");
         return r;
     }
-    CreateEnergyTransferRequest Request(EnergyReservation r) => new() { ReservationId = r.Id };
-    Task<EnergyTransfer> Change(EnergyTransfer t, string action, decimal? value = null) => service.ChangeAsync(t.id!, action, value, "test reason", "operator");
+
+    CreateEnergyTransferRequest Request(EnergyReservation r)
+    {
+        // Build CreateEnergyTransferRequest for a reservation
+        return new CreateEnergyTransferRequest { ReservationId = r.Id };
+    }
+
+    Task<EnergyTransfer> Change(EnergyTransfer t, string action, decimal? value = null)
+    {
+        // Helper to execute state transitions on the transfer service
+        return service.ChangeAsync(t.id!, action, value, "test reason", "operator");
+    }
+
     var pending = await Booking(false);
     await Reject(() => service.CreateAsync(Request(pending), "operator"), 409);
     var booking = await Booking();
-    ControllerContext Context(string nic, string role = "Prosumer") => new() { HttpContext = new DefaultHttpContext { User = new ClaimsPrincipal(
-        new ClaimsIdentity(new[] { new Claim(ClaimTypes.NameIdentifier, nic), new Claim(ClaimTypes.Role, role) }, "test")) } };
+
+    ControllerContext Context(string nic, string role = "Prosumer")
+    {
+        // Construct mock ControllerContext with user claims
+        return new ControllerContext { HttpContext = new DefaultHttpContext { User = new ClaimsPrincipal(
+            new ClaimsIdentity(new[] { new Claim(ClaimTypes.NameIdentifier, nic), new Claim(ClaimTypes.Role, role) }, "test")) } };
+    }
+
     var stationAccess = new StationAccessService(db);
     var stationService = new StationService(db);
     var stationApi = new StationController(stationService, stationAccess) { ControllerContext = Context("operator", "Grid Operator") };
