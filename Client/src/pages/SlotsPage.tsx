@@ -24,6 +24,8 @@ export function SlotsPage() {
   const [stations, setStations] = useState<Station[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => { const timer = window.setInterval(() => setNow(Date.now()), 60000); return () => window.clearInterval(timer) }, [])
   
   const [editingSlot, setEditingSlot] = useState<Slot | null>(null)
   
@@ -120,49 +122,20 @@ export function SlotsPage() {
     return map
   }, [stations])
 
-  const filteredSlots = slots
-    .filter((slot) => {
-      const matchesStatus =
-        statusFilter === "All" ||
-        (statusFilter === "Active" && slot.isActive) ||
-        (statusFilter === "Inactive" && !slot.isActive)
-      return matchesStatus
-    })
-    .sort(
-      (a, b) =>
-        new Date(b.slotDate).getTime() - new Date(a.slotDate).getTime()
-    )
-
   const isPastSlot = (slot: Slot) => {
-    const today = new Date()
-    const slotDate = new Date(slot.slotDate)
-    
-    const todayYMD = new Date(today.getFullYear(), today.getMonth(), today.getDate())
-    const slotDateYMD = new Date(slotDate.getFullYear(), slotDate.getMonth(), slotDate.getDate())
-
-    if (slotDateYMD < todayYMD) {
-      return true
-    }
-    
-    if (slotDateYMD.getTime() === todayYMD.getTime()) {
-      const nowHours = today.getHours().toString().padStart(2, "0")
-      const nowMins = today.getMinutes().toString().padStart(2, "0")
-      const currentTime = `${nowHours}:${nowMins}`
-      
-      const formattedEndTime = slot.endTime.substring(0, 5) // "HH:mm"
-      
-      if (currentTime >= formattedEndTime) {
-        return true
-      }
-    }
-    return false
+    const parts = new Intl.DateTimeFormat("en", { timeZone: "Asia/Colombo", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date(slot.slotDate))
+    const value = (type: string) => Number(parts.find(p => p.type === type)?.value)
+    const [hour, minute, second = 0] = slot.endTime.split(":").map(Number)
+    const end = Date.UTC(value("year"), value("month") - 1, value("day"), hour, minute, second) - 330 * 60000
+    return end <= now
   }
-
-  const upcomingSlots = filteredSlots.filter(s => !isPastSlot(s))
-  const pastSlots = filteredSlots.filter(s => isPastSlot(s))
-
+  const effectiveSlots = slots.map(slot => isPastSlot(slot) ? { ...slot, isActive: false } : slot)
+  const filteredSlots = effectiveSlots.filter(slot => statusFilter === "All" || (statusFilter === "Active" ? slot.isActive : !slot.isActive))
+    .sort((a, b) => new Date(b.slotDate).getTime() - new Date(a.slotDate).getTime())
+  const upcomingSlots = filteredSlots.filter(slot => !isPastSlot(slot))
+  const pastSlots = filteredSlots.filter(isPastSlot)
   const totalSlots = slots.length
-  const activeSlots = slots.filter((slot) => slot.isActive).length
+  const activeSlots = effectiveSlots.filter(slot => slot.isActive).length
 
   return (
     <div className="flex flex-1 flex-col gap-6 p-6">
@@ -249,7 +222,6 @@ export function SlotsPage() {
               <Table className="w-full text-left text-sm">
                 <TableHeader className="bg-muted/50">
                   <TableRow className="border-b">
-                    <TableHead className="px-4 py-3 font-medium">Slot ID</TableHead>
                     <TableHead className="px-4 py-3 font-medium">Station</TableHead>
                     <TableHead className="px-4 py-3 font-medium">Date</TableHead>
                     <TableHead className="px-4 py-3 font-medium">Time (Start - End)</TableHead>
@@ -268,7 +240,6 @@ export function SlotsPage() {
                       key={slot.id}
                       className="border-b transition-colors last:border-0 hover:bg-muted/30"
                     >
-                      <TableCell className="px-4 py-3 font-medium">{slot.id}</TableCell>
                       <TableCell className="px-4 py-3">{stationMap.get(slot.stationId) || slot.stationId}</TableCell>
                       <TableCell className="px-4 py-3">{new Date(slot.slotDate).toLocaleDateString()}</TableCell>
                       <TableCell className="px-4 py-3">{slot.startTime.substring(0, 5)} - {slot.endTime.substring(0, 5)}</TableCell>
@@ -318,7 +289,7 @@ export function SlotsPage() {
                   {upcomingSlots.length === 0 && (
                     <TableRow>
                       <TableCell
-                        colSpan={canManageSlots ? 8 : 7}
+                        colSpan={canManageSlots ? 7 : 6}
                         className="px-4 py-8 text-center text-muted-foreground"
                       >
                         No upcoming slots found.
@@ -336,7 +307,6 @@ export function SlotsPage() {
               <Table className="w-full text-left text-sm opacity-75">
                 <TableHeader className="bg-muted/50">
                   <TableRow className="border-b">
-                    <TableHead className="px-4 py-3 font-medium">Slot ID</TableHead>
                     <TableHead className="px-4 py-3 font-medium">Station</TableHead>
                     <TableHead className="px-4 py-3 font-medium">Date</TableHead>
                     <TableHead className="px-4 py-3 font-medium">Time (Start - End)</TableHead>
@@ -355,7 +325,6 @@ export function SlotsPage() {
                       key={slot.id}
                       className="border-b transition-colors last:border-0 hover:bg-muted/30"
                     >
-                      <TableCell className="px-4 py-3 font-medium">{slot.id}</TableCell>
                       <TableCell className="px-4 py-3">{stationMap.get(slot.stationId) || slot.stationId}</TableCell>
                       <TableCell className="px-4 py-3">{new Date(slot.slotDate).toLocaleDateString()}</TableCell>
                       <TableCell className="px-4 py-3">{slot.startTime.substring(0, 5)} - {slot.endTime.substring(0, 5)}</TableCell>
@@ -364,50 +333,14 @@ export function SlotsPage() {
                       <TableCell className="px-4 py-3">
                         <StatusBadge status={slot.isActive ? "Active" : "Inactive"} />
                       </TableCell>
-                      {canManageSlots && (
-                        <TableCell className="px-4 py-3 text-right">
-                          <div className="flex justify-end gap-1">
-                            {slot.isActive && (
-                              <Button
-                                variant="outline"
-                                size="icon"
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  setEditingSlot(slot)
-                                }}
-                                title="Edit Slot"
-                              >
-                                <Pencil className="size-4" />
-                                <span className="sr-only">Edit</span>
-                              </Button>
-                            )}
-                            <Button
-                              variant="outline"
-                              size="icon"
-                              onClick={(e) => handleToggleStatus(e, slot)}
-                              title={
-                                slot.isActive
-                                  ? "Deactivate Slot"
-                                  : "Reactivate Slot"
-                              }
-                            >
-                              <Power
-                                className={`size-4 ${slot.isActive ? "text-red-500" : "text-green-500"}`}
-                              />
-                              <span className="sr-only">
-                                {slot.isActive ? "Deactivate" : "Reactivate"}
-                              </span>
-                            </Button>
-                          </div>
-                        </TableCell>
-                      )}
+                      {canManageSlots && <TableCell className="text-right text-muted-foreground">Expired</TableCell>}
                     </TableRow>
                   ))}
 
                   {pastSlots.length === 0 && (
                     <TableRow>
                       <TableCell
-                        colSpan={canManageSlots ? 8 : 7}
+                        colSpan={canManageSlots ? 7 : 6}
                         className="px-4 py-8 text-center text-muted-foreground"
                       >
                         No past slots found.
