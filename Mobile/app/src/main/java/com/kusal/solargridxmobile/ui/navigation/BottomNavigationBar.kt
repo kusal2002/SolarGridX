@@ -26,32 +26,32 @@ fun SolarBottomNavigation(
 
         BottomNavItem(
             "Home",
-            Icons.Filled.Home,
-            Icons.Outlined.Home
+            Icons.Filled.Dashboard,
+            Icons.Outlined.Dashboard
         ),
 
         BottomNavItem(
             "Stations",
-            Icons.Filled.LocationOn,
-            Icons.Outlined.LocationOn
+            Icons.Filled.EvStation,
+            Icons.Outlined.EvStation
         ),
 
         BottomNavItem(
             if (operator) "Bookings" else "Reserve",
+            Icons.Filled.CalendarMonth,
+            Icons.Outlined.CalendarMonth
+        ),
+
+        BottomNavItem(
+            "Transfers",
             Icons.Filled.SwapHoriz,
             Icons.Outlined.SwapHoriz
         ),
 
         BottomNavItem(
-            "Transfers",
-            Icons.Filled.ShowChart,
-            Icons.Outlined.ShowChart
-        ),
-
-        BottomNavItem(
             "Profile",
-            Icons.Filled.Person,
-            Icons.Outlined.Person
+            Icons.Filled.AccountCircle,
+            Icons.Outlined.AccountCircle
         )
     )
 
@@ -92,11 +92,11 @@ fun SolarBottomNavigation(
 
                 colors = NavigationBarItemDefaults.colors(
 
-                    selectedIconColor = Color(0xFF15803D),
+                    selectedIconColor = Color(0xFF065F46),
 
-                    selectedTextColor = Color(0xFF15803D),
+                    selectedTextColor = Color(0xFF065F46),
 
-                    indicatorColor = Color(0xFFDCFCE7),
+                    indicatorColor = Color(0xFFD1FAE5),
 
                     unselectedIconColor = Color(0xFF64748B),
 

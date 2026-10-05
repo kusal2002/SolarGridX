@@ -4,6 +4,8 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.Image
+import androidx.compose.ui.res.painterResource
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -151,6 +153,14 @@ fun SolarGridXApp(
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
+        topBar = {
+            Surface(color = MaterialTheme.colorScheme.surface) {
+                Row(Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 20.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Image(painterResource(R.drawable.solargridx_mark), "SolarGridX logo", Modifier.size(32.dp))
+                    Text("SolarGridX", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                }
+            }
+        },
         bottomBar = {
             SolarBottomNavigation(
                 selectedTab = selectedTab,
