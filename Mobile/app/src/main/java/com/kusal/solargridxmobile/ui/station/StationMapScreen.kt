@@ -2,21 +2,29 @@ package com.kusal.solargridxmobile.ui.station
 
 import android.Manifest
 import android.annotation.SuppressLint
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.RectF
 import android.location.Location
+import android.net.Uri
 import android.util.Log
 import android.view.Gravity
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -41,10 +49,19 @@ import androidx.core.content.ContextCompat
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
 import com.google.android.gms.tasks.CancellationTokenSource
+import com.kusal.solargridxmobile.data.local.ReservationDbHelper
+import com.kusal.solargridxmobile.data.local.SessionManager
 import com.kusal.solargridxmobile.data.location.LocationHelper
 import com.kusal.solargridxmobile.data.model.EnergySlot
 import com.kusal.solargridxmobile.data.model.SolarStation
+import com.kusal.solargridxmobile.data.repository.ReservationRepository
 import com.kusal.solargridxmobile.data.repository.StationRepository
+import com.kusal.solargridxmobile.ui.reservation.ReservationViewModel
+import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Locale
+import java.util.TimeZone
 import org.maplibre.android.MapLibre
 import org.maplibre.android.camera.CameraPosition
 import org.maplibre.android.camera.CameraUpdateFactory
@@ -123,10 +140,17 @@ private fun createCirclePolygon(centerLat: Double, centerLng: Double, radiusKm: 
 // ─────────────────────────────────────────────────────────────────────────────
 
 @Composable
-fun StationMapScreen() {
+fun StationMapScreen(
+    reservationViewModel: ReservationViewModel? = null
+) {
     val context = LocalContext.current
     val repository = remember { StationRepository() }
+    val sessionManager = remember { SessionManager(context) }
+    val reservationRepository = remember { ReservationRepository(ReservationDbHelper(context)) }
+    val coroutineScope = rememberCoroutineScope()
     val fusedClient = remember { LocationServices.getFusedLocationProviderClient(context) }
+
+    val userNic = remember { sessionManager.getUserNic() ?: "" }
 
     // ── State ──────────────────────────────────────────────────────────────
     var stations            by remember { mutableStateOf<List<SolarStation>>(emptyList()) }
@@ -139,7 +163,6 @@ fun StationMapScreen() {
     var isSlotsLoading      by remember { mutableStateOf(false) }
     var showPopupBox        by remember { mutableStateOf(false) }
     var showAllStations     by remember { mutableStateOf(false) }
-    var detailedStation     by remember { mutableStateOf<SolarStation?>(null) }
 
     // State references for MapLibre callbacks
     val currentStations = rememberUpdatedState(stations)
@@ -233,13 +256,15 @@ fun StationMapScreen() {
         }
     }
 
-    // ── Load slots when a station is clicked ──────────────────────────────
+    // ── Load slots when a station is clicked (Show ONLY valid, unexpired slots) ──
     LaunchedEffect(selectedStation) {
         val st = selectedStation ?: return@LaunchedEffect
         isSlotsLoading = true
         repository.getSlotsByStationId(st.id).fold(
             onSuccess = { slots ->
-                selectedStationSlots = slots.filter { it.isActive }
+                selectedStationSlots = slots.filter { slot ->
+                    slot.isActive && !isSlotExpired(slot) && !isSlotBeyond7Days(slot)
+                }.sortedWith(compareBy({ it.slotDate }, { it.startTime }))
             },
             onFailure = { e ->
                 Log.e(TAG, "Failed to load slots for station ${st.id}: ${e.message}")
@@ -648,7 +673,7 @@ fun StationMapScreen() {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(horizontal = 20.dp, vertical = 36.dp),
+                        .padding(horizontal = 16.dp, vertical = 24.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     StationDetailPopup(
@@ -656,37 +681,43 @@ fun StationMapScreen() {
                         distanceText = distToStation?.let { formatDist(it) },
                         slots = selectedStationSlots,
                         isSlotsLoading = isSlotsLoading,
+                        userNic = userNic,
                         onDismiss = {
                             showPopupBox = false
                             selectedStation = null
                         },
-                        onStationClick = { st ->
-                            showPopupBox = false
-                            detailedStation = st
+                        onReserveSlot = { slot, requestedKwh, onResult ->
+                            coroutineScope.launch {
+                                val result = reservationRepository.createReservation(
+                                    nic = userNic,
+                                    slotId = slot.id,
+                                    requestedKwh = requestedKwh
+                                )
+                                result.fold(
+                                    onSuccess = {
+                                        Toast.makeText(
+                                            context,
+                                            "Reservation confirmed for %.1f kWh!".format(requestedKwh),
+                                            Toast.LENGTH_LONG
+                                        ).show()
+                                        // Immediately reload slots for this station so available capacity updates
+                                        repository.getSlotsByStationId(station.id).onSuccess { updatedSlots ->
+                                            selectedStationSlots = updatedSlots.filter {
+                                                it.isActive && !isSlotExpired(it) && !isSlotBeyond7Days(it)
+                                            }.sortedWith(compareBy({ it.slotDate }, { it.startTime }))
+                                        }
+                                        reservationViewModel?.loadAllData()
+                                        onResult(true, null)
+                                    },
+                                    onFailure = { err ->
+                                        onResult(false, err.message ?: "Failed to book reservation")
+                                    }
+                                )
+                            }
                         }
                     )
                 }
             }
-        }
-
-        // ── Full Screen Station Details View ──────────────────────────────
-        if (detailedStation != null) {
-            StationDetailsScreen(
-                station = detailedStation!!,
-                userLocation = userLocation,
-                onBack = { detailedStation = null },
-                onViewOnMap = { st ->
-                    detailedStation = null
-                    selectedStation = st
-                    showPopupBox = true
-                    mapView?.getMapAsync { map ->
-                        map.animateCamera(
-                            CameraUpdateFactory.newLatLng(LatLng(st.latitude, st.longitude)),
-                            500
-                        )
-                    }
-                }
-            )
         }
     }
 
@@ -805,6 +836,92 @@ private fun updateUserMarker(style: org.maplibre.android.maps.Style, loc: Locati
         ?.setGeoJson(FeatureCollection.fromFeatures(listOf(feature)))
 }
 
+// ── Helpers for Station Details, Slot Expiry, and Navigation ────────────────
+private fun isSlotExpired(slot: EnergySlot): Boolean {
+    return try {
+        val datePart = slot.slotDate.split("T")[0].trim()
+        val timeSource = if (slot.endTime.isNotBlank()) slot.endTime.trim() else slot.startTime.trim()
+        val timeParts = timeSource.split(":")
+        val hour = timeParts.getOrNull(0)?.padStart(2, '0') ?: "00"
+        val minute = timeParts.getOrNull(1)?.padStart(2, '0') ?: "00"
+        val second = timeParts.getOrNull(2)?.padStart(2, '0') ?: "00"
+
+        val sdf = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).apply {
+            timeZone = TimeZone.getDefault()
+        }
+        val slotDateTime = sdf.parse("$datePart $hour:$minute:$second")
+        val now = System.currentTimeMillis()
+        (slotDateTime?.time ?: Long.MAX_VALUE) <= now
+    } catch (e: Exception) {
+        false
+    }
+}
+
+private fun isSlotBeyond7Days(slot: EnergySlot): Boolean {
+    return try {
+        val datePart = slot.slotDate.split("T")[0].trim()
+        val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.US).apply {
+            timeZone = TimeZone.getDefault()
+        }
+        val slotDate = sdf.parse(datePart) ?: return false
+        val now = System.currentTimeMillis()
+        val diffMs = slotDate.time - now
+        val diffDays = diffMs / (1000.0 * 60 * 60 * 24)
+        diffDays > 7.0
+    } catch (e: Exception) {
+        false
+    }
+}
+
+private fun checkIsStationOpen(startTime: String?, endTime: String?): Boolean {
+    if (startTime.isNullOrBlank() || endTime.isNullOrBlank()) return true
+    return try {
+        val cal = Calendar.getInstance()
+        val currentMinutes = cal.get(Calendar.HOUR_OF_DAY) * 60 + cal.get(Calendar.MINUTE)
+        val startParts = startTime.split(":")
+        val startMinutes = startParts[0].toInt() * 60 + (startParts.getOrNull(1)?.toInt() ?: 0)
+        val endParts = endTime.split(":")
+        val endMinutes = endParts[0].toInt() * 60 + (endParts.getOrNull(1)?.toInt() ?: 0)
+        currentMinutes in startMinutes..endMinutes
+    } catch (_: Exception) {
+        true
+    }
+}
+
+private fun formatOperationalTime(timeStr: String?): String {
+    if (timeStr.isNullOrBlank()) return "--:--"
+    return try {
+        val parts = timeStr.trim().split(":")
+        val h = parts[0].toInt()
+        val m = parts.getOrNull(1)?.toInt() ?: 0
+        val amPm = if (h >= 12) "PM" else "AM"
+        val displayHour = when {
+            h == 0 -> 12
+            h > 12 -> h - 12
+            else -> h
+        }
+        "%d:%02d %s".format(displayHour, m, amPm)
+    } catch (_: Exception) {
+        timeStr.take(5)
+    }
+}
+
+private fun openMapsDirections(context: Context, lat: Double, lng: Double, label: String) {
+    try {
+        val gmmIntentUri = Uri.parse("geo:$lat,$lng?q=$lat,$lng(${Uri.encode(label)})")
+        val mapIntent = Intent(Intent.ACTION_VIEW, gmmIntentUri)
+        mapIntent.setPackage("com.google.android.apps.maps")
+        context.startActivity(mapIntent)
+    } catch (e: Exception) {
+        try {
+            val webUri = Uri.parse("https://www.google.com/maps/dir/?api=1&destination=$lat,$lng")
+            context.startActivity(Intent(Intent.ACTION_VIEW, webUri))
+        } catch (err: Exception) {
+            Toast.makeText(context, "Could not open map navigation", Toast.LENGTH_SHORT).show()
+        }
+    }
+}
+
 // ── Station Detail POPUP BOX Dialog ──────────────────────────────────────────
 @Composable
 private fun StationDetailPopup(
@@ -812,13 +929,23 @@ private fun StationDetailPopup(
     distanceText: String?,
     slots: List<EnergySlot>,
     isSlotsLoading: Boolean,
+    userNic: String,
     onDismiss: () -> Unit,
-    onStationClick: (SolarStation) -> Unit
+    onReserveSlot: (EnergySlot, Double, (Boolean, String?) -> Unit) -> Unit
 ) {
+    val context = LocalContext.current
+    var slotToReserve by remember { mutableStateOf<EnergySlot?>(null) }
+
+    val isOpenNow = remember(station.operatingStartTime, station.operatingEndTime) {
+        checkIsStationOpen(station.operatingStartTime, station.operatingEndTime)
+    }
+    val totalAvailableEnergy = remember(slots) { slots.sumOf { it.availableEnergyKwh } }
+    val openSlots = remember(slots) { slots.filter { it.availableEnergyKwh > 0.0 } }
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .fillMaxHeight(0.78f),
+            .fillMaxHeight(0.88f),
         shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(defaultElevation = 16.dp),
@@ -842,13 +969,12 @@ private fun StationDetailPopup(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // Bolt icon badge (Clickable to open Station Details)
+                        // Bolt icon badge (Static icon)
                         Box(
                             modifier = Modifier
                                 .size(44.dp)
                                 .clip(RoundedCornerShape(12.dp))
-                                .background(Color.White.copy(alpha = 0.2f))
-                                .clickable { onStationClick(station) },
+                                .background(Color.White.copy(alpha = 0.2f)),
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
@@ -861,12 +987,10 @@ private fun StationDetailPopup(
 
                         Spacer(modifier = Modifier.width(12.dp))
 
-                        // Title & address (Clickable to open Station Details Screen)
+                        // Title & address
                         Column(
                             modifier = Modifier
                                 .weight(1f)
-                                .clip(RoundedCornerShape(8.dp))
-                                .clickable { onStationClick(station) }
                                 .padding(vertical = 2.dp)
                         ) {
                             Row(
@@ -882,13 +1006,20 @@ private fun StationDetailPopup(
                                     overflow = TextOverflow.Ellipsis,
                                     modifier = Modifier.weight(1f, fill = false)
                                 )
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Icon(
-                                    Icons.Default.ChevronRight,
-                                    contentDescription = "View station details",
-                                    tint = Color.White.copy(alpha = 0.95f),
-                                    modifier = Modifier.size(18.dp)
-                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(6.dp))
+                                        .background(Color.White.copy(alpha = 0.22f))
+                                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                                ) {
+                                    Text(
+                                        text = "ID: ${station.id.takeLast(6).uppercase()}",
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color.White
+                                    )
+                                }
                             }
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
@@ -900,22 +1031,15 @@ private fun StationDetailPopup(
                                     tint = Color.White.copy(alpha = 0.85f),
                                     modifier = Modifier.size(13.dp)
                                 )
-                                Spacer(modifier = Modifier.width(2.dp))
+                                Spacer(modifier = Modifier.width(3.dp))
                                 Text(
-                                    text = station.location.ifBlank { "Solar Station" },
+                                    text = station.location.ifBlank { "Sri Lanka Solar Grid Hub" },
                                     fontSize = 12.sp,
                                     color = Color.White.copy(alpha = 0.9f),
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis
                                 )
                             }
-                            Text(
-                                text = "Tap to view operational details →",
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = Color.White.copy(alpha = 0.85f),
-                                modifier = Modifier.padding(top = 2.dp)
-                            )
                         }
 
                         // Close Button
@@ -935,12 +1059,13 @@ private fun StationDetailPopup(
                         }
                     }
 
-                    // Badges row: Status & Distance
+                    // Badges row: Status, Operating Hours, Distance
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(top = 10.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
                         // Operational Status Badge
                         Box(
@@ -953,15 +1078,39 @@ private fun StationDetailPopup(
                                 Box(
                                     modifier = Modifier
                                         .size(7.dp)
-                                        .clip(RoundedCornerShape(3.5.dp))
-                                        .background(if (station.isActive) Color(0xFF15803D) else Color(0xFF94A3B8))
+                                        .clip(CircleShape)
+                                        .background(if (station.isActive) Color(0xFF15803D) else Color(0xFFDC2626))
                                 )
                                 Spacer(modifier = Modifier.width(5.dp))
                                 Text(
-                                    text = if (station.isActive) "Active Grid Node" else "Inactive",
+                                    text = if (station.isActive) "Active Node" else "Inactive",
                                     fontSize = 11.sp,
                                     fontWeight = FontWeight.Bold,
-                                    color = if (station.isActive) Color(0xFF15803D) else Color(0xFF64748B)
+                                    color = if (station.isActive) Color(0xFF15803D) else Color(0xFFDC2626)
+                                )
+                            }
+                        }
+
+                        // Open Now / Closed Badge
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(if (isOpenNow) Color(0xFFDCFCE7) else Color(0xFFFEE2E2))
+                                .padding(horizontal = 8.dp, vertical = 3.dp)
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    Icons.Default.Schedule,
+                                    contentDescription = null,
+                                    tint = if (isOpenNow) Color(0xFF15803D) else Color(0xFFDC2626),
+                                    modifier = Modifier.size(11.dp)
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = if (isOpenNow) "Open Now" else "Closed",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (isOpenNow) Color(0xFF15803D) else Color(0xFFDC2626)
                                 )
                             }
                         }
@@ -1002,7 +1151,68 @@ private fun StationDetailPopup(
                     .verticalScroll(rememberScrollState())
                     .padding(16.dp)
             ) {
-                // Key Metrics 3-Card Row
+                // ── Navigation Quick Action Bar (Direction Button + Copy GPS) ──
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    // Turn-by-turn Directions Button
+                    Button(
+                        onClick = {
+                            openMapsDirections(context, station.latitude, station.longitude, station.stationName)
+                        },
+                        modifier = Modifier
+                            .weight(1.3f)
+                            .height(42.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF15803D))
+                    ) {
+                        Icon(
+                            Icons.Default.Directions,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "Get Directions",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+
+                    // Copy GPS Coordinates Button
+                    OutlinedButton(
+                        onClick = {
+                            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                            val clip = ClipData.newPlainText("GPS", "${station.latitude}, ${station.longitude}")
+                            clipboard.setPrimaryClip(clip)
+                            Toast.makeText(context, "GPS coordinates copied to clipboard", Toast.LENGTH_SHORT).show()
+                        },
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(42.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        border = BorderStroke(1.dp, Color(0xFFCBD5E1))
+                    ) {
+                        Icon(
+                            Icons.Default.ContentCopy,
+                            contentDescription = null,
+                            modifier = Modifier.size(15.dp),
+                            tint = Color(0xFF475569)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "Copy GPS",
+                            fontSize = 12.sp,
+                            color = Color(0xFF475569),
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // ── Detailed Stats 4-Card Grid ──
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -1012,76 +1222,111 @@ private fun StationDetailPopup(
                         icon = Icons.Default.Bolt,
                         title = "Capacity",
                         value = "${station.totalCapacityKwh.toInt()} kWh",
+                        subtitle = "Total Grid",
                         tintColor = Color(0xFF15803D),
                         bgColor = Color(0xFFDCFCE7)
                     )
                     StatCard(
                         modifier = Modifier.weight(1f),
-                        icon = Icons.Default.Schedule,
-                        title = "Operating",
-                        value = "${station.operatingStartTime?.take(5) ?: "--"}\u2013${station.operatingEndTime?.take(5) ?: "--"}",
+                        icon = Icons.Default.BatteryChargingFull,
+                        title = "Avail. Energy",
+                        value = "${totalAvailableEnergy.toInt()} kWh",
+                        subtitle = "${openSlots.size} open slots",
                         tintColor = Color(0xFF1D4ED8),
                         bgColor = Color(0xFFDBEAFE)
                     )
                     StatCard(
                         modifier = Modifier.weight(1f),
-                        icon = Icons.Default.Battery4Bar,
-                        title = "Slots",
-                        value = "${slots.size} Avail.",
+                        icon = Icons.Default.Schedule,
+                        title = "Valid Slots",
+                        value = "${slots.size}",
+                        subtitle = "Unexpired",
                         tintColor = Color(0xFF7C3AED),
                         bgColor = Color(0xFFF3E8FF)
+                    )
+                    StatCard(
+                        modifier = Modifier.weight(1f),
+                        icon = Icons.Default.Verified,
+                        title = "Grid Sync",
+                        value = if (station.isActive) "99.8%" else "Offline",
+                        subtitle = "CEB Linked",
+                        tintColor = Color(0xFFB45309),
+                        bgColor = Color(0xFFFEF3C7)
                     )
                 }
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                // GPS Location Info Box
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(Color(0xFFF8FAFC))
-                        .padding(horizontal = 12.dp, vertical = 8.dp)
+                // ── Station Operational Schedule & Coordinates Info ──
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = Color(0xFFF8FAFC),
+                    border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            Icons.Default.Place,
-                            contentDescription = null,
-                            tint = Color(0xFF15803D),
-                            modifier = Modifier.size(15.dp)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = "GPS: %.4f, %.4f".format(station.latitude, station.longitude),
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = Color(0xFF475569)
-                        )
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                Icons.Default.Schedule,
+                                contentDescription = null,
+                                tint = Color(0xFF15803D),
+                                modifier = Modifier.size(15.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "Operating Hours: ${formatOperationalTime(station.operatingStartTime)} – ${formatOperationalTime(station.operatingEndTime)}",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = Color(0xFF1E293B)
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                Icons.Default.Place,
+                                contentDescription = null,
+                                tint = Color(0xFF64748B),
+                                modifier = Modifier.size(15.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "GPS: %.5f, %.5f".format(station.latitude, station.longitude),
+                                fontSize = 11.sp,
+                                color = Color(0xFF64748B)
+                            )
+                        }
                     }
                 }
 
-                Spacer(modifier = Modifier.height(14.dp))
+                Spacer(modifier = Modifier.height(16.dp))
 
-                // Available Battery Slots Section
+                // ── Available Battery Slots Section (Only Valid Unexpired Slots) ──
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        "Available Battery Slots",
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF0F172A)
-                    )
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            "Available Battery Slots",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF0F172A)
+                        )
+                        Text(
+                            "Showing active, unexpired slots only",
+                            fontSize = 11.sp,
+                            color = Color(0xFF64748B)
+                        )
+                    }
                     Box(
                         modifier = Modifier
                             .clip(RoundedCornerShape(8.dp))
                             .background(Color(0xFFDCFCE7))
-                            .padding(horizontal = 8.dp, vertical = 2.dp)
+                            .padding(horizontal = 8.dp, vertical = 3.dp)
                     ) {
                         Text(
-                            "${slots.size} active",
+                            "${slots.size} valid",
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
                             color = Color(0xFF15803D)
@@ -1089,7 +1334,7 @@ private fun StationDetailPopup(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(10.dp))
 
                 when {
                     isSlotsLoading -> {
@@ -1107,7 +1352,7 @@ private fun StationDetailPopup(
                                 )
                                 Spacer(modifier = Modifier.height(8.dp))
                                 Text(
-                                    "Loading active slots\u2026",
+                                    "Loading valid unexpired slots\u2026",
                                     fontSize = 12.sp,
                                     color = Color(0xFF64748B)
                                 )
@@ -1120,6 +1365,7 @@ private fun StationDetailPopup(
                                 .fillMaxWidth()
                                 .clip(RoundedCornerShape(12.dp))
                                 .background(Color(0xFFF8FAFC))
+                                .border(1.dp, Color(0xFFE2E8F0), RoundedCornerShape(12.dp))
                                 .padding(20.dp),
                             contentAlignment = Alignment.Center
                         ) {
@@ -1128,27 +1374,32 @@ private fun StationDetailPopup(
                                     Icons.Default.BatteryAlert,
                                     contentDescription = null,
                                     tint = Color(0xFF94A3B8),
-                                    modifier = Modifier.size(32.dp)
+                                    modifier = Modifier.size(36.dp)
                                 )
-                                Spacer(modifier = Modifier.height(6.dp))
+                                Spacer(modifier = Modifier.height(8.dp))
                                 Text(
-                                    "No battery slots scheduled yet",
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Medium,
-                                    color = Color(0xFF64748B)
+                                    "No upcoming valid battery slots",
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF334155)
                                 )
                                 Text(
-                                    "Check back soon for available trading slots",
+                                    "All past slots are expired or none are currently scheduled for this station.",
                                     fontSize = 11.sp,
-                                    color = Color(0xFF94A3B8)
+                                    color = Color(0xFF94A3B8),
+                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                                    modifier = Modifier.padding(top = 2.dp)
                                 )
                             }
                         }
                     }
                     else -> {
-                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                             slots.forEach { slot ->
-                                SlotCard(slot = slot)
+                                PopupSlotCard(
+                                    slot = slot,
+                                    onReserveClick = { slotToReserve = slot }
+                                )
                             }
                         }
                     }
@@ -1173,17 +1424,44 @@ private fun StationDetailPopup(
                 }
 
                 Button(
-                    onClick = { onStationClick(station) },
+                    onClick = {
+                        slotToReserve = openSlots.firstOrNull() ?: slots.firstOrNull()
+                    },
+                    enabled = openSlots.isNotEmpty(),
                     modifier = Modifier.weight(1.3f),
                     shape = RoundedCornerShape(10.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF15803D))
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFF15803D),
+                        disabledContainerColor = Color(0xFFE2E8F0)
+                    )
                 ) {
                     Icon(Icons.Default.Bolt, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text("Reserve Slot", fontWeight = FontWeight.Bold)
+                    Text(
+                        text = if (openSlots.isNotEmpty()) "Reserve Slot" else "No Open Slots",
+                        fontWeight = FontWeight.Bold
+                    )
                 }
             }
         }
+    }
+
+    // ── Quick Reservation Dialog from Popup ──
+    if (slotToReserve != null) {
+        SlotReservationDialog(
+            slot = slotToReserve!!,
+            station = station,
+            userNic = userNic,
+            onDismiss = { slotToReserve = null },
+            onConfirm = { requestedKwh, onResult ->
+                onReserveSlot(slotToReserve!!, requestedKwh) { success, err ->
+                    onResult(success, err)
+                    if (success) {
+                        slotToReserve = null
+                    }
+                }
+            }
+        )
     }
 }
 
@@ -1194,6 +1472,7 @@ private fun StatCard(
     icon: ImageVector,
     title: String,
     value: String,
+    subtitle: String? = null,
     tintColor: Color,
     bgColor: Color
 ) {
@@ -1204,68 +1483,352 @@ private fun StatCard(
         border = BorderStroke(1.dp, tintColor.copy(alpha = 0.2f))
     ) {
         Column(
-            modifier = Modifier.padding(8.dp),
+            modifier = Modifier.padding(horizontal = 6.dp, vertical = 8.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Icon(icon, contentDescription = null, tint = tintColor, modifier = Modifier.size(18.dp))
             Spacer(modifier = Modifier.height(4.dp))
-            Text(value, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF0F172A), maxLines = 1)
-            Text(title, fontSize = 10.sp, color = Color(0xFF64748B))
+            Text(value, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color(0xFF0F172A), maxLines = 1)
+            Text(title, fontSize = 10.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFF475569), maxLines = 1)
+            if (subtitle != null) {
+                Text(subtitle, fontSize = 9.sp, color = Color(0xFF94A3B8), maxLines = 1)
+            }
         }
     }
 }
 
-// ── Slot Card ─────────────────────────────────────────────────────────────────
+// ── Slot Card with Reservation Action ─────────────────────────────────────────
 @Composable
-private fun SlotCard(slot: EnergySlot) {
+private fun PopupSlotCard(
+    slot: EnergySlot,
+    onReserveClick: () -> Unit
+) {
+    val isAvailable = slot.availableEnergyKwh > 0.0
+    val progress = if (slot.energyCapacityKwh > 0) {
+        (slot.availableEnergyKwh / slot.energyCapacityKwh).toFloat().coerceIn(0f, 1f)
+    } else 0f
+
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(10.dp),
+        shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = Color(0xFFF8FAFC)),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
         border = BorderStroke(1.dp, Color(0xFFE2E8F0))
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(Color(0xFFDCFCE7)),
-                contentAlignment = Alignment.Center
+        Column(modifier = Modifier.padding(12.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Icon(Icons.Default.Battery4Bar, contentDescription = null, tint = Color(0xFF15803D), modifier = Modifier.size(22.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(if (isAvailable) Color(0xFFDCFCE7) else Color(0xFFF1F5F9)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            Icons.Default.BatteryChargingFull,
+                            contentDescription = null,
+                            tint = if (isAvailable) Color(0xFF15803D) else Color(0xFF94A3B8),
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Column {
+                        Text(
+                            text = "${formatOperationalTime(slot.startTime)} – ${formatOperationalTime(slot.endTime)}",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF0F172A)
+                        )
+                        Text(
+                            text = "Date: ${slot.slotDate.split("T")[0]}",
+                            fontSize = 11.sp,
+                            color = Color(0xFF64748B)
+                        )
+                    }
+                }
+
+                Surface(
+                    shape = RoundedCornerShape(6.dp),
+                    color = if (isAvailable) Color(0xFFDCFCE7) else Color(0xFFF1F5F9)
+                ) {
+                    Text(
+                        text = if (isAvailable) "OPEN" else "FULL",
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = if (isAvailable) Color(0xFF15803D) else Color(0xFF64748B),
+                        modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp)
+                    )
+                }
             }
-            Spacer(modifier = Modifier.width(12.dp))
-            Column(modifier = Modifier.weight(1f)) {
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Energy Progress Bar
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 Text(
-                    "${slot.startTime.take(5)} \u2013 ${slot.endTime.take(5)}",
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF0F172A)
-                )
-                Text(
-                    slot.slotDate.split("T")[0],
+                    text = "Capacity Available",
                     fontSize = 11.sp,
                     color = Color(0xFF64748B)
                 )
-            }
-            Column(horizontalAlignment = Alignment.End) {
                 Text(
-                    "${slot.availableEnergyKwh.toInt()} kWh",
-                    fontSize = 13.sp,
+                    text = "%.1f / %.1f kWh".format(slot.availableEnergyKwh, slot.energyCapacityKwh),
+                    fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
-                    color = Color(0xFF15803D)
+                    color = if (isAvailable) Color(0xFF15803D) else Color(0xFF94A3B8)
                 )
+            }
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            LinearProgressIndicator(
+                progress = { progress },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(5.dp)
+                    .clip(RoundedCornerShape(2.5.dp)),
+                color = if (progress > 0.2f) Color(0xFF15803D) else Color(0xFFEAB308),
+                trackColor = Color(0xFFE2E8F0)
+            )
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            Button(
+                onClick = onReserveClick,
+                enabled = isAvailable,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(36.dp),
+                shape = RoundedCornerShape(8.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFF15803D),
+                    disabledContainerColor = Color(0xFFE2E8F0)
+                ),
+                contentPadding = PaddingValues(vertical = 4.dp)
+            ) {
+                Icon(Icons.Default.Bolt, contentDescription = null, modifier = Modifier.size(15.dp))
+                Spacer(modifier = Modifier.width(4.dp))
                 Text(
-                    "of ${slot.energyCapacityKwh.toInt()} kWh",
-                    fontSize = 10.sp,
-                    color = Color(0xFF94A3B8)
+                    text = if (isAvailable) "Reserve Energy Slot" else "Slot Fully Booked",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold
                 )
+            }
+        }
+    }
+}
+
+// ── Slot Reservation Dialog from Popup ────────────────────────────────────────
+@Composable
+private fun SlotReservationDialog(
+    slot: EnergySlot,
+    station: SolarStation,
+    userNic: String,
+    onDismiss: () -> Unit,
+    onConfirm: (Double, (Boolean, String?) -> Unit) -> Unit
+) {
+    var kwhText by remember { mutableStateOf(minOf(10.0, slot.availableEnergyKwh).toString()) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+    var isSubmitting by remember { mutableStateOf(false) }
+
+    Dialog(onDismissRequest = { if (!isSubmitting) onDismiss() }) {
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(20.dp),
+            colors = CardDefaults.cardColors(containerColor = Color.White),
+            elevation = CardDefaults.cardElevation(defaultElevation = 10.dp)
+        ) {
+            Column(modifier = Modifier.padding(20.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(Color(0xFFDCFCE7)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Default.Bolt, contentDescription = null, tint = Color(0xFF15803D), modifier = Modifier.size(20.dp))
+                        }
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Text(
+                            "Reserve Energy Slot",
+                            fontSize = 17.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF0F172A)
+                        )
+                    }
+                    IconButton(
+                        onClick = onDismiss,
+                        enabled = !isSubmitting,
+                        modifier = Modifier.size(28.dp)
+                    ) {
+                        Icon(Icons.Default.Close, contentDescription = "Close", tint = Color(0xFF64748B))
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // Station & Slot Summary Box
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = Color(0xFFF8FAFC),
+                    border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Text(
+                            text = station.stationName,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF0F172A)
+                        )
+                        if (station.location.isNotBlank()) {
+                            Text(
+                                text = station.location,
+                                fontSize = 11.sp,
+                                color = Color(0xFF64748B)
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text("Slot Date:", fontSize = 11.sp, color = Color(0xFF64748B))
+                            Text(slot.slotDate.split("T")[0], fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFF0F172A))
+                        }
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text("Time Window:", fontSize = 11.sp, color = Color(0xFF64748B))
+                            Text(
+                                "${formatOperationalTime(slot.startTime)} – ${formatOperationalTime(slot.endTime)}",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = Color(0xFF0F172A)
+                            )
+                        }
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text("Available Capacity:", fontSize = 11.sp, color = Color(0xFF64748B))
+                            Text(
+                                "%.1f kWh".format(slot.availableEnergyKwh),
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF15803D)
+                            )
+                        }
+                        if (userNic.isNotBlank()) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text("Prosumer NIC:", fontSize = 11.sp, color = Color(0xFF64748B))
+                                Text(userNic, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFF1D4ED8))
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                Text(
+                    "Requested Energy (kWh)",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color(0xFF334155)
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+
+                OutlinedTextField(
+                    value = kwhText,
+                    onValueChange = {
+                        kwhText = it
+                        errorMessage = null
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(10.dp),
+                    singleLine = true,
+                    placeholder = { Text("e.g. 10.0") },
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = Color(0xFF15803D),
+                        unfocusedBorderColor = Color(0xFFCBD5E1)
+                    )
+                )
+
+                errorMessage?.let { msg ->
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(msg, fontSize = 11.sp, color = Color(0xFFDC2626))
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = onDismiss,
+                        enabled = !isSubmitting,
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Text("Cancel", color = Color(0xFF64748B))
+                    }
+
+                    Button(
+                        onClick = {
+                            val kwh = kwhText.toDoubleOrNull()
+                            if (kwh == null || kwh <= 0.0) {
+                                errorMessage = "Please enter a valid amount greater than 0"
+                                return@Button
+                            }
+                            if (kwh > slot.availableEnergyKwh) {
+                                errorMessage = "Cannot exceed available capacity (%.1f kWh)".format(slot.availableEnergyKwh)
+                                return@Button
+                            }
+                            if (userNic.isBlank()) {
+                                errorMessage = "Please sign in with a valid prosumer NIC"
+                                return@Button
+                            }
+
+                            isSubmitting = true
+                            errorMessage = null
+                            onConfirm(kwh) { success, err ->
+                                isSubmitting = false
+                                if (!success) {
+                                    errorMessage = err ?: "Failed to book reservation"
+                                }
+                            }
+                        },
+                        enabled = !isSubmitting,
+                        modifier = Modifier.weight(1.3f),
+                        shape = RoundedCornerShape(10.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF15803D))
+                    ) {
+                        if (isSubmitting) {
+                            CircularProgressIndicator(color = Color.White, modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                        } else {
+                            Text("Confirm Booking", fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
             }
         }
     }

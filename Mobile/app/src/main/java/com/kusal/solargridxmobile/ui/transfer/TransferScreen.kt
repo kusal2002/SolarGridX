@@ -6,6 +6,11 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.ui.window.Dialog
+import androidx.compose.material.icons.filled.QrCode2
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.material.icons.Icons
@@ -51,6 +56,8 @@ fun TransferScreen(session: SessionManager, initialView: String = "current") {
     var page by remember { mutableIntStateOf(1) }
     var total by remember { mutableIntStateOf(0) }
     var selected by remember { mutableStateOf<EnergyReservation?>(null) }
+    var showQr by remember { mutableStateOf(false) }
+    var showDetails by remember { mutableStateOf(false) }
     var ticket by remember { mutableStateOf<QrTicket?>(null) }
     var transfer by remember { mutableStateOf<EnergyTransfer?>(null) }
     var reading by remember { mutableStateOf("") }
@@ -100,13 +107,16 @@ fun TransferScreen(session: SessionManager, initialView: String = "current") {
     }
 
     fun verify(payload: String) {
+        showDetails = true; showQr = false; ticket = null; reason = ""
         run {
             transfer = null; selected = null
             val result = api.verify(VerifyQr(payload))
             transfer = result
             reading = result.transferredEnergyKWh.toString()
             refresh()
-            selected = bookings.firstOrNull { it.id == result.reservationId }
+            val bookingResponse = ApiClient.reservationService.getReservationById(result.reservationId)
+            if (!bookingResponse.isSuccessful) throw HttpException(bookingResponse)
+            selected = bookingResponse.body()
             message = "QR verified. Prosumer NIC: ${result.prosumerNIC}. Ready to start."
         }
     }
@@ -124,130 +134,145 @@ fun TransferScreen(session: SessionManager, initialView: String = "current") {
 
     MaterialTheme(colorScheme = MaterialTheme.colorScheme.copy(
         primary = GreenPrimary, onPrimary = Color.White,
-        surface = Color.White, onSurface = TextPrimary,
-        onSurfaceVariant = TextMuted
+        surface = Color.White, onSurface = TextPrimary, onSurfaceVariant = TextMuted
     )) {
-    Column(Modifier.fillMaxSize().background(ScreenBg)) {
-        Surface(color = Color.White, shadowElevation = 2.dp) {
-            Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.Bolt, null, tint = GreenPrimary)
-                    Column(Modifier.weight(1f).padding(start = 8.dp)) {
-                        Text(if (operator) "Operator Transfers" else "My Bookings & QR", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                        Text(if (operator) "Verify QR and monitor energy delivery" else "Your bookings and transaction QR", style = MaterialTheme.typography.bodySmall, color = TextMuted)
+        Column(Modifier.fillMaxSize().background(ScreenBg)) {
+            Surface(color = Color.White, shadowElevation = 2.dp) {
+                Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.Bolt, null, tint = GreenPrimary)
+                        Column(Modifier.weight(1f).padding(start = 8.dp)) {
+                            Text(if (operator) "Operator transfers" else "My bookings & QR", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                            Text(if (operator) "Scan, verify, and manage delivery" else "Tap Show QR on an approved booking", style = MaterialTheme.typography.bodySmall, color = TextMuted)
+                        }
+                        IconButton(enabled = !busy, onClick = { run { refresh() } }) { Icon(Icons.Default.Refresh, "Refresh", tint = GreenPrimary) }
                     }
-                    IconButton(enabled = !busy, onClick = { run { refresh() } }) {
-                        Icon(Icons.Default.Refresh, "Refresh", tint = GreenPrimary)
+                    if (operator) {
+                        Button(modifier = Modifier.fillMaxWidth(), enabled = !busy, onClick = {
+                            scanner.launch(ScanOptions().setDesiredBarcodeFormats(ScanOptions.QR_CODE).setPrompt("Scan the prosumer QR").setBeepEnabled(false).setOrientationLocked(false))
+                        }) { Icon(Icons.Default.QrCode2, null); Spacer(Modifier.width(8.dp)); Text("Scan prosumer QR") }
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            TransferCount("Pending", summary?.pending, Color(0xFFFEF3C7), Color(0xFFB45309), Modifier.weight(1f))
+                            TransferCount("Current", summary?.current, Color(0xFFDBEAFE), Color(0xFF1D4ED8), Modifier.weight(1f))
+                            TransferCount("Completed", summary?.completed, Color(0xFFDCFCE7), GreenPrimary, Modifier.weight(1f))
+                        }
                     }
-                }
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    TransferCount("Pending", summary?.pending, Color(0xFFFEF3C7), Color(0xFFB45309), Modifier.weight(1f))
-                    TransferCount("Current", summary?.current, Color(0xFFDBEAFE), Color(0xFF1D4ED8), Modifier.weight(1f))
-                    TransferCount("Approved", summary?.approvedFuture, Color(0xFFDCFCE7), GreenPrimary, Modifier.weight(1f))
-                    TransferCount("Completed", summary?.completed, Color(0xFFF1F5F9), TextPrimary, Modifier.weight(1f))
-                }
-                val views = listOf("current", "pending", "completed", "history", "search")
-                SecondaryScrollableTabRow(selectedTabIndex = views.indexOf(view), containerColor = Color.White, contentColor = GreenPrimary, edgePadding = 0.dp) {
-                    views.forEach { value ->
-                        Tab(selected = view == value, enabled = !busy,
-                            onClick = { view = value; page = 1; ticket = null; run { refresh() } },
-                            text = { Text(if (value == "search") "All" else value.replaceFirstChar { it.uppercase() }, style = MaterialTheme.typography.labelMedium) })
+                    val views = listOf("current", "pending", "completed", "history", "search")
+                    SecondaryScrollableTabRow(selectedTabIndex = views.indexOf(view), containerColor = Color.White, contentColor = GreenPrimary, edgePadding = 0.dp) {
+                        views.forEach { value ->
+                            Tab(selected = view == value, enabled = !busy, onClick = { view = value; page = 1; run { refresh() } },
+                                text = { Text(if (value == "search") "All" else value.replaceFirstChar { it.uppercase() }, style = MaterialTheme.typography.labelMedium) })
+                        }
                     }
                 }
             }
-        }
-        if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
-        Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        if (message.isNotBlank()) {
-            Surface(color = Color.White, shape = RoundedCornerShape(12.dp)) {
-                Text(message, Modifier.fillMaxWidth().padding(12.dp), style = MaterialTheme.typography.bodyMedium)
-            }
-        }
-        OutlinedTextField(search, { search = it }, label = { Text(if (operator) "Search ID, NIC or station" else "Search my bookings") }, modifier = Modifier.fillMaxWidth())
-        Button(enabled = !busy, onClick = { page = 1; ticket = null; run { refresh() } }) { Text("Search / refresh") }
-        if (bookings.isEmpty() && !busy) TransferPanel {
-            Text("No bookings found", fontWeight = FontWeight.SemiBold)
-            Text("Try another tab or search.", color = TextMuted)
-        }
-        bookings.forEach { booking ->
-            OutlinedCard(Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), colors = CardDefaults.outlinedCardColors(containerColor = Color.White)) {
-                Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
+            LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                item {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedTextField(search, { search = it }, singleLine = true, label = { Text(if (operator) "Search NIC or station" else "Search my bookings") }, modifier = Modifier.weight(1f))
+                        FilledTonalIconButton(enabled = !busy, onClick = { page = 1; run { refresh() } }) { Icon(Icons.Default.Search, "Search bookings") }
+                    }
+                }
+                if (message.isNotBlank()) item { Text(message, style = MaterialTheme.typography.bodyMedium, color = TextMuted) }
+                if (bookings.isEmpty() && !busy) item { TransferPanel { Text("No bookings found", fontWeight = FontWeight.SemiBold); Text("Try another tab or clear your search.", color = TextMuted) } }
+                items(bookings, key = { it.id }) { booking ->
+                    TransferPanel {
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                            TransferStatusChip(booking.status)
+                            Text("${booking.requestedEnergyKwh} kWh", fontWeight = FontWeight.Bold)
+                        }
+                        Text(booking.stationName?.takeIf { it.isNotBlank() } ?: "Station name unavailable", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                        Text("${bookingDate(booking.reservationDate)} · ${booking.startTime.take(5)}–${booking.endTime.take(5)}", color = TextMuted)
+                        if (operator) Text("Prosumer NIC: ${booking.prosumerNIC}", style = MaterialTheme.typography.bodySmall, color = TextMuted)
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            if (!operator && booking.status == "Approved") Button(modifier = Modifier.weight(1f), enabled = !busy, onClick = {
+                                selected = booking; transfer = null; ticket = null; showQr = true; showDetails = false
+                                run { ticket = api.qr(booking.id) }
+                            }) { Icon(Icons.Default.QrCode2, null); Spacer(Modifier.width(6.dp)); Text("Show QR") }
+                            OutlinedButton(modifier = Modifier.weight(1f), enabled = !busy, onClick = {
+                                selected = booking; ticket = null; transfer = null; reason = ""; showQr = false; showDetails = true
+                                if (operator || booking.transferId != null || booking.status == "Completed") run {
+                                    transfer = api.transfers(reservationId = booking.id).firstOrNull()
+                                    reading = transfer?.transferredEnergyKWh?.toString() ?: "0"
+                                }
+                            }) { Text("Details") }
+                        }
+                    }
+                }
+                if (total > 50) item {
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                        Surface(color = Color(0xFFDCFCE7), shape = RoundedCornerShape(8.dp)) {
-                            Text(booking.status, Modifier.padding(horizontal = 10.dp, vertical = 4.dp), color = GreenPrimary, style = MaterialTheme.typography.labelMedium)
-                        }
-                        Text("${booking.requestedEnergyKwh} kWh", fontWeight = FontWeight.Bold)
+                        OutlinedButton(enabled = !busy && page > 1, onClick = { page--; run { refresh() } }) { Text("Previous") }
+                        Text("Page $page", color = TextMuted)
+                        OutlinedButton(enabled = !busy && page * 50 < total, onClick = { page++; run { refresh() } }) { Text("Next") }
                     }
-                    Text(booking.stationName?.takeIf { it.isNotBlank() } ?: "Station name unavailable", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                    Text(bookingDate(booking.reservationDate), color = TextMuted)
-                    Text("${booking.startTime.take(5)} – ${booking.endTime.take(5)}", color = TextMuted)
-                    Text("Booking reference: ${booking.id.takeLast(6).uppercase()}", style = MaterialTheme.typography.bodySmall, color = TextMuted)
-                    TextButton(enabled = !busy, onClick = {
-                        selected = booking; ticket = null; transfer = null
-                        if (operator || booking.transferId != null || booking.status == "Completed") run {
-                            transfer = api.transfers(reservationId = booking.id).firstOrNull()
-                            reading = transfer?.transferredEnergyKWh?.toString() ?: "0"
-                        }
-                    }) { Text(if (!operator && booking.status == "Approved") "Open booking & QR" else "View booking") }
                 }
             }
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            TextButton(enabled = !busy && page > 1, onClick = { page--; run { refresh() } }) { Text("Previous") }
-            Text("Page $page")
-            TextButton(enabled = !busy && page * 50 < total, onClick = { page++; run { refresh() } }) { Text("Next") }
-        }
-        selected?.let { booking ->
-            TransferPanel {
-                Text(booking.stationName?.takeIf { it.isNotBlank() } ?: "Your booking", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                Text("Booking status: ${booking.status}", color = TextMuted)
-            Text("${bookingDate(booking.reservationDate)} · ${booking.startTime.take(5)} – ${booking.endTime.take(5)}")
-            Text("Reserved energy: ${booking.requestedEnergyKwh} kWh")
-            if (operator) Text("Prosumer NIC: ${booking.prosumerNIC}")
-            if (!operator && booking.status == "Approved") {
-                Button(enabled = !busy, onClick = { run { ticket = api.qr(booking.id) } }) { Text("Show QR / refresh") }
-                bitmap?.let { Image(it.asImageBitmap(), "Transaction QR", Modifier.fillMaxWidth().aspectRatio(1f).background(Color.White)) }
-                ticket?.let { Text("Show this QR to the Grid Operator. Valid until ${localTime(it.expiresAt)}.", color = TextMuted) }
-            }
-            }
-        }
-        if (operator) {
-            TransferPanel {
-            Text("Verify transaction", style = MaterialTheme.typography.titleMedium)
-            Text("Approved means the booking is accepted. Scan the prosumer QR before starting delivery.", color = TextMuted)
-            Text("The QR identifies the prosumer, station, slot and reserved energy automatically.", style = MaterialTheme.typography.bodySmall, color = TextMuted)
-            Button(enabled = !busy, onClick = {
-                scanner.launch(ScanOptions().setDesiredBarcodeFormats(ScanOptions.QR_CODE).setPrompt("Scan the prosumer QR").setBeepEnabled(false).setOrientationLocked(false))
-            }) { Text("Scan QR") }
-            }
-        }
-            transfer?.let { current ->
-                TransferPanel {
-                Text("${current.status}: ${current.transferredEnergyKWh}/${current.expectedEnergyKWh} kWh")
-                Text("Booking reference: ${current.reservationId.takeLast(6).uppercase()}")
-                Text("Prosumer NIC: ${current.prosumerNIC}", fontWeight = FontWeight.SemiBold)
-                Text(selected?.stationName ?: bookings.firstOrNull { it.stationId == current.stationId }?.stationName ?: "Station name unavailable", style = MaterialTheme.typography.bodyMedium)
-                Text(if (current.verifiedAt != null) "QR verified" else "Awaiting QR verification", color = TextMuted)
-                current.completedAt?.let { Text("Completed: ${bookingDate(it)} at ${localTime(it)}") }
-                if (operator && current.status == "Pending") Button(enabled = !busy && current.verifiedAt != null, onClick = { change("start") }) { Text("Start transfer") }
-                if (operator && current.status == "InProgress") {
-                    OutlinedTextField(reading, { reading = it }, label = { Text("Cumulative delivered kWh") })
+        if (showQr) Dialog(onDismissRequest = { showQr = false; ticket = null }) {
+            Surface(shape = RoundedCornerShape(24.dp), color = Color.White) {
+                Column(Modifier.fillMaxWidth().padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text("Show to Grid Operator", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                    Text(selected?.stationName ?: "Approved booking", color = TextMuted)
+                    selected?.let { Text("${bookingDate(it.reservationDate)} · ${it.startTime.take(5)}–${it.endTime.take(5)}", style = MaterialTheme.typography.bodySmall) }
+                    if (busy) { CircularProgressIndicator(); Text("Preparing your QR…") }
+                    else bitmap?.let { Image(it.asImageBitmap(), "Booking QR for Grid Operator", Modifier.fillMaxWidth().aspectRatio(1f).background(Color.White)) }
+                    ticket?.let { Text("Valid until ${localTime(it.expiresAt)}", color = GreenPrimary, fontWeight = FontWeight.Medium) }
+                    if (message.isNotBlank()) Text(message, style = MaterialTheme.typography.bodySmall, color = TextMuted)
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Button(enabled = !busy && reading.isNotBlank(), onClick = { change("progress") }) { Text("Save reading") }
-                        Button(enabled = !busy && reading.isNotBlank(), onClick = { change("complete") }) { Text("Complete") }
+                        OutlinedButton(enabled = !busy, onClick = { selected?.let { booking -> run { ticket = api.qr(booking.id) } } }) { Text(if (ticket == null) "Generate QR" else "Refresh QR") }
+                        Button(onClick = { showQr = false; ticket = null }) { Text("Done") }
                     }
                 }
-                if (operator && current.status in listOf("Pending", "InProgress")) {
-                    OutlinedTextField(reason, { reason = it }, label = { Text("Cancellation / failure reason") })
-                    TextButton(enabled = !busy && reason.isNotBlank(), onClick = { change(if (current.status == "Pending") "cancel" else "fail") }) { Text(if (current.status == "Pending") "Cancel transfer" else "Fail transfer") }
-                }
-                Text("Transfer history", style = MaterialTheme.typography.titleMedium)
-                current.history.forEach { Text("${it.action} · ${it.status} · ${it.actorNIC}") }
+            }
+        }
+        if (showDetails) Dialog(onDismissRequest = { showDetails = false }) {
+            Surface(shape = RoundedCornerShape(24.dp), color = Color.White) {
+                Column(Modifier.fillMaxWidth().heightIn(max = 620.dp).verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text("Transfer details", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                    if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
+                    selected?.let { booking ->
+                        Text(booking.stationName ?: "Booking", fontWeight = FontWeight.SemiBold)
+                        TransferStatusChip(booking.status)
+                        Text("${bookingDate(booking.reservationDate)} · ${booking.startTime.take(5)}–${booking.endTime.take(5)}", color = TextMuted)
+                        Text("Reserved: ${booking.requestedEnergyKwh} kWh")
+                    }
+                    if (message.isNotBlank()) Text(message, color = TextMuted)
+                    transfer?.let { current ->
+                        HorizontalDivider()
+                        TransferStatusChip(current.status)
+                        Text("Delivered: ${current.transferredEnergyKWh}/${current.expectedEnergyKWh} kWh", fontWeight = FontWeight.SemiBold)
+                        Text("Prosumer NIC: ${current.prosumerNIC}", style = MaterialTheme.typography.bodySmall)
+                        Text(if (current.verifiedAt != null) "QR verified" else "Awaiting QR verification", color = TextMuted)
+                        current.completedAt?.let { Text("Completed: ${bookingDate(it)} at ${localTime(it)}") }
+                        if (operator && current.status == "Pending") Button(modifier = Modifier.fillMaxWidth(), enabled = !busy && current.verifiedAt != null, onClick = { change("start") }) { Text("Start transfer") }
+                        if (operator && current.status == "InProgress") {
+                            OutlinedTextField(reading, { reading = it }, singleLine = true, label = { Text("Cumulative delivered kWh") }, modifier = Modifier.fillMaxWidth())
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                OutlinedButton(modifier = Modifier.weight(1f), enabled = !busy && reading.isNotBlank(), onClick = { change("progress") }) { Text("Save reading") }
+                                Button(modifier = Modifier.weight(1f), enabled = !busy && reading.isNotBlank(), onClick = { change("complete") }) { Text("Complete") }
+                            }
+                        }
+                        if (operator && current.status in listOf("Pending", "InProgress")) {
+                            OutlinedTextField(reason, { reason = it }, label = { Text("Cancellation / failure reason") }, modifier = Modifier.fillMaxWidth())
+                            TextButton(enabled = !busy && reason.isNotBlank(), onClick = { change(if (current.status == "Pending") "cancel" else "fail") }) { Text(if (current.status == "Pending") "Cancel transfer" else "Fail transfer") }
+                        }
+                        Text("Transfer history", fontWeight = FontWeight.SemiBold)
+                        current.history.forEach { Text("${it.action} · ${it.status} · ${localTime(it.at)}", style = MaterialTheme.typography.bodySmall, color = TextMuted) }
+                    }
+                    if (transfer == null && !busy) Text("No energy transfer recorded yet.", color = TextMuted)
+                    OutlinedButton(modifier = Modifier.fillMaxWidth(), onClick = { showDetails = false }) { Text("Close") }
                 }
             }
+        }
     }
-    }
-    }
+}
+
+@Composable
+private fun TransferStatusChip(status: String) {
+    val background = when (status) { "Pending" -> Color(0xFFFEF3C7); "Approved", "Completed" -> Color(0xFFDCFCE7); "InProgress" -> Color(0xFFDBEAFE); else -> Color(0xFFF1F5F9) }
+    val foreground = when (status) { "Pending" -> Color(0xFFB45309); "Approved", "Completed" -> GreenPrimary; "InProgress" -> Color(0xFF1D4ED8); else -> TextMuted }
+    Surface(color = background, shape = RoundedCornerShape(8.dp)) { Text(if (status == "InProgress") "In progress" else status, Modifier.padding(horizontal = 10.dp, vertical = 4.dp), color = foreground, style = MaterialTheme.typography.labelMedium) }
 }
 
 private fun transferError(raw: String?, status: Int): String {
