@@ -36,6 +36,21 @@ public class ReservationService
         }
     }
 
+    public async Task PopulateDisplayNamesAsync(List<EnergyReservation> list)
+    {
+        var users = await _users.Find(Builders<User>.Filter.In(u => u.NIC, list.Select(r => r.ProsumerNIC).Distinct()))
+            .Project(u => new { u.NIC, u.Name }).ToListAsync();
+        var stations = await _stations.Find(Builders<SolarStation>.Filter.In(s => s.Id, list.Select(r => r.StationId).Distinct()))
+            .Project(s => new { s.Id, s.StationName }).ToListAsync();
+        var names = users.ToDictionary(u => u.NIC, u => u.Name);
+        var stationNames = stations.ToDictionary(s => s.Id, s => s.StationName);
+        foreach (var reservation in list)
+        {
+            reservation.ProsumerName = names.GetValueOrDefault(reservation.ProsumerNIC);
+            reservation.StationName = stationNames.GetValueOrDefault(reservation.StationId);
+        }
+    }
+
     // 1. Get All Reservations (Admin / Operator)
     public async Task<List<EnergyReservation>> GetAllAsync()
     {

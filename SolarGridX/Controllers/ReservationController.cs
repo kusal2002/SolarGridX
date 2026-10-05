@@ -31,6 +31,7 @@ public class ReservationController : ControllerBase
             : await _reservationService.GetAllAsync();
         var ids = await _access.StationIdsAsync(User);
         if (ids != null) list = list.Where(r => ids.Contains(r.StationId)).ToList();
+        await _reservationService.PopulateDisplayNamesAsync(list);
         return Ok(list);
     }
 
@@ -55,6 +56,7 @@ public class ReservationController : ControllerBase
         if (res == null) return NotFound(new { message = "Reservation not found." });
         if (!CanAccess(res.ProsumerNIC)) return Forbid();
         if (!await _access.CanAccessAsync(User, res.StationId)) return Forbid();
+        await _reservationService.PopulateDisplayNamesAsync([res]);
         return Ok(res);
     }
 
@@ -65,6 +67,7 @@ public class ReservationController : ControllerBase
         var list = await _reservationService.GetByProsumerAsync(nic);
         var ids = await _access.StationIdsAsync(User);
         if (ids != null) list = list.Where(r => ids.Contains(r.StationId)).ToList();
+        await _reservationService.PopulateDisplayNamesAsync(list);
         return Ok(list);
     }
 
@@ -76,6 +79,7 @@ public class ReservationController : ControllerBase
             if (!CanAccess(request.ProsumerNIC)) return Forbid();
             if (!await _access.CanAccessSlotAsync(User, request.SlotId)) return Forbid();
             var created = await _reservationService.CreateAsync(request);
+            await _reservationService.PopulateDisplayNamesAsync([created]);
             return CreatedAtAction(nameof(GetById), new { id = created.Id }, created);
         }
         catch (KeyNotFoundException ex)
@@ -99,6 +103,7 @@ public class ReservationController : ControllerBase
             if (!await _access.CanAccessAsync(User, existing.StationId)) return Forbid();
             if (request.NewSlotId != null && !await _access.CanAccessSlotAsync(User, request.NewSlotId)) return Forbid();
             var updated = await _reservationService.UpdateAsync(id, request);
+            await _reservationService.PopulateDisplayNamesAsync([updated]);
             return Ok(updated);
         }
         catch (KeyNotFoundException ex)
@@ -121,6 +126,7 @@ public class ReservationController : ControllerBase
             if (!CanAccess(existing.ProsumerNIC)) return Forbid();
             if (!await _access.CanAccessAsync(User, existing.StationId)) return Forbid();
             var cancelled = await _reservationService.CancelAsync(id, reason);
+            await _reservationService.PopulateDisplayNamesAsync([cancelled]);
             return Ok(cancelled);
         }
         catch (KeyNotFoundException ex)
@@ -143,6 +149,7 @@ public class ReservationController : ControllerBase
             if (existing == null) return NotFound();
             if (!await _access.CanAccessAsync(User, existing.StationId)) return Forbid();
             var updated = await _reservationService.UpdateStatusAsync(id, request.Status);
+            await _reservationService.PopulateDisplayNamesAsync([updated]);
             return Ok(updated);
         }
         catch (KeyNotFoundException ex)
