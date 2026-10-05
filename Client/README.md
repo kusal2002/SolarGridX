@@ -8,6 +8,8 @@ The client is the browser-based interface for SolarGridX.
 
 Copy `.env.example` to `.env.local` and set the API URL:
 
+Keep local environment files out of version control.
+
 ```bash
 cp .env.example .env.local
 ```
