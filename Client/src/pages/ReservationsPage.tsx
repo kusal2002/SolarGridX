@@ -1,3 +1,6 @@
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table"
+import { StatusBadge } from "@/components/status-badge"
+import { Input } from "@/components/ui/input"
 import { useEffect, useState } from "react"
 import {
   getReservations,
@@ -8,12 +11,8 @@ import { useAuth } from "@/context/AuthContext"
 import { Button } from "@/components/ui/button"
 import {
   Search,
-  Zap,
   Calendar,
   Clock,
-  CheckCircle2,
-  XCircle,
-  Hourglass,
   Pencil,
   Ban,
   RefreshCw,
@@ -75,7 +74,7 @@ export function ReservationsPage() {
     .filter((res) => {
       const term = searchTerm.toLowerCase()
       const matchesSearch =
-        res.prosumerNIC.toLowerCase().includes(term) ||
+        (res.prosumerName ?? "").toLowerCase().includes(term) || res.prosumerNIC.toLowerCase().includes(term) ||
         res.id.toLowerCase().includes(term) ||
         (res.stationId && res.stationId.toLowerCase().includes(term))
       const matchesStatus =
@@ -93,41 +92,6 @@ export function ReservationsPage() {
   const approvedCount = reservations.filter((r) => r.status === "Approved").length
   const completedCount = reservations.filter((r) => r.status === "Completed").length
   const cancelledCount = reservations.filter((r) => r.status === "Cancelled").length
-
-  function getStatusBadge(status: EnergyReservation["status"]) {
-    switch (status) {
-      case "Pending":
-        return (
-          <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-800 dark:bg-amber-950/60 dark:text-amber-300">
-            <Hourglass className="h-3 w-3" />
-            Pending
-          </span>
-        )
-      case "Approved":
-        return (
-          <span className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-semibold text-blue-800 dark:bg-blue-950/60 dark:text-blue-300">
-            <CheckCircle2 className="h-3 w-3" />
-            Approved
-          </span>
-        )
-      case "Completed":
-        return (
-          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-semibold text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300">
-            <Zap className="h-3 w-3" />
-            Completed
-          </span>
-        )
-      case "InProgress":
-        return <span className="rounded-full bg-blue-100 px-2.5 py-0.5 text-xs text-blue-800">In progress</span>
-      case "Cancelled":
-        return (
-          <span className="inline-flex items-center gap-1 rounded-full bg-zinc-100 px-2.5 py-0.5 text-xs font-semibold text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400">
-            <XCircle className="h-3 w-3" />
-            Cancelled
-          </span>
-        )
-    }
-  }
 
   return (
     <div className="flex-1 space-y-6 p-6">
@@ -184,9 +148,9 @@ export function ReservationsPage() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="relative w-full sm:w-72">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-          <input
+          <Input
             type="text"
-            placeholder="Search by NIC, ID..."
+            placeholder="Search by name or NIC..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="flex h-9 w-full rounded-md border border-input bg-transparent pl-8 pr-3 py-1 text-sm shadow-xs focus-visible:ring-ring focus-visible:outline-none"
@@ -195,7 +159,7 @@ export function ReservationsPage() {
 
         <div className="flex flex-wrap gap-1.5">
           {(["All", "Pending", "Approved", "InProgress", "Completed", "Cancelled"] as const).map((filter) => (
-            <button
+            <Button size="sm" variant={statusFilter === filter ? "default" : "outline"}
               key={filter}
               onClick={() => setStatusFilter(filter)}
               className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
@@ -205,7 +169,7 @@ export function ReservationsPage() {
               }`}
             >
               {filter}
-            </button>
+            </Button>
           ))}
         </div>
       </div>
@@ -226,31 +190,27 @@ export function ReservationsPage() {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="border-b bg-muted/40 text-xs font-medium text-muted-foreground">
-                <tr>
-                  <th className="px-4 py-3">Reservation ID</th>
-                  <th className="px-4 py-3">Prosumer NIC</th>
-                  <th className="px-4 py-3">Date & Slot</th>
-                  <th className="px-4 py-3">Capacity</th>
-                  <th className="px-4 py-3">Status</th>
-                  <th className="px-4 py-3 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y">
+            <Table className="w-full text-left text-sm">
+              <TableHeader className="border-b bg-muted/40 text-xs font-medium text-muted-foreground">
+                <TableRow>
+                                    <TableHead className="px-4 py-3">Prosumer</TableHead>
+                  <TableHead className="px-4 py-3">Date & Slot</TableHead>
+                  <TableHead className="px-4 py-3">Capacity</TableHead>
+                  <TableHead className="px-4 py-3">Status</TableHead>
+                  <TableHead className="px-4 py-3 text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody className="divide-y">
                 {filteredReservations.map((res) => {
                   const isModifiable =
                     !res.transferId && (res.status === "Pending" || res.status === "Approved")
 
                   return (
-                    <tr key={res.id} className="hover:bg-muted/30 transition-colors">
-                      <td className="px-4 py-3 font-mono text-xs text-muted-foreground">
-                        {res.id.slice(-8)}
-                      </td>
-                      <td className="px-4 py-3 font-medium">
-                        {res.prosumerNIC}
-                      </td>
-                      <td className="px-4 py-3">
+                    <TableRow key={res.id} className="hover:bg-muted/30 transition-colors">
+                      <TableCell className="px-4 py-3 font-medium">
+                        <p>{res.prosumerName || "Name unavailable"}</p><p className="text-xs font-normal text-muted-foreground">{res.prosumerNIC}</p>
+                      </TableCell>
+                      <TableCell className="px-4 py-3">
                         <div className="flex flex-col text-xs">
                           <span className="flex items-center gap-1 font-medium">
                             <Calendar className="h-3 w-3 text-muted-foreground" />
@@ -261,21 +221,21 @@ export function ReservationsPage() {
                             {res.startTime} - {res.endTime}
                           </span>
                         </div>
-                      </td>
-                      <td className="px-4 py-3 font-semibold text-emerald-600 dark:text-emerald-400">
+                      </TableCell>
+                      <TableCell className="px-4 py-3 font-semibold text-emerald-600 dark:text-emerald-400">
                         {res.requestedEnergyKwh} kWh
-                      </td>
-                      <td className="px-4 py-3">
-                        {getStatusBadge(res.status)}
-                      </td>
-                      <td className="px-4 py-3 text-right">
+                      </TableCell>
+                      <TableCell className="px-4 py-3">
+                        <StatusBadge status={res.status} />
+                      </TableCell>
+                      <TableCell className="px-4 py-3 text-right">
                         <div className="flex items-center justify-end gap-1.5">
                           {/* Approve Action */}
                           {canOperate && res.status === "Pending" && (
                             <Button
                               size="sm"
                               variant="outline"
-                              className="h-7 text-xs text-blue-600 hover:text-blue-700"
+
                               onClick={() => handleStatusChange(res.id, "Approved")}
                               title="Approve Reservation"
                             >
@@ -288,7 +248,7 @@ export function ReservationsPage() {
                             <Button
                               size="sm"
                               variant="outline"
-                              className="h-7 text-xs text-emerald-600 hover:text-emerald-700"
+
                               onClick={() => { window.location.href = "/transfers" }}
                               title="Open transfers to verify and complete"
                             >
@@ -300,15 +260,15 @@ export function ReservationsPage() {
                           {isModifiable && (
                             <Button
                               size="sm"
-                              variant="ghost"
-                              className="h-7 w-7 p-0"
+                              variant="outline"
+
                               onClick={() => {
                                 setModifyReservation(res)
                                 setModifyOpen(true)
                               }}
                               title="Modify Reservation"
                             >
-                              <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
+                              <Pencil /> Edit
                             </Button>
                           )}
 
@@ -316,24 +276,24 @@ export function ReservationsPage() {
                           {isModifiable && (
                             <Button
                               size="sm"
-                              variant="ghost"
-                              className="h-7 w-7 p-0 text-red-500 hover:text-red-700"
+                              variant="outline"
+
                               onClick={() => {
                                 setCancelReservation(res)
                                 setCancelOpen(true)
                               }}
                               title="Cancel Reservation"
                             >
-                              <Ban className="h-3.5 w-3.5" />
+                              <Ban /> Cancel
                             </Button>
                           )}
                         </div>
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   )
                 })}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           </div>
         )}
       </div>

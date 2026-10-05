@@ -1,3 +1,9 @@
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { StatusBadge } from "@/components/status-badge"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
+import { Eye, ScanLine, RefreshCw, Clock3, Activity, CalendarCheck2, CheckCircle2, CircleOff } from "lucide-react"
 import { useCallback, useEffect, useState } from "react"
 import { request } from "@/lib/api-client"
 import type { EnergyReservation } from "@/types/reservation"
@@ -12,7 +18,7 @@ type Transfer = {
 }
 type Summary = { pending: number; current: number; approvedFuture: number; completed: number; cancelled: number }
 const field = "rounded-md border bg-background p-2 text-sm"
-const button = "rounded-md bg-primary px-3 py-2 text-sm text-primary-foreground disabled:opacity-50"
+const summaryIcons = { pending: Clock3, current: Activity, approvedFuture: CalendarCheck2, completed: CheckCircle2, cancelled: CircleOff }
 
 export function TransfersPage() {
   const [summary, setSummary] = useState<Summary | null>(null)
@@ -53,7 +59,7 @@ export function TransfersPage() {
   }
 
   async function open(booking: EnergyReservation) {
-    setSelected(booking); setTransfer(null); setTransferLoaded(false)
+    setSelected(booking); setTransfer(null); setTransferLoaded(false); setReason("")
     await run(async () => {
       const list = await request<Transfer[]>(`/energy-transfers?reservationId=${booking.id}`)
       setTransfer(list[0] ?? null)
@@ -96,7 +102,7 @@ export function TransfersPage() {
     <p className="text-sm text-muted-foreground">Reservation approval accepts the booking. Scan its QR to verify the prosumer before starting energy delivery.</p>
     <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
       {summary && Object.entries(summary).filter(([key]) => ["pending", "current", "approvedFuture", "completed", "cancelled"].includes(key)).map(([key, count]) => <div key={key} className="rounded-lg border p-4">
-        <p className="text-sm text-muted-foreground">{key === "approvedFuture" ? "Approved future" : key}</p>
+        <div className="mb-2 flex items-center gap-2 text-muted-foreground">{(() => { const Icon = summaryIcons[key as keyof typeof summaryIcons]; return <Icon className="size-4" /> })()}<p className="text-sm text-muted-foreground">{key === "approvedFuture" ? "Approved future" : key}</p></div>
         <p className="text-2xl font-semibold">{count}</p>
       </div>)}
     </div>
@@ -104,56 +110,59 @@ export function TransfersPage() {
       <select aria-label="Booking view" className={field} value={view} onChange={e => { setView(e.target.value); setPage(1) }}>
         {[["current", "Current"], ["pending", "Pending"], ["completed", "Completed transfers"], ["history", "Completed & cancelled history"], ["search", "All bookings"]].map(([value, label]) => <option key={value} value={value}>{label}</option>)}
       </select>
-      <input aria-label="Search bookings" className={field} placeholder="Reservation ID, NIC or station ID" value={search} onChange={e => { setSearch(e.target.value); setPage(1) }} />
-      <button className={button} disabled={busy} onClick={() => void run(load)}>Refresh</button>
+      <Input aria-label="Search bookings" className={field} placeholder="Prosumer NIC or station" value={search} onChange={e => { setSearch(e.target.value); setPage(1) }} />
+      <Button variant="outline" disabled={busy} onClick={() => void run(load)}><RefreshCw /> Refresh</Button>
     </div>
     <p role="status" className="text-sm">{message}</p>
     <div className="overflow-x-auto rounded-lg border">
-      <table className="w-full text-left text-sm"><thead><tr className="border-b bg-muted">
-        {["Reservation", "Prosumer", "Date", "kWh", "Booking status", ""].map((title, i) => <th className="p-3" key={i}>{title}</th>)}
-      </tr></thead><tbody>{bookings.map(b => <tr key={b.id} className="border-b">
-        <td className="p-3">{b.id}</td><td className="p-3">{b.prosumerNIC}</td>
-        <td className="p-3">{new Date(b.reservationDate).toLocaleDateString()} {b.startTime}</td>
-        <td className="p-3">{b.requestedEnergyKwh}</td><td className="p-3">{b.status}</td>
-        <td className="p-3"><button className={button} disabled={busy} onClick={() => void open(b)}>Details</button></td>
-      </tr>)}</tbody></table>
+      <Table className="w-full text-left text-sm"><TableHeader><TableRow className="border-b bg-muted">
+        {["Prosumer", "Station", "Date & time", "Energy", "Booking status", "Actions"].map((title, i) => <TableHead className="p-3" key={i}>{title}</TableHead>)}
+      </TableRow></TableHeader><TableBody>{bookings.map(b => <TableRow key={b.id} className="border-b">
+        <TableCell className="p-3"><p className="font-medium">{b.prosumerName || "Name unavailable"}</p><p className="text-xs text-muted-foreground">{b.prosumerNIC}</p></TableCell><TableCell className="p-3">{b.stationName || "Station unavailable"}</TableCell>
+        <TableCell className="p-3">{new Date(b.reservationDate).toLocaleDateString()} {b.startTime}</TableCell>
+        <TableCell className="p-3">{b.requestedEnergyKwh} kWh</TableCell><TableCell className="p-3"><StatusBadge status={b.status} /></TableCell>
+        <TableCell className="p-3"><Button variant="outline" disabled={busy} onClick={() => void open(b)} size="sm"><Eye /> Details</Button></TableCell>
+      </TableRow>)}</TableBody></Table>
       {!bookings.length && <p className="p-4">No bookings found.</p>}
     </div>
     <div className="flex items-center gap-3">
-      <button className={button} disabled={page === 1 || busy} onClick={() => setPage(page - 1)}>Previous</button>
+      <Button variant="outline" disabled={page === 1 || busy} onClick={() => setPage(page - 1)}>Previous</Button>
       <span>Page {page} · {total} bookings</span>
-      <button className={button} disabled={page * 20 >= total || busy} onClick={() => setPage(page + 1)}>Next</button>
+      <Button variant="outline" disabled={page * 20 >= total || busy} onClick={() => setPage(page + 1)}>Next</Button>
     </div>
     <section className="space-y-3 rounded-lg border p-4">
       <h2 className="text-lg font-semibold">Verify a transaction</h2>
       <p className="text-sm text-muted-foreground">Scan the prosumer’s approved booking QR. The server identifies the prosumer, station, slot, and reserved energy automatically.</p>
-      <button className={button} disabled={busy || scanning} onClick={() => setScanning(true)}>Scan QR</button>
+      <Button variant="outline" disabled={busy || scanning} onClick={() => setScanning(true)}><ScanLine /> Scan QR</Button>
       {scanning && <QrScanner onScan={verify} onClose={() => setScanning(false)} />}
     </section>
-    {selected && <section className="space-y-3 rounded-lg border p-4">
-      <h2 className="text-lg font-semibold">Booking details</h2>
-      <p>{selected.id} · {selected.prosumerNIC} · {selected.status}</p>
-      <p>Station: {selected.stationId} · Slot: {selected.slotId}</p>
+    <Dialog open={selected !== null} onOpenChange={value => { if (!value) setSelected(null) }}><DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
+      <DialogHeader><DialogTitle>Transfer details</DialogTitle><DialogDescription>Booking, delivery readings, and transfer history.</DialogDescription></DialogHeader>
+      {selected && <div className="space-y-4">
+      {message && <p role="status" className="rounded-lg border bg-muted p-3 text-sm">{message}</p>}
+      <div className="flex items-center justify-between gap-3"><div><p className="font-semibold">{selected.prosumerName || "Name unavailable"}</p><p className="text-sm text-muted-foreground">{selected.prosumerNIC}</p></div><StatusBadge status={selected.status} /></div>
+      <p className="text-muted-foreground">{selected.stationName || "Station unavailable"}</p>
       <p>{selected.startTime}–{selected.endTime} · {selected.requestedEnergyKwh} kWh</p>
-      {!transfer && <p>{transferLoaded ? "No transfer yet. Scan the reservation QR above." : "Transfer details unavailable. Retry Details after checking the API connection."}</p>}
+      {!transfer && <p>{busy ? "Loading transfer details…" : transferLoaded ? "No transfer yet. Close this dialog and scan the booking QR." : "Transfer details unavailable. Retry Details after checking the API connection."}</p>}
       {transfer && <>
-        <p>Transfer: {transfer.status} · {transfer.transferredEnergyKWh}/{transfer.expectedEnergyKWh} kWh</p>
+        <div className="flex items-center gap-3"><StatusBadge status={transfer.status} /><span>{transfer.transferredEnergyKWh}/{transfer.expectedEnergyKWh} kWh</span></div>
         {transfer.completedAt && <p>Completed: {new Date(transfer.completedAt).toLocaleString()}</p>}
         <p>Prosumer NIC: {transfer.prosumerNIC || selected.prosumerNIC}</p>
         <p>{transfer.verifiedAt ? `Verified by ${transfer.verifiedBy}` : "Awaiting QR verification"}</p>
-        {transfer.status === "Pending" && <button className={button} disabled={busy || !transfer.verifiedAt} onClick={() => void change("start")}>Start transfer</button>}
+        {transfer.status === "Pending" && <Button variant="outline" disabled={busy || !transfer.verifiedAt} onClick={() => void change("start")}>Start transfer</Button>}
         {transfer.status === "InProgress" && <div className="flex flex-wrap gap-2">
-          <input aria-label="Delivered kWh" type="number" min="0" max={transfer.expectedEnergyKWh} step="0.001" className={field} value={energy} onChange={e => setEnergy(e.target.value)} />
-          <button className={button} disabled={busy || !energy.trim()} onClick={() => void change("progress")}>Save reading</button>
-          <button className={button} disabled={busy || !energy.trim()} onClick={() => void change("complete")}>Complete</button>
+          <Input aria-label="Delivered kWh" type="number" min="0" max={transfer.expectedEnergyKWh} step="0.001" className={field} value={energy} onChange={e => setEnergy(e.target.value)} />
+          <Button variant="outline" disabled={busy || !energy.trim()} onClick={() => void change("progress")}>Save reading</Button>
+          <Button variant="outline" disabled={busy || !energy.trim()} onClick={() => void change("complete")}>Complete</Button>
         </div>}
         {["Pending", "InProgress"].includes(transfer.status) && <div className="flex gap-2">
-          <input aria-label="Cancellation or failure reason" className={field} placeholder="Reason" maxLength={500} value={reason} onChange={e => setReason(e.target.value)} />
-          <button className={button} disabled={busy || !reason.trim()} onClick={() => void change(transfer.status === "Pending" ? "cancel" : "fail")}>{transfer.status === "Pending" ? "Cancel" : "Fail"}</button>
+          <Input aria-label="Cancellation or failure reason" className={field} placeholder="Reason" maxLength={500} value={reason} onChange={e => setReason(e.target.value)} />
+          <Button variant="outline" disabled={busy || !reason.trim()} onClick={() => void change(transfer.status === "Pending" ? "cancel" : "fail")}>{transfer.status === "Pending" ? "Cancel" : "Fail"}</Button>
         </div>}
         <h3 className="font-medium">Transfer history</h3>
         {transfer.history.map((event, i) => <p key={i} className="text-sm">{new Date(event.at).toLocaleString()} · {event.action} · {event.status} · {event.actorNIC}</p>)}
       </>}
-    </section>}
+    </div>}
+    </DialogContent></Dialog>
   </main>
 }

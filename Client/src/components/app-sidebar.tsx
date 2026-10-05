@@ -15,6 +15,9 @@ import {
 } from "@/components/ui/sidebar"
 import {
   Building2Icon,
+  LayoutDashboardIcon,
+  BatteryChargingIcon,
+  ActivityIcon,
   UserRoundCogIcon,
   TerminalIcon,
   CalendarCheck2Icon,
@@ -23,44 +26,21 @@ import type { User } from "@/types/user"
 import type { View } from "@/router/routes"
 
 export function AppSidebar({ currentUser, activeView, onNavigate, onLogout, ...props }: React.ComponentProps<typeof Sidebar> & { currentUser: User; activeView: View; onNavigate: (view: View) => void; onLogout: () => void }) {
+  const staff = currentUser.role === "Backoffice" || currentUser.role === "Grid Operator"
   const navMain = [
-    ...(currentUser.role === "Backoffice" || currentUser.role === "Grid Operator" ? [{
-      title: "Dashboard", url: "dashboard", icon: <TerminalIcon />, isActive: activeView === "dashboard",
-    }] : []),
-    ...(currentUser.role === "Backoffice" || currentUser.role === "Grid Operator" ? [{
-      title: "Transfers & Monitoring", url: "transfers", icon: <CalendarCheck2Icon />,
-      isActive: activeView === "transfers",
-    }] : []),
-    {
-      title: currentUser.role === "Backoffice" ? "User Management" : "My Account",
-      url: "users",
-      icon: <UserRoundCogIcon />,
-      isActive: activeView === "users",
-    },
-    ...(currentUser.role === "Backoffice" || currentUser.role === "Grid Operator" ? [{
-      title: "Station Management",
-      url: "stations",
-      icon: <Building2Icon />,
-      isActive: activeView === "stations" || activeView === "slots",
-      items: [
-        {
-          title: "Stations",
-          url: "stations",
-        },
-        {
-          title: "Slots",
-          url: "slots",
-        },
-      ],
-    }] : []),
-    {
-      title: "Reservations",
-      url: "reservations",
-      icon: <CalendarCheck2Icon />,
-      isActive: activeView === "reservations",
-    },
+    ...(staff ? [
+      { title: "Dashboard", url: "dashboard", icon: <LayoutDashboardIcon />, isActive: activeView === "dashboard" },
+      { title: "Stations", url: "stations", icon: <Building2Icon />, isActive: activeView === "stations" },
+      { title: "Slots", url: "slots", icon: <BatteryChargingIcon />, isActive: activeView === "slots" },
+    ] : []),
+    { title: "Reservations", url: "reservations", icon: <CalendarCheck2Icon />, isActive: activeView === "reservations" },
+    ...(staff ? [
+      { title: "Transfers & Monitoring", url: "transfers", icon: <ActivityIcon />, isActive: activeView === "transfers" },
+    ] : []),
+    ...(currentUser.role === "Backoffice" ? [
+      { title: "User Management", url: "users", icon: <UserRoundCogIcon />, isActive: activeView === "users" },
+    ] : []),
   ]
-
   return (
     <Sidebar variant="inset" {...props}>
       <SidebarHeader>
