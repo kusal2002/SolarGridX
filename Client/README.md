@@ -45,3 +45,5 @@ import { Button } from "@/components/ui/button"
 ```
 
 Run the development server from the `Client` directory.
+
+Use `npm run dev` for local development.
