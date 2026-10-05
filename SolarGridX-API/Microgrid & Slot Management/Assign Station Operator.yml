@@ -12,7 +12,7 @@ http:
     type: json
     data: |-
       {
-        "operatorNIC": "{{operatorNIC}}"
+        "operatorNICs": ["{{operatorNIC}}"]
       }
 settings:
   encodeUrl: true

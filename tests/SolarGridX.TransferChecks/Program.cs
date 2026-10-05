@@ -86,6 +86,7 @@ try
     await db.GetCollection<User>("Users").InsertManyAsync(new[] {
         new User { NIC = "prosumer", Name = "Test Prosumer" },
         new User { NIC = "operator", Role = "Grid Operator" },
+        new User { NIC = "operator-two", Role = "Grid Operator" },
         new User { NIC = "inactive", AccountStatus = AccountStatus.Inactive } });
     var station = new SolarStation { Id = ObjectId.GenerateNewId().ToString(), StationName = "Test Microgrid Station", OperatorNIC = "operator" };
     await db.GetCollection<SolarStation>("SolarStationInfo").InsertOneAsync(station);
@@ -257,6 +258,15 @@ try
         : racedReservation.TransferId == null && racedReservation.Status == "Cancelled", "race preserves reservation state");
     Check((await slots.Find(s => s.Id == raceBooking.SlotId).FirstAsync()).AvailableEnergyKwh == (createRace.Result ? 95 : 100),
         "race preserves capacity");
+    var multiStation = await stationService.AssignOperatorsAsync(station.Id, ["operator", "operator-two", "operator"]);
+    Check(multiStation!.OperatorNICs.Count == 2, "duplicate operator assignments are normalized");
+    Check(await stationAccess.CanAccessAsync(Context("operator-two", "Grid Operator").HttpContext.User, station.Id), "second assigned operator can access station");
+    await stationService.AssignOperatorsAsync(station.Id, ["operator"]);
+    Check(!await stationAccess.CanAccessAsync(Context("operator-two", "Grid Operator").HttpContext.User, station.Id), "removed operator loses station access");
+    var createdStation = await stationService.CreateAsync(new SolarGridX.DTOs.Stations.CreateStationRequest { StationName = "Multi-operator station", OperatorNICs = ["operator", "operator-two"] });
+    Check(createdStation.OperatorNICs.Count == 2, "new stations can assign multiple operators immediately");
+    try { await stationService.AssignOperatorsAsync(station.Id, ["prosumer"]); throw new Exception("Expected invalid operator"); }
+    catch (ArgumentException) { checks++; }
     Console.WriteLine($"Passed {checks} total checks, including MongoDB transactions, races, rollback, and capacity accounting.");
 }
 finally
