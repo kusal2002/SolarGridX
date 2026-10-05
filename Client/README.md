@@ -43,3 +43,5 @@ Components can be imported through the configured `@` path alias.
 ```tsx
 import { Button } from "@/components/ui/button"
 ```
+
+Run the development server from the `Client` directory.
