@@ -20,6 +20,8 @@ The API URL should include the `/api` path.
 
 The dashboard routes are `/users` and `/stations`. The available route depends on the authenticated user's role.
 
+Authentication determines which dashboard route is available.
+
 ## Adding components
 
 To add components to your app, run the following command:
