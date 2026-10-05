@@ -34,6 +34,7 @@ import com.kusal.solargridxmobile.ui.auth.RegisterScreen
 import com.kusal.solargridxmobile.ui.auth.SolarGreen
 import com.kusal.solargridxmobile.ui.navigation.SolarBottomNavigation
 import com.kusal.solargridxmobile.ui.reservation.ReservationScreen
+import com.kusal.solargridxmobile.ui.station.StationMapScreen
 import com.kusal.solargridxmobile.ui.reservation.ReservationViewModel
 import com.kusal.solargridxmobile.ui.theme.SolarGridXMobileTheme
 import com.kusal.solargridxmobile.ui.transfer.TransferScreen
@@ -164,14 +165,15 @@ fun SolarGridXApp(
                 .padding(innerPadding)
         ) {
             when (selectedTab) {
-                0 -> if (operator) OperatorHomeScreen(sessionManager) { selectedTab = 2 } else HomeScreen(
+                0 -> if (operator) OperatorHomeScreen(sessionManager) { selectedTab = 3 } else HomeScreen(
                     sessionManager = sessionManager,
                     viewModel = reservationViewModel,
                     onNavigateToTab = { selectedTab = it }
                 )
-                1 -> if (operator) TransferScreen(sessionManager, initialView = "pending") else ReservationScreen(viewModel = reservationViewModel)
-                2 -> TransferScreen(sessionManager)
-                3 -> ProfileScreen(
+                1 -> StationMapScreen()
+                2 -> if (operator) TransferScreen(sessionManager, initialView = "pending") else ReservationScreen(viewModel = reservationViewModel)
+                3 -> TransferScreen(sessionManager)
+                4 -> ProfileScreen(
                     sessionManager = sessionManager,
                     viewModel = reservationViewModel,
                     onLogout = onLogout
@@ -440,7 +442,7 @@ fun HomeScreen(
                     Spacer(modifier = Modifier.height(12.dp))
 
                     OutlinedButton(
-                        onClick = { onNavigateToTab(1) },
+                        onClick = { onNavigateToTab(2) },
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(8.dp)
                     ) {
@@ -471,7 +473,7 @@ fun HomeScreen(
                         )
                         Spacer(modifier = Modifier.height(12.dp))
                         Button(
-                            onClick = { onNavigateToTab(1) },
+                            onClick = { onNavigateToTab(2) },
                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF15803D)),
                             shape = RoundedCornerShape(8.dp)
                         ) {
@@ -501,7 +503,7 @@ fun HomeScreen(
                 modifier = Modifier
                     .weight(1f)
                     .clip(RoundedCornerShape(12.dp))
-                    .clickable { onNavigateToTab(1) },
+                    .clickable { onNavigateToTab(2) },
                 color = Color.White,
                 shadowElevation = 1.dp
             ) {
@@ -539,7 +541,7 @@ fun HomeScreen(
                 modifier = Modifier
                     .weight(1f)
                     .clip(RoundedCornerShape(12.dp))
-                    .clickable { onNavigateToTab(1) },
+                    .clickable { onNavigateToTab(2) },
                 color = Color.White,
                 shadowElevation = 1.dp
             ) {

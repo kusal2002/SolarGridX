@@ -71,4 +71,8 @@ object ApiClient {
     val transferService: TransferApiService by lazy {
         getClient().create(TransferApiService::class.java)
     }
+
+    val stationService: StationApiService by lazy {
+        getClient().create(StationApiService::class.java)
+    }
 }

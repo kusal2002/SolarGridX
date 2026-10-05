@@ -30,6 +30,12 @@ fun SolarBottomNavigation(
         ),
 
         BottomNavItem(
+            "Stations",
+            Icons.Filled.LocationOn,
+            Icons.Outlined.LocationOn
+        ),
+
+        BottomNavItem(
             if (operator) "Bookings" else "Reserve",
             Icons.Filled.SwapHoriz,
             Icons.Outlined.SwapHoriz
