@@ -19,7 +19,6 @@ import {
   BatteryChargingIcon,
   ActivityIcon,
   UserRoundCogIcon,
-  TerminalIcon,
   CalendarCheck2Icon,
 } from "lucide-react"
 import type { User } from "@/types/user"
@@ -50,7 +49,7 @@ export function AppSidebar({ currentUser, activeView, onNavigate, onLogout, ...p
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" render={<a href="#" />}>
               <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
-                <TerminalIcon className="size-4" />
+                <img src="/solargridx-mark.svg" alt="SolarGridX logo" className="size-8" />
               </div>
               <div className="grid flex-1 text-left text-sm leading-tight">
                 <span className="truncate font-medium">SolarGridX</span>
