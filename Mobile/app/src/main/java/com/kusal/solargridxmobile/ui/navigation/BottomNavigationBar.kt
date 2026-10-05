@@ -7,6 +7,7 @@ import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
 
 data class BottomNavItem(
     val title: String,
@@ -56,7 +57,7 @@ fun SolarBottomNavigation(
 
     NavigationBar(
         containerColor = Color.White,
-        tonalElevation = androidx.compose.ui.unit.Dp.Unspecified
+        tonalElevation = 0.dp
     ) {
 
         navItems.forEachIndexed { index, item ->
@@ -84,7 +85,7 @@ fun SolarBottomNavigation(
                 },
 
                 label = {
-                    Text(item.title)
+                    Text(item.title, style = MaterialTheme.typography.labelSmall, maxLines = 1)
                 },
 
                 alwaysShowLabel = true,

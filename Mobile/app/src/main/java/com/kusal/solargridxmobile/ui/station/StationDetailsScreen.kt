@@ -193,7 +193,7 @@ fun StationDetailsScreen(
                                     Box(
                                         modifier = Modifier
                                             .size(46.dp)
-                                            .clip(RoundedCornerShape(14.dp))
+                                            .clip(RoundedCornerShape(20.dp))
                                             .background(Color.White.copy(alpha = 0.22f)),
                                         contentAlignment = Alignment.Center
                                     ) {
@@ -207,7 +207,7 @@ fun StationDetailsScreen(
 
                                     // Operational Status Badge
                                     Surface(
-                                        shape = RoundedCornerShape(12.dp),
+                                        shape = RoundedCornerShape(16.dp),
                                         color = if (station.isActive) Color.White else Color(0xFFFEE2E2)
                                     ) {
                                         Row(
@@ -562,7 +562,7 @@ fun StationDetailsScreen(
                 errorMessage != null -> {
                     item {
                         Surface(
-                            shape = RoundedCornerShape(12.dp),
+                            shape = RoundedCornerShape(16.dp),
                             color = Color(0xFFFEE2E2),
                             border = BorderStroke(1.dp, Color(0xFFFCA5A5)),
                             modifier = Modifier.fillMaxWidth()
@@ -583,7 +583,7 @@ fun StationDetailsScreen(
                     item {
                         Card(
                             modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(14.dp),
+                            shape = RoundedCornerShape(20.dp),
                             colors = CardDefaults.cardColors(containerColor = Color.White),
                             border = BorderStroke(1.dp, Color(0xFFE2E8F0))
                         ) {
@@ -664,7 +664,7 @@ private fun MetricBox(
 ) {
     Card(
         modifier = modifier,
-        shape = RoundedCornerShape(14.dp),
+        shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
         border = BorderStroke(1.dp, Color(0xFFE2E8F0))
     ) {
@@ -699,7 +699,7 @@ private fun OperationalSlotCard(
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(14.dp),
+        shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
         border = BorderStroke(1.dp, Color(0xFFE2E8F0))

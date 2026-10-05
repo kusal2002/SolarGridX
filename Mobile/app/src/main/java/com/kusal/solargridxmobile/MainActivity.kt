@@ -36,7 +36,9 @@ import com.kusal.solargridxmobile.ui.navigation.SolarBottomNavigation
 import com.kusal.solargridxmobile.ui.reservation.ReservationScreen
 import com.kusal.solargridxmobile.ui.station.StationMapScreen
 import com.kusal.solargridxmobile.ui.reservation.ReservationViewModel
+import com.kusal.solargridxmobile.ui.theme.MobileMetric
 import com.kusal.solargridxmobile.ui.theme.SolarGridXMobileTheme
+import androidx.compose.foundation.lazy.LazyColumn
 import com.kusal.solargridxmobile.ui.transfer.TransferScreen
 import com.kusal.solargridxmobile.ui.transfer.OperatorHomeScreen
 
@@ -187,439 +189,40 @@ fun SolarGridXApp(
 // 1. HOME SCREEN (Member 3 Dashboard)
 // ==========================================
 @Composable
-fun HomeScreen(
-    sessionManager: SessionManager,
-    viewModel: ReservationViewModel,
-    onNavigateToTab: (Int) -> Unit
-) {
+fun HomeScreen(sessionManager: SessionManager, viewModel: ReservationViewModel, onNavigateToTab: (Int) -> Unit) {
     val profile = sessionManager.getUserProfile()
     val state by viewModel.uiState.collectAsState()
-    val nextRes = state.nextUpcomingReservation
     LaunchedEffect(Unit) { viewModel.loadAllData() }
-    val nextStation = state.stations.find { it.id == nextRes?.stationId }
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color(0xFFF8FAFC))
-            .verticalScroll(rememberScrollState())
-            .padding(16.dp)
-    ) {
-        // Top Welcome Card
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(16.dp),
-            color = Color.White,
-            shadowElevation = 2.dp
-        ) {
-            Column(modifier = Modifier.padding(18.dp)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "Welcome back,",
-                            fontSize = 13.sp,
-                            color = Color(0xFF64748B)
-                        )
-                        Text(
-                            text = profile?.name ?: "Prosumer",
-                            fontSize = 20.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFF0F172A)
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Box(
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(6.dp))
-                                    .background(Color(0xFFDCFCE7))
-                                    .padding(horizontal = 8.dp, vertical = 2.dp)
-                            ) {
-                                Text(
-                                    text = "NIC: ${profile?.nic ?: "N/A"}",
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color(0xFF15803D)
-                                )
-                            }
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Box(
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(6.dp))
-                                    .background(Color(0xFFDBEAFE))
-                                    .padding(horizontal = 8.dp, vertical = 2.dp)
-                            ) {
-                                Text(
-                                    text = profile?.role ?: "Prosumer",
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color(0xFF1D4ED8)
-                                )
-                            }
-                        }
-                    }
-
-                    IconButton(
-                        onClick = { viewModel.loadAllData() },
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(Color(0xFFF1F5F9))
-                    ) {
-                        Icon(
-                            Icons.Default.Refresh,
-                            contentDescription = "Refresh",
-                            tint = Color(0xFF15803D)
-                        )
-                    }
-                }
+    val next = state.nextUpcomingReservation
+    LazyColumn(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background), contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        item { Surface(color = MaterialTheme.colorScheme.primaryContainer, shape = RoundedCornerShape(24.dp)) {
+            Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Your energy workspace", style = MaterialTheme.typography.titleLarge)
+                Text(profile?.name ?: "Prosumer", color = MaterialTheme.colorScheme.onPrimaryContainer)
+                Text("Reserve a slot, show your QR and track delivery.", style = MaterialTheme.typography.bodySmall)
             }
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // 4 KPI Summary Cards (2x2 Grid)
-        Text(
-            text = "Energy Reservation Overview",
-            fontSize = 15.sp,
-            fontWeight = FontWeight.Bold,
-            color = Color(0xFF0F172A)
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            HomeKpiCard(
-                title = "Total Bookings",
-                value = "${state.totalCount}",
-                subtitle = "All slots",
-                accentColor = Color(0xFF475569),
-                bgColor = Color(0xFFF8FAFC),
-                modifier = Modifier.weight(1f)
-            )
-            HomeKpiCard(
-                title = "Pending Review",
-                value = "${state.pendingCount}",
-                subtitle = "Awaiting approval",
-                accentColor = Color(0xFFB45309),
-                bgColor = Color(0xFFFEF3C7),
-                modifier = Modifier.weight(1f)
-            )
-        }
-
-        Spacer(modifier = Modifier.height(10.dp))
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            HomeKpiCard(
-                title = "Approved Slots",
-                value = "${state.approvedCount}",
-                subtitle = "Ready for transfer",
-                accentColor = Color(0xFF1D4ED8),
-                bgColor = Color(0xFFDBEAFE),
-                modifier = Modifier.weight(1f)
-            )
-            HomeKpiCard(
-                title = "Total Energy",
-                value = "${state.totalKwh.toInt()} kWh",
-                subtitle = "Reserved capacity",
-                accentColor = Color(0xFF15803D),
-                bgColor = Color(0xFFDCFCE7),
-                modifier = Modifier.weight(1f)
-            )
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Next Upcoming Booking Spotlight
-        Text(
-            text = "Upcoming Energy Booking",
-            fontSize = 15.sp,
-            fontWeight = FontWeight.Bold,
-            color = Color(0xFF0F172A)
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = Color.White),
-            shape = RoundedCornerShape(14.dp),
-            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-        ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                if (nextRes != null) {
-                    val (isEligible, hoursLeft) = viewModel.isEligibleFor12HourRule(nextRes)
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                Icons.Default.Bolt,
-                                contentDescription = null,
-                                tint = Color(0xFF15803D),
-                                modifier = Modifier.size(20.dp)
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(
-                                text = "Booking #${nextRes.id.takeLast(6).uppercase()}",
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 14.sp,
-                                color = Color(0xFF0F172A)
-                            )
-                        }
-
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(if (nextRes.status == "Approved") Color(0xFFDBEAFE) else Color(0xFFFEF3C7))
-                                .padding(horizontal = 8.dp, vertical = 2.dp)
-                        ) {
-                            Text(
-                                text = nextRes.status,
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = if (nextRes.status == "Approved") Color(0xFF1D4ED8) else Color(0xFFB45309)
-                            )
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    Text(
-                        text = nextStation?.stationName ?: nextRes.stationName ?: "Solar Station",
-                        fontWeight = FontWeight.SemiBold,
-                        fontSize = 15.sp,
-                        color = Color(0xFF0F172A)
-                    )
-
-                    Spacer(modifier = Modifier.height(4.dp))
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text(
-                            text = "Date: ${nextRes.reservationDate.split("T")[0]}",
-                            fontSize = 12.sp,
-                            color = Color(0xFF475569)
-                        )
-                        Text(
-                            text = "Time: ${nextRes.startTime.take(5)} - ${nextRes.endTime.take(5)}",
-                            fontSize = 12.sp,
-                            color = Color(0xFF475569)
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(4.dp))
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "Reserved: ${nextRes.requestedEnergyKwh} kWh",
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFF15803D)
-                        )
-                        Text(
-                            text = if (isEligible) "${hoursLeft.toInt()}h left to modify" else "12h lock active",
-                            fontSize = 11.sp,
-                            color = if (isEligible) Color(0xFF15803D) else Color(0xFFDC2626),
-                            fontWeight = FontWeight.Medium
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    OutlinedButton(
-                        onClick = { onNavigateToTab(2) },
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(8.dp)
-                    ) {
-                        Text("Manage in My Bookings", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color(0xFF0F172A))
-                    }
-                } else {
-                    Column(
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Icon(
-                            Icons.Default.CalendarMonth,
-                            contentDescription = null,
-                            tint = Color(0xFF15803D),
-                            modifier = Modifier.size(36.dp)
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = "No upcoming reservations scheduled",
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFF0F172A)
-                        )
-                        Text(
-                            text = "Book energy slots up to 7 days in advance",
-                            fontSize = 12.sp,
-                            color = Color(0xFF64748B)
-                        )
-                        Spacer(modifier = Modifier.height(12.dp))
-                        Button(
-                            onClick = { onNavigateToTab(2) },
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF15803D)),
-                            shape = RoundedCornerShape(8.dp)
-                        ) {
-                            Text("Book Energy Slot", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                        }
-                    }
+        } }
+        if (state.isLoading) item { LinearProgressIndicator(Modifier.fillMaxWidth()) }
+        state.errorMessage?.let { item { Text(it, color = MaterialTheme.colorScheme.error); TextButton(onClick = { viewModel.loadAllData() }) { Text("Retry") } } }
+        item { Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) { MobileMetric("Pending", state.pendingCount.toString(), Icons.Default.Schedule, Modifier.weight(1f)); MobileMetric("Approved", state.approvedCount.toString(), Icons.Default.CheckCircle, Modifier.weight(1f)) } }
+        item { Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) { MobileMetric("Completed", state.completedCount.toString(), Icons.Default.DoneAll, Modifier.weight(1f)); MobileMetric("Reserved energy", "${state.totalKwh.toInt()} kWh", Icons.Default.Bolt, Modifier.weight(1f)) } }
+        item { Text("Next booking", style = MaterialTheme.typography.titleMedium) }
+        item { OutlinedCard(Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp)) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                if (next == null) { Text("Ready for your next visit?", style = MaterialTheme.typography.titleMedium); Text("Find a station and reserve an available slot.", color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                else {
+                    Text(state.stations.find { it.id == next.stationId }?.stationName ?: "Your station", style = MaterialTheme.typography.titleMedium)
+                    Text("${next.reservationDate.take(10)} · ${next.startTime.take(5)}–${next.endTime.take(5)}", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("${next.requestedEnergyKwh} kWh · ${next.status}", color = MaterialTheme.colorScheme.primary)
                 }
+                Button(modifier = Modifier.fillMaxWidth(), onClick = { onNavigateToTab(if (next?.status == "Approved") 3 else 2) }) { Text(if (next?.status == "Approved") "Open booking QR" else if (next == null) "Reserve a slot" else "Manage booking") }
             }
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Quick Actions
-        Text(
-            text = "Quick Actions",
-            fontSize = 15.sp,
-            fontWeight = FontWeight.Bold,
-            color = Color(0xFF0F172A)
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            Surface(
-                modifier = Modifier
-                    .weight(1f)
-                    .clip(RoundedCornerShape(12.dp))
-                    .clickable { onNavigateToTab(2) },
-                color = Color.White,
-                shadowElevation = 1.dp
-            ) {
-                Column(modifier = Modifier.padding(14.dp)) {
-                    Box(
-                        modifier = Modifier
-                            .size(36.dp)
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(Color(0xFFDCFCE7)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            Icons.Default.Bolt,
-                            contentDescription = null,
-                            tint = Color(0xFF15803D),
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(10.dp))
-                    Text(
-                        text = "Browse Slots",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 14.sp,
-                        color = Color(0xFF0F172A)
-                    )
-                    Text(
-                        text = "${state.slots.filter { it.isActive }.size} active slots",
-                        fontSize = 11.sp,
-                        color = Color(0xFF64748B)
-                    )
-                }
-            }
-
-            Surface(
-                modifier = Modifier
-                    .weight(1f)
-                    .clip(RoundedCornerShape(12.dp))
-                    .clickable { onNavigateToTab(2) },
-                color = Color.White,
-                shadowElevation = 1.dp
-            ) {
-                Column(modifier = Modifier.padding(14.dp)) {
-                    Box(
-                        modifier = Modifier
-                            .size(36.dp)
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(Color(0xFFDBEAFE)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            Icons.Default.Bookmarks,
-                            contentDescription = null,
-                            tint = Color(0xFF1D4ED8),
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(10.dp))
-                    Text(
-                        text = "My Bookings",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 14.sp,
-                        color = Color(0xFF0F172A)
-                    )
-                    Text(
-                        text = "${state.myReservations.size} reservations",
-                        fontSize = 11.sp,
-                        color = Color(0xFF64748B)
-                    )
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // System Policies & Rules Card (Member 3 documentation)
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = Color.White),
-            shape = RoundedCornerShape(14.dp),
-            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-        ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        Icons.Default.Info,
-                        contentDescription = null,
-                        tint = Color(0xFF15803D),
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = "Energy Reservation Policies",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 14.sp,
-                        color = Color(0xFF0F172A)
-                    )
-                }
-                Spacer(modifier = Modifier.height(10.dp))
-                PolicyItem(
-                    title = "7-Day Advance Booking Window",
-                    description = "Slots are open for booking up to 7 days ahead. Reservations enter Pending status until verified."
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                PolicyItem(
-                    title = "12-Hour Modification/Cancel Rule",
-                    description = "Bookings can be adjusted or cancelled freely until 12 hours before slot start time. Within 12h, slots are locked."
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                PolicyItem(
-                    title = "Single Active Slot per Prosumer",
-                    description = "A prosumer can hold only one active reservation per time slot to ensure fair grid access."
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
+        } }
+        item { Text("Quick actions", style = MaterialTheme.typography.titleMedium) }
+        item { Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            OutlinedButton(modifier = Modifier.weight(1f), onClick = { onNavigateToTab(1) }) { Icon(Icons.Default.LocationOn, null); Spacer(Modifier.width(6.dp)); Text("Stations") }
+            OutlinedButton(modifier = Modifier.weight(1f), onClick = { onNavigateToTab(3) }) { Icon(Icons.Default.History, null); Spacer(Modifier.width(6.dp)); Text("History & QR") }
+        } }
     }
 }
 
@@ -934,129 +537,28 @@ fun RuleAuditItem(rule: String, status: String) {
 // 3. PROFILE SCREEN
 // ==========================================
 @Composable
-fun ProfileScreen(
-    sessionManager: SessionManager,
-    viewModel: ReservationViewModel,
-    onLogout: () -> Unit
-) {
+fun ProfileScreen(sessionManager: SessionManager, viewModel: ReservationViewModel, onLogout: () -> Unit) {
     val profile = sessionManager.getUserProfile()
     val state by viewModel.uiState.collectAsState()
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color(0xFFF8FAFC))
-            .verticalScroll(rememberScrollState())
-            .padding(20.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Spacer(modifier = Modifier.height(12.dp))
-
-        Box(
-            modifier = Modifier
-                .size(72.dp)
-                .clip(RoundedCornerShape(36.dp))
-                .background(Color(0xFFDCFCE7)),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                imageVector = Icons.Default.Person,
-                contentDescription = null,
-                tint = Color(0xFF15803D),
-                modifier = Modifier.size(44.dp)
-            )
-        }
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        Text(
-            text = profile?.name ?: "Prosumer",
-            fontSize = 20.sp,
-            fontWeight = FontWeight.Bold,
-            color = Color(0xFF0F172A)
-        )
-
-        Text(
-            text = profile?.email ?: "",
-            fontSize = 13.sp,
-            color = Color(0xFF64748B)
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Reservation Summary
-        Card(
-            colors = CardDefaults.cardColors(containerColor = Color.White),
-            elevation = CardDefaults.cardElevation(defaultElevation = 1.5.dp),
-            shape = RoundedCornerShape(12.dp),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text(
-                    text = "Account details",
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF0F172A)
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = "NIC: ${profile?.nic ?: "N/A"}",
-                    fontSize = 13.sp,
-                    color = Color(0xFF334155),
-                    fontWeight = FontWeight.Medium
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = "Role: ${profile?.role ?: "Prosumer"}",
-                    fontSize = 13.sp,
-                    color = Color(0xFF334155),
-                    fontWeight = FontWeight.Medium
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = "Server: http://192.168.0.122:5000",
-                    fontSize = 12.sp,
-                    color = Color(0xFF64748B)
-                )
-                Spacer(modifier = Modifier.height(10.dp))
-                HorizontalDivider(color = Color(0xFFF1F5F9))
-                Spacer(modifier = Modifier.height(10.dp))
-                Text(
-                    text = "Booking summary",
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF0F172A)
-                )
-                Spacer(modifier = Modifier.height(6.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text("Total Bookings:", fontSize = 12.sp, color = Color(0xFF64748B))
-                    Text("${state.totalCount}", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color(0xFF0F172A))
-                }
-                Spacer(modifier = Modifier.height(4.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text("Total Energy Reserved:", fontSize = 12.sp, color = Color(0xFF64748B))
-                    Text("${state.totalKwh.toInt()} kWh", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color(0xFF15803D))
-                }
+    Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        Text("My profile", style = MaterialTheme.typography.titleLarge)
+        Surface(color = MaterialTheme.colorScheme.primaryContainer, shape = RoundedCornerShape(24.dp)) {
+            Row(Modifier.fillMaxWidth().padding(20.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                Icon(Icons.Default.Person, null, Modifier.size(40.dp), tint = MaterialTheme.colorScheme.primary)
+                Column { Text(profile?.name ?: "Account", style = MaterialTheme.typography.titleMedium); Text(profile?.role ?: "", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onPrimaryContainer) }
             }
         }
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        Button(
-            onClick = onLogout,
-            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(46.dp),
-            shape = RoundedCornerShape(10.dp)
-        ) {
-            Text("Log Out", fontWeight = FontWeight.Bold, color = Color.White)
+        OutlinedCard(Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp)) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text("Account information", style = MaterialTheme.typography.titleMedium)
+                Text("Email", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(profile?.email ?: "—")
+                HorizontalDivider()
+                Text("NIC", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(profile?.nic ?: "—")
+            }
         }
+        if (profile?.role == "Prosumer") Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) { MobileMetric("Bookings", state.totalCount.toString(), Icons.Default.CalendarMonth, Modifier.weight(1f)); MobileMetric("Reserved energy", "${state.totalKwh.toInt()} kWh", Icons.Default.Bolt, Modifier.weight(1f)) }
+        OutlinedButton(onClick = onLogout, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp), colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)) { Icon(Icons.Default.ExitToApp, null); Spacer(Modifier.width(8.dp)); Text("Log out") }
     }
 }
